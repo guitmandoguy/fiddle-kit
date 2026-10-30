@@ -115,6 +115,11 @@ canvas{display:block}
 .legend{display:flex;flex-wrap:wrap;gap:12px;font-size:.8rem;color:var(--muted)}
 .legend span{display:flex;align-items:center;gap:6px}
 .legend i{width:14px;height:6px;border-radius:2px;display:block}
+#recBtn.live{background:var(--bad);border-color:var(--bad);color:var(--bg)}
+.rec{display:flex;align-items:center;gap:10px}
+.meter{flex:1;min-width:0;height:10px;background:var(--chip);border-radius:5px;overflow:hidden}
+.meter i{display:block;height:100%;width:0;background:var(--good);transition:width .08s linear}
+.meter i.hot{background:var(--bad)}
 ul.report{margin:0;padding-left:1.1em;display:flex;flex-direction:column;gap:6px}
 ul.report li{padding-left:2px}
 ul.report b{font-weight:600}
@@ -293,10 +298,14 @@ ul.report b{font-weight:600}
     <p class="sub">Load a fiddle recording to grade intonation and timing. Everything runs on your phone; nothing is uploaded.</p>
     <div class="stage" aria-live="polite">
       <div class="row">
-        <label class="btn primary" for="fileIn">Choose recording</label>
+        <button class="btn primary" id="recBtn">● Record</button>
+        <label class="btn" for="fileIn">Choose recording</label>
         <input type="file" id="fileIn" accept="audio/*,video/*,.m4a,.mp3,.wav,.mov,.mp4,.aac" style="position:absolute;width:1px;height:1px;opacity:0;pointer-events:none">
         <button class="btn" id="exampleBtn">Example take</button>
       </div>
+      <div class="rec" id="recBox" hidden><div class="meter" aria-label="Input level"><i id="recLvl"></i></div><span class="mono" id="recTime">0:00</span></div>
+      <div class="row" id="recActions" hidden><button class="btn" id="saveRecBtn">Save or share this recording</button></div>
+      <p class="hint"><b>Recording:</b> set the phone a few feet away and play. Keep the level bar out of the red. Recording stops on its own at 5 minutes.</p>
       <p class="hint"><b>From Voice Memos:</b> open the memo, tap ⋯ (or Share), choose <b>Save to Files</b>, then tap Choose recording and pick it from Files.</p>
       <div class="label" id="srcLabel">No recording loaded</div>
       <div class="progress" id="prog" hidden><i id="progBar"></i></div>
@@ -1119,6 +1128,70 @@ function drawTempo(){
   c.fillStyle=col("--ink");c.font=font(11,600);c.textAlign="right";c.fillText(Math.round(Sm[Sm.length-1])+" bpm",X(e.t)-8,ey-9);
 }
 
+/* --- recording straight into the grader --- */
+const REC={on:false,chunks:[],sr:48000,last:null};
+const recMsg=(t,bad)=>{$("gStatus").className="status"+(bad?" bad":"");$("gStatus").textContent=t};
+async function startRec(){
+  if(!navigator.mediaDevices||!navigator.mediaDevices.getUserMedia){recMsg("This browser can't record here. Use Choose recording instead.",true);return}
+  try{if(navigator.audioSession)navigator.audioSession.type="play-and-record"}catch(e){}
+  let stream;
+  try{stream=await navigator.mediaDevices.getUserMedia({audio:{echoCancellation:false,noiseSuppression:false,autoGainControl:false,channelCount:1}})}
+  catch(e){recMsg(e&&e.name==="NotAllowedError"?"Microphone access was blocked. Allow it for this site in your browser settings, then tap Record again.":
+    "The microphone isn't available on this page. Recording works in the standalone version of the kit; here you can use Choose recording.",true);return}
+  const C=new (window.AudioContext||window.webkitAudioContext)();
+  try{await C.resume()}catch(e){}
+  const src=C.createMediaStreamSource(stream),node=C.createScriptProcessor(4096,1,1),mute=C.createGain();mute.gain.value=0;
+  REC.chunks=[];REC.level=0;REC.clip=0;
+  node.onaudioprocess=e=>{if(!REC.on)return;const d=e.inputBuffer.getChannelData(0);REC.chunks.push(new Float32Array(d));
+    let pk=0;for(let i=0;i<d.length;i+=4){const a=Math.abs(d[i]);if(a>pk)pk=a}REC.level=Math.max(pk,REC.level*.85);if(pk>.98)REC.clip=Date.now()};
+  src.connect(node);node.connect(mute);mute.connect(C.destination);
+  Object.assign(REC,{on:true,ctx:C,stream,node,src,mute,sr:C.sampleRate,t0:Date.now()});
+  try{REC.lock=await navigator.wakeLock.request("screen")}catch(e){REC.lock=null}
+  $("recBtn").textContent="■ Stop";$("recBtn").classList.add("live");$("recBox").hidden=false;$("recActions").hidden=true;
+  $("srcLabel").textContent="Recording…";recMsg("Recording. Play your take, then tap Stop.");
+  REC.timer=setInterval(()=>{const t=(Date.now()-REC.t0)/1000;$("recTime").textContent=Math.floor(t/60)+":"+String(Math.floor(t%60)).padStart(2,"0");
+    $("recLvl").style.width=Math.min(100,Math.round(REC.level*100))+"%";const hot=Date.now()-REC.clip<600;$("recLvl").classList.toggle("hot",hot);
+    if(hot)recMsg("Too loud: move the phone farther from the fiddle.",true);else if($("gStatus").classList.contains("bad"))recMsg("Recording. Play your take, then tap Stop.");
+    if(t>=300)stopRec()},100);
+}
+async function stopRec(){
+  if(!REC.on)return;REC.on=false;clearInterval(REC.timer);
+  try{REC.node.disconnect();REC.src.disconnect();REC.mute.disconnect()}catch(e){}
+  try{REC.stream.getTracks().forEach(t=>t.stop())}catch(e){}
+  try{await REC.ctx.close()}catch(e){}
+  try{REC.lock&&REC.lock.release()}catch(e){}
+  try{if(navigator.audioSession)navigator.audioSession.type="playback"}catch(e){}
+  $("recBtn").textContent="● Record";$("recBtn").classList.remove("live");$("recBox").hidden=true;
+  const len=REC.chunks.reduce((a,c)=>a+c.length,0),raw=new Float32Array(len);let o=0;for(const c of REC.chunks){raw.set(c,o);o+=c.length}
+  REC.chunks=[];
+  if(len/REC.sr<3){$("srcLabel").textContent="No recording loaded";recMsg("That recording was too short to grade. Tap Record and play for at least a few seconds.",true);return}
+  REC.last={raw,sr:REC.sr,when:new Date()};
+  G.loading=true;G.res=null;clearReport();
+  G.buf=resample(raw,REC.sr,22050);G.name="recording";$("gStart").value=0;$("gEnd").value="";
+  $("srcLabel").textContent="Your recording · "+fmtT(len/REC.sr).replace(/\.\d$/,"");$("recActions").hidden=false;
+  await runGrade();G.loading=false;
+}
+function wavBlob(x,sr){
+  const n=x.length,b=new ArrayBuffer(44+n*2),v=new DataView(b),w=(o,t)=>{for(let i=0;i<t.length;i++)v.setUint8(o+i,t.charCodeAt(i))};
+  w(0,"RIFF");v.setUint32(4,36+n*2,true);w(8,"WAVEfmt ");v.setUint32(16,16,true);v.setUint16(20,1,true);v.setUint16(22,1,true);
+  v.setUint32(24,sr,true);v.setUint32(28,sr*2,true);v.setUint16(32,2,true);v.setUint16(34,16,true);w(36,"data");v.setUint32(40,n*2,true);
+  for(let i=0;i<n;i++){const t=Math.max(-1,Math.min(1,x[i]));v.setInt16(44+i*2,t<0?t*32768:t*32767,true)}
+  return new Blob([b],{type:"audio/wav"});
+}
+async function saveRec(){
+  if(!REC.last)return;const d=REC.last.when,pad=k=>String(k).padStart(2,"0");
+  const name="fiddle-take-"+d.getFullYear()+pad(d.getMonth()+1)+pad(d.getDate())+"-"+pad(d.getHours())+pad(d.getMinutes())+".wav";
+  const blob=wavBlob(REC.last.raw,REC.last.sr);
+  try{const file=new File([blob],name,{type:"audio/wav"});
+    if(navigator.canShare&&navigator.canShare({files:[file]})){await navigator.share({files:[file],title:name});return}}
+  catch(e){if(e&&e.name==="AbortError")return}
+  try{const url=URL.createObjectURL(blob),a=document.createElement("a");a.href=url;a.download=name;document.body.append(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),10000);
+    recMsg("Saved "+name+" to your downloads.")}
+  catch(e){recMsg("This page can't save files here. Saving works in the standalone version of the kit.",true)}
+}
+$("recBtn").onclick=()=>{REC.on?stopRec():startRec()};
+$("saveRecBtn").onclick=saveRec;
+
 /* --- loading --- */
 async function loadExample(){
   G.loading=true;$("srcLabel").textContent="Example take: synthesized reel in D";$("gStatus").className="status";$("gStatus").textContent="Building example…";drawAll();
@@ -1126,7 +1199,7 @@ async function loadExample(){
   catch(e){$("gStatus").className="status bad";$("gStatus").textContent="Couldn't build the example in this browser. Load a recording instead."}
   G.loading=false;
 }
-$("exampleBtn").onclick=loadExample;
+$("exampleBtn").onclick=()=>{if(!REC.on)loadExample()};
 $("fileIn").onchange=async e=>{
   const file=e.target.files[0];if(!file)return;e.target.value="";
   G.loading=true;G.res=null;$("srcLabel").textContent=file.name;$("gStatus").className="status";$("gStatus").textContent="Reading file…";clearReport();
