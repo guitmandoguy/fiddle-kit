@@ -1,0 +1,1148 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Fiddle Kit">
+<style>
+:root{color-scheme:light;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+body{margin:0;font:14px system-ui,-apple-system,sans-serif}
+img{max-width:100%}
+[hidden]{display:none!important}
+</style>
+<title>Fiddle Practice Kit</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Familjen+Grotesk:wght@500;700&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+/* Layout: single narrow column; tabs switch between the ear-trainer drill and the recording grader report */
+:root{
+  --bg:#f2f3ef; --surface:#fbfbf8; --ink:#1c221f; --muted:#5e6862; --line:#d9ddd5;
+  --accent:#8f531a; --accent-ink:#fff8f0; --good:#2c7a4b; --bad:#b03d2c; --ok:#3a7686; --chip:#e8eae3; --band:#e2ece4;
+  --f-display:"Familjen Grotesk",system-ui,sans-serif;
+  --f-body:"IBM Plex Sans",system-ui,sans-serif;
+  --f-mono:"IBM Plex Mono",ui-monospace,monospace;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --bg:#151a17; --surface:#1d231f; --ink:#e8ebe5; --muted:#9aa49d; --line:#2f3732;
+  --accent:#e0a160; --accent-ink:#22160a; --good:#5ec58a; --bad:#ef7f6c; --ok:#72b8c6; --chip:#262d29; --band:#1f2d25; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#151a17; --surface:#1d231f; --ink:#e8ebe5; --muted:#9aa49d; --line:#2f3732;
+  --accent:#e0a160; --accent-ink:#22160a; --good:#5ec58a; --bad:#ef7f6c; --ok:#72b8c6; --chip:#262d29; --band:#1f2d25; color-scheme:dark}
+body{background:var(--bg);color:var(--ink);font:15px/1.5 var(--f-body);
+  padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));padding-block:20px 32px}
+.wrap{max-width:560px;margin:0 auto;display:flex;flex-direction:column;gap:20px}
+.view{display:flex;flex-direction:column;gap:20px}
+h1{font:700 1.6rem/1.1 var(--f-display);margin:0;letter-spacing:-.01em;text-wrap:balance}
+h2{font:700 1.1rem/1.2 var(--f-display);margin:0}
+.sub{color:var(--muted);margin:0;font-size:.92rem}
+.label{font-size:.72rem;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);font-weight:600}
+.mono{font-family:var(--f-mono);font-variant-numeric:tabular-nums}
+
+.ans{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+.ansb{appearance:none;border:2px solid var(--line);background:var(--bg);color:var(--ink);border-radius:10px;padding:10px 4px;font:600 .9rem var(--f-body);cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:1px;min-width:0}
+.ansb span{font:500 .75rem var(--f-mono);color:var(--muted)}
+.ansb:disabled{opacity:.5;cursor:default}
+.ansb.right{border-color:var(--good);background:color-mix(in srgb,var(--good) 14%,var(--bg));opacity:1}
+.ansb.wrong{border-color:var(--bad);background:color-mix(in srgb,var(--bad) 14%,var(--bg));opacity:1}
+.ivstats{display:flex;flex-wrap:wrap;gap:6px;font:500 .8rem var(--f-mono)}
+.ivstats span{background:var(--chip);border-radius:6px;padding:3px 8px}
+.ivstats b{font-weight:500}.ivstats .g{color:var(--good)}.ivstats .b{color:var(--bad)}
+.mini{display:flex;gap:6px;flex-wrap:wrap}
+.mini button{appearance:none;border:0;background:none;color:var(--accent);font:600 .85rem var(--f-body);padding:2px 4px;cursor:pointer;text-decoration:underline;text-underline-offset:3px}
+.tabs{display:grid;grid-template-columns:1fr 1fr 1fr;background:var(--chip);border:1px solid var(--line);border-radius:12px;padding:4px;gap:4px;margin-top:14px}
+.tabs a{text-align:center;padding:9px 6px;border-radius:9px;color:var(--ink);text-decoration:none;font-weight:600;font-size:.95rem}
+.tabs a[aria-selected="true"]{background:var(--surface);box-shadow:0 1px 2px rgba(0,0,0,.12)}
+
+.stage{background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:18px;display:flex;flex-direction:column;gap:14px}
+.trial-head{display:flex;justify-content:space-between;align-items:baseline;gap:12px;flex-wrap:wrap}
+.trial-note{font:700 2.2rem/1 var(--f-display)}
+.trial-note small{font:500 1rem var(--f-mono);color:var(--muted);margin-left:6px}
+.status{min-height:1.5em;font-weight:500}
+.status.good{color:var(--good)} .status.bad{color:var(--bad)}
+.pads{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.pad{appearance:none;border:2px solid var(--line);background:var(--bg);color:var(--ink);border-radius:12px;
+  padding:18px 8px;font:700 1.15rem var(--f-display);cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:4px;transition:border-color .12s,background .12s}
+.pad span{font:500 .78rem var(--f-body);color:var(--muted)}
+.pad:disabled{opacity:.45;cursor:default}
+.pad.playing{border-color:var(--accent)}
+.pad.right{border-color:var(--good);background:color-mix(in srgb,var(--good) 14%,var(--bg))}
+.pad.wrong{border-color:var(--bad);background:color-mix(in srgb,var(--bad) 14%,var(--bg))}
+.row{display:flex;gap:10px;flex-wrap:wrap}
+.btn{appearance:none;border:1px solid var(--line);background:var(--chip);color:var(--ink);border-radius:10px;padding:11px 16px;font:600 .95rem var(--f-body);cursor:pointer;flex:1;text-align:center}
+.btn.primary{background:var(--accent);border-color:var(--accent);color:var(--accent-ink)}
+.btn:disabled{opacity:.45;cursor:default}
+button:focus-visible,input:focus-visible,select:focus-visible,a:focus-visible,label.btn:focus-within{outline:2px solid var(--accent);outline-offset:2px}
+
+.score{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;text-align:center}
+.score div{display:flex;flex-direction:column}
+.score b{font:500 1.35rem var(--f-mono);font-variant-numeric:tabular-nums}
+.hist{display:flex;gap:4px;flex-wrap:wrap;min-height:14px}
+.hist i{width:12px;height:12px;border-radius:3px;display:block}
+.hist .g{background:var(--good)} .hist .b{background:var(--bad)}
+
+section.settings{display:flex;flex-direction:column;gap:18px}
+.field{display:flex;flex-direction:column;gap:8px}
+.chips{display:flex;flex-wrap:wrap;gap:6px}
+.chip{appearance:none;border:1px solid var(--line);background:var(--chip);color:var(--ink);border-radius:999px;padding:6px 12px;font:500 .88rem var(--f-mono);cursor:pointer}
+.chip[aria-pressed="true"]{background:var(--accent);border-color:var(--accent);color:var(--accent-ink)}
+select,input[type=number]{font:500 .95rem var(--f-mono);background:var(--surface);color:var(--ink);border:1px solid var(--line);border-radius:8px;padding:8px 10px;min-width:0}
+.cents-row{display:flex;align-items:center;gap:12px}
+.cents-row input[type=range]{flex:1;min-width:0;accent-color:var(--accent)}
+.cents-row input[type=number]{width:5.5em}
+.hint{color:var(--muted);font-size:.84rem;margin:0}
+.toggle{display:flex;align-items:center;gap:10px;cursor:pointer}
+.toggle input{width:20px;height:20px;accent-color:var(--accent);flex:none}
+.two{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.two .field input[type=range]{accent-color:var(--accent)}
+.two .field input[type=number],.two .field select{width:100%}
+hr{border:0;border-top:1px solid var(--line);margin:0}
+
+/* grader */
+.grades{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.grade{border:1px solid var(--line);border-radius:12px;padding:12px;display:flex;flex-direction:column;gap:2px;background:var(--bg)}
+.grade b{font:700 2.6rem/1 var(--f-display)}
+.grade span.sm{font:500 .85rem var(--f-mono);color:var(--muted)}
+.facts{margin:0;font-size:.9rem}
+.progress{height:6px;background:var(--chip);border-radius:3px;overflow:hidden}
+.progress i{display:block;height:100%;width:0;background:var(--accent);transition:width .15s}
+.panel{display:flex;flex-direction:column;gap:10px}
+.scroller{overflow-x:auto;-webkit-overflow-scrolling:touch;border:1px solid var(--line);border-radius:10px;background:var(--surface)}
+.chartbox{border:1px solid var(--line);border-radius:10px;background:var(--surface)}
+canvas{display:block}
+.info{font:500 .86rem var(--f-mono);min-height:1.4em;color:var(--ink)}
+.legend{display:flex;flex-wrap:wrap;gap:12px;font-size:.8rem;color:var(--muted)}
+.legend span{display:flex;align-items:center;gap:6px}
+.legend i{width:14px;height:6px;border-radius:2px;display:block}
+ul.report{margin:0;padding-left:1.1em;display:flex;flex-direction:column;gap:6px}
+ul.report li{padding-left:2px}
+ul.report b{font-weight:600}
+@media (prefers-reduced-motion: reduce){*{transition:none!important}}
+</style>
+</head>
+<body>
+
+
+<div class="wrap">
+  <header>
+    <h1>Fiddle Practice Kit</h1>
+    <nav class="tabs" role="tablist">
+      <a href="#trainer" id="tabTrainer" role="tab" aria-selected="true">Cents</a>
+      <a href="#intervals" id="tabIntervals" role="tab" aria-selected="false">Intervals</a>
+      <a href="#grader" id="tabGrader" role="tab" aria-selected="false">Grader</a>
+    </nav>
+  </header>
+
+  <!-- ================= EAR TRAINER ================= -->
+  <div class="view" id="viewTrainer">
+    <p class="sub">Two tones play. One is the note, one is off by your cent amount. Pick the higher one.</p>
+    <div class="stage" aria-live="polite">
+      <div class="trial-head">
+        <div class="trial-note" id="trialNote">A4<small id="trialHz">440.0 Hz</small></div>
+        <div class="label">Offset <span class="mono" id="trialCents" style="font-size:1rem;color:var(--ink)">10¢</span></div>
+      </div>
+      <div class="pads">
+        <button class="pad" id="pad0" disabled>First<span id="pad0info">tone 1</span></button>
+        <button class="pad" id="pad1" disabled>Second<span id="pad1info">tone 2</span></button>
+      </div>
+      <div class="status" id="status">Tap Play to hear the first pair.</div>
+      <div class="row">
+        <button class="btn primary" id="playBtn">Play</button>
+        <button class="btn" id="replayBtn" disabled>Replay</button>
+      </div>
+      <hr>
+      <div class="score">
+        <div><span class="label">Correct</span><b id="sCorrect">0/0</b></div>
+        <div><span class="label">Accuracy</span><b id="sAcc">–</b></div>
+        <div><span class="label">Streak</span><b id="sStreak">0</b></div>
+      </div>
+      <div class="hist" id="hist" aria-label="Recent answers"></div>
+      <div class="row"><button class="btn" id="resetBtn">Reset score</button></div>
+    </div>
+
+    <section class="settings">
+      <div class="field">
+        <span class="label">Fiddle strings</span>
+        <div class="chips" id="stringChips"></div>
+      </div>
+      <div class="field">
+        <span class="label">Or any note</span>
+        <div class="row" style="flex-wrap:nowrap">
+          <select id="noteName" aria-label="Note name" style="flex:1"></select>
+          <select id="octave" aria-label="Octave" style="flex:1"></select>
+          <label class="toggle" style="flex:1.4"><input type="checkbox" id="randNote"> Random note</label>
+        </div>
+      </div>
+      <div class="field">
+        <span class="label">Cent offset</span>
+        <div class="cents-row">
+          <input type="range" id="centsRange" min="1" max="100" step="1" value="10" aria-label="Cent offset slider">
+          <input type="number" id="centsNum" min="1" max="100" step="1" value="10" aria-label="Cent offset">
+        </div>
+        <p class="hint">100¢ is a half step. Most players start hearing a difference around 5–15¢.</p>
+        <label class="toggle"><input type="checkbox" id="adaptive"> Adaptive: shrink after 2 right in a row, widen after a miss</label>
+      </div>
+      <div class="field">
+        <span class="label">Off tone direction</span>
+        <div class="chips" id="dirChips">
+          <button class="chip" data-dir="random" aria-pressed="true">Random</button>
+          <button class="chip" data-dir="sharp" aria-pressed="false">Always sharp</button>
+          <button class="chip" data-dir="flat" aria-pressed="false">Always flat</button>
+        </div>
+      </div>
+      <div class="field">
+        <span class="label">Tone</span>
+        <div class="chips" id="toneChips">
+          <button class="chip" data-tone="sine" aria-pressed="true">Pure sine</button>
+          <button class="chip" data-tone="fiddle" aria-pressed="false">Fiddle-like</button>
+        </div>
+      </div>
+      <div class="two">
+        <div class="field">
+          <span class="label">Tone length <span class="mono" id="durOut">1.0 s</span></span>
+          <input type="range" id="dur" min="0.3" max="3" step="0.1" value="1" aria-label="Tone length">
+        </div>
+        <div class="field">
+          <span class="label">Gap <span class="mono" id="gapOut">0.4 s</span></span>
+          <input type="range" id="gap" min="0" max="2" step="0.1" value="0.4" aria-label="Gap between tones">
+        </div>
+      </div>
+      <div class="field">
+        <span class="label">Reference pitch</span>
+        <div class="row" style="align-items:center">
+          <span>A4 =</span><input type="number" id="refA" min="415" max="466" step="1" value="440" aria-label="A4 reference in Hz"><span>Hz</span>
+        </div>
+      </div>
+    </section>
+  </div>
+
+  <!-- ================= INTERVAL TRAINER ================= -->
+  <div class="view" id="viewIntervals" hidden>
+    <p class="sub">Hear the base note and a second note, then name the interval.</p>
+    <div class="stage" aria-live="polite">
+      <div class="trial-head">
+        <div class="trial-note" id="ivBase">D4<small id="ivHz">293.7 Hz</small></div>
+        <div class="label" id="ivMode">Melodic · higher</div>
+      </div>
+      <div class="ans" id="ivAns"></div>
+      <div class="status" id="ivStatus">Tap Play to hear the first interval.</div>
+      <div class="row">
+        <button class="btn primary" id="ivPlay">Play</button>
+        <button class="btn" id="ivReplay" disabled>Replay</button>
+      </div>
+      <hr>
+      <div class="score">
+        <div><span class="label">Correct</span><b id="ivCorrect">0/0</b></div>
+        <div><span class="label">Accuracy</span><b id="ivAcc">–</b></div>
+        <div><span class="label">Streak</span><b id="ivStreak">0</b></div>
+      </div>
+      <div class="ivstats" id="ivStats" aria-label="Accuracy by interval"></div>
+      <div class="row"><button class="btn" id="ivReset">Reset score</button></div>
+    </div>
+
+    <section class="settings">
+      <div class="field">
+        <span class="label">Base note</span>
+        <div class="chips" id="ivStringChips"></div>
+        <div class="row" style="flex-wrap:nowrap">
+          <select id="ivNote" aria-label="Base note name" style="flex:1"></select>
+          <select id="ivOct" aria-label="Base octave" style="flex:1"></select>
+          <label class="toggle" style="flex:1.4"><input type="checkbox" id="ivRand"> Random base</label>
+        </div>
+      </div>
+      <div class="field">
+        <span class="label">Intervals to ask</span>
+        <div class="chips" id="ivIntChips"></div>
+        <div class="mini"><button id="ivAll">All</button><button id="ivCommon">Fiddle basics</button><button id="ivClear">Clear</button></div>
+      </div>
+      <div class="field">
+        <span class="label">Second note</span>
+        <div class="chips">
+          <button class="chip" id="ivUp" aria-pressed="true">Higher</button>
+          <button class="chip" id="ivDown" aria-pressed="false">Lower</button>
+        </div>
+      </div>
+      <div class="field">
+        <span class="label">How it plays</span>
+        <div class="chips">
+          <button class="chip" id="ivMel" aria-pressed="true">One after the other</button>
+          <button class="chip" id="ivHar" aria-pressed="false">Together (double stop)</button>
+        </div>
+        <p class="hint">Pick both in either row to mix them randomly.</p>
+      </div>
+      <div class="field">
+        <span class="label">Tuning</span>
+        <div class="chips">
+          <button class="chip" id="ivEq" aria-pressed="true">Equal temperament</button>
+          <button class="chip" id="ivJust" aria-pressed="false">Just (pure)</button>
+        </div>
+      </div>
+      <div class="field">
+        <span class="label">Tone</span>
+        <div class="chips">
+          <button class="chip" id="ivSine" aria-pressed="false">Pure sine</button>
+          <button class="chip" id="ivFid" aria-pressed="true">Fiddle-like</button>
+        </div>
+      </div>
+    </section>
+  </div>
+
+  <!-- ================= RECORDING GRADER ================= -->
+  <div class="view" id="viewGrader" hidden>
+    <p class="sub">Load a fiddle recording to grade intonation and timing. Everything runs on your phone; nothing is uploaded.</p>
+    <div class="stage" aria-live="polite">
+      <div class="row">
+        <label class="btn primary" for="fileIn">Choose recording</label>
+        <input type="file" id="fileIn" accept="audio/*,video/*,.m4a,.mp3,.wav,.mov,.mp4,.aac" style="position:absolute;width:1px;height:1px;opacity:0;pointer-events:none">
+        <button class="btn" id="exampleBtn">Example take</button>
+      </div>
+      <p class="hint"><b>From Voice Memos:</b> open the memo, tap ⋯ (or Share), choose <b>Save to Files</b>, then tap Choose recording and pick it from Files.</p>
+      <div class="label" id="srcLabel">No recording loaded</div>
+      <div class="progress" id="prog" hidden><i id="progBar"></i></div>
+      <div class="status" id="gStatus"></div>
+      <div class="grades">
+        <div class="grade"><span class="label">Intonation</span><b id="gInt">–</b><span class="sm" id="gIntSub"> </span></div>
+        <div class="grade"><span class="label">Timing</span><b id="gTim">–</b><span class="sm" id="gTimSub"> </span></div>
+      </div>
+      <p class="facts" id="gFacts"></p>
+    </div>
+
+    <section class="panel">
+      <h2>Pitch over time</h2>
+      <p class="hint">Each bar is a note, placed by how many cents it sat from your tuning center. The shaded band is ±10¢. Scroll sideways on long takes and tap a bar for details.</p>
+      <div class="scroller" id="traceBox"><canvas id="cvTrace" aria-label="Pitch deviation over time"></canvas></div>
+      <div class="legend">
+        <span><i style="background:var(--good)"></i>In tune (equal or just)</span>
+        <span><i style="background:var(--ok)"></i>Consistent placement</span>
+        <span><i style="background:var(--bad)"></i>Flagged</span>
+        <span><i style="background:none;border:1px solid var(--ink);height:8px"></i>Part of a double stop</span>
+      </div>
+      <div class="info" id="traceInfo">Tap a note bar to see it.</div>
+    </section>
+
+    <section class="panel">
+      <h2>Note by note</h2>
+      <p class="hint">One row per note, highest first. Dots are each time you played it, the dark tick is the median, and the dashed tick is the just-intonation target in this key.</p>
+      <div class="chartbox" id="notesBox"><canvas id="cvNotes" aria-label="Cents deviation by note"></canvas></div>
+    </section>
+
+    <section class="panel">
+      <h2>Tempo</h2>
+      <p class="hint" id="tempoHint">Dots are local tempo in 6-second windows (noisy, ±3–5%); the line is their trend. Diamonds are repeats of the main phrase, the most reliable numbers.</p>
+      <div class="chartbox" id="tempoBox"><canvas id="cvTempo" aria-label="Tempo over time"></canvas></div>
+    </section>
+
+    <section class="panel" id="dsPanel" hidden>
+      <h2>Double stops</h2>
+      <p class="hint">One row per double stop. Dots show how many cents the interval was wide (+) or narrow (−) of equal temperament; the dashed tick is the pure, beatless interval.</p>
+      <div class="chartbox" id="dsBox"><canvas id="cvDS" aria-label="Double stop intervals"></canvas></div>
+    </section>
+
+    <section class="panel">
+      <h2>What's working</h2>
+      <ul class="report" id="gWork"></ul>
+      <h2>Issues</h2>
+      <ul class="report" id="gIssues"></ul>
+    </section>
+
+    <section class="settings">
+      <h2>Grading options</h2>
+      <div class="two">
+        <div class="field">
+          <span class="label">Key</span>
+          <select id="gKey" aria-label="Key"></select>
+        </div>
+        <div class="field">
+          <span class="label">Your metronome bpm</span>
+          <input type="number" id="gBpm" min="0" max="400" step="1" placeholder="optional" aria-label="Metronome bpm">
+        </div>
+        <div class="field">
+          <span class="label">Start at (s)</span>
+          <input type="number" id="gStart" min="0" step="0.5" value="0" aria-label="Start time in seconds">
+        </div>
+        <div class="field">
+          <span class="label">End at (s)</span>
+          <input type="number" id="gEnd" min="0" step="0.5" placeholder="end" aria-label="End time in seconds">
+        </div>
+      </div>
+      <label class="toggle"><input type="checkbox" id="gA440"> Grade against A440 instead of your own tuning center</label>
+      <div class="row"><button class="btn primary" id="regradeBtn">Re-grade</button></div>
+      <p class="hint">A note counts as in tune if it is within 10¢ of equal temperament or of the just interval in the key. If it hits neither, it still counts when you place it the same way every time; it is flagged when it strays from your usual spot. Notes shorter than 0.15 s aren't graded. This measures pitch and timing only, not tone or feel. Double stops are read as both notes plus the interval between them; octave double stops read as one note. Band mixes aren't reliable. Send me the recording if you want the full write-up with drills.</p>
+    </section>
+  </div>
+</div>
+
+<script>
+const NAMES=["C","C♯","D","E♭","E","F","F♯","G","A♭","A","B♭","B"];
+const STRINGS=[["G",3],["D",4],["A",4],["E",5]];
+const $=id=>document.getElementById(id);
+
+/* ================= tabs ================= */
+function showView(){
+  const g=location.hash==="#grader",iv=location.hash==="#intervals";
+  $("viewTrainer").hidden=g||iv;$("viewGrader").hidden=!g;$("viewIntervals").hidden=!iv;
+  $("tabTrainer").setAttribute("aria-selected",!g&&!iv);$("tabGrader").setAttribute("aria-selected",g);$("tabIntervals").setAttribute("aria-selected",iv);
+  if(g){if(!G.buf&&!G.loading)loadExample();else drawAll()}
+}
+window.addEventListener("hashchange",showView);
+
+/* ================= EAR TRAINER ================= */
+const S={note:9,oct:4,randNote:false,cents:10,adaptive:false,dir:"random",tone:"sine",dur:1,gap:.4,refA:440};
+try{Object.assign(S,JSON.parse(localStorage.getItem("centsTrainer")||"{}"))}catch(e){}
+const save=()=>{try{localStorage.setItem("centsTrainer",JSON.stringify(S))}catch(e){}};
+
+let ctx=null, trial=null, score={c:0,n:0,streak:0,run:0,hist:[]};
+
+NAMES.forEach((n,i)=>$("noteName").add(new Option(n,i)));
+for(let o=2;o<=6;o++)$("octave").add(new Option(o,o));
+STRINGS.forEach(([n,o])=>{const b=document.createElement("button");b.className="chip";b.textContent=n+o;
+  b.dataset.n=NAMES.indexOf(n);b.dataset.o=o;b.onclick=()=>{S.note=+b.dataset.n;S.oct=o;S.randNote=false;sync();save()};$("stringChips").append(b)});
+
+function sync(){
+  $("noteName").value=S.note;$("octave").value=S.oct;$("randNote").checked=S.randNote;
+  $("centsRange").value=S.cents;$("centsNum").value=S.cents;$("adaptive").checked=S.adaptive;
+  $("dur").value=S.dur;$("durOut").textContent=(+S.dur).toFixed(1)+" s";
+  $("gap").value=S.gap;$("gapOut").textContent=(+S.gap).toFixed(1)+" s";$("refA").value=S.refA;
+  document.querySelectorAll("#stringChips .chip").forEach(b=>b.setAttribute("aria-pressed",!S.randNote&&+b.dataset.n===S.note&&+b.dataset.o===S.oct));
+  document.querySelectorAll("#dirChips .chip").forEach(b=>b.setAttribute("aria-pressed",b.dataset.dir===S.dir));
+  document.querySelectorAll("#toneChips .chip").forEach(b=>b.setAttribute("aria-pressed",b.dataset.tone===S.tone));
+  if(!trial){$("trialNote").firstChild.nodeValue=S.randNote?"Random":NAMES[S.note]+S.oct;
+    $("trialHz").textContent=S.randNote?"":freq(S.note,S.oct).toFixed(1)+" Hz";$("trialCents").textContent=S.cents+"¢"}
+}
+const clampC=v=>Math.max(1,Math.min(100,Math.round(+v||1)));
+$("noteName").onchange=e=>{S.note=+e.target.value;S.randNote=false;sync();save()};
+$("octave").onchange=e=>{S.oct=+e.target.value;S.randNote=false;sync();save()};
+$("randNote").onchange=e=>{S.randNote=e.target.checked;sync();save()};
+$("centsRange").oninput=e=>{S.cents=clampC(e.target.value);sync();save()};
+$("centsNum").onchange=e=>{S.cents=clampC(e.target.value);sync();save()};
+$("adaptive").onchange=e=>{S.adaptive=e.target.checked;save()};
+$("dur").oninput=e=>{S.dur=+e.target.value;sync();save()};
+$("gap").oninput=e=>{S.gap=+e.target.value;sync();save()};
+$("refA").onchange=e=>{S.refA=Math.max(415,Math.min(466,+e.target.value||440));sync();save()};
+document.querySelectorAll("#dirChips .chip").forEach(b=>b.onclick=()=>{S.dir=b.dataset.dir;sync();save()});
+document.querySelectorAll("#toneChips .chip").forEach(b=>b.onclick=()=>{S.tone=b.dataset.tone;sync();save()});
+
+function freq(note,oct){const midi=(oct+1)*12+note;return S.refA*Math.pow(2,(midi-69)/12)}
+const HARM=(()=>{const n=16,im=new Float32Array(n+1);for(let h=1;h<=n;h++)im[h]=(1/h)*(h%2?1:.8)*(h>8?.6:1);return{re:new Float32Array(n+1),im}})();
+let fiddleWave=null,unlockEl=null;
+// iOS: route web audio as "playback" so the ringer/silent switch doesn't mute it
+function unlockAudio(){
+  try{if(navigator.audioSession)navigator.audioSession.type="playback"}catch(e){}
+  if(!unlockEl){
+    const sr=8000,n=sr/2,buf=new ArrayBuffer(44+n*2),v=new DataView(buf);
+    const w=(o,s)=>{for(let i=0;i<s.length;i++)v.setUint8(o+i,s.charCodeAt(i))};
+    w(0,"RIFF");v.setUint32(4,36+n*2,true);w(8,"WAVEfmt ");v.setUint32(16,16,true);v.setUint16(20,1,true);
+    v.setUint16(22,1,true);v.setUint32(24,sr,true);v.setUint32(28,sr*2,true);v.setUint16(32,2,true);
+    v.setUint16(34,16,true);w(36,"data");v.setUint32(40,n*2,true);
+    unlockEl=new Audio(URL.createObjectURL(new Blob([buf],{type:"audio/wav"})));
+    unlockEl.loop=true;unlockEl.setAttribute("playsinline","");
+  }
+  try{const p=unlockEl.play();if(p&&p.catch)p.catch(()=>{})}catch(e){}
+}
+function getCtx(){unlockAudio();if(!ctx){ctx=new (window.AudioContext||window.webkitAudioContext)();
+  fiddleWave=ctx.createPeriodicWave(HARM.re,HARM.im)}
+  if(ctx.state==="suspended")ctx.resume();return ctx}
+function tone(f,start,dur,type,scale){
+  type=type||S.tone;scale=scale||1;
+  const c=ctx,o=c.createOscillator(),g=c.createGain();
+  if(type==="fiddle"){o.setPeriodicWave(fiddleWave)}else o.type="sine";
+  o.frequency.value=f;
+  const peak=(type==="fiddle"?.16:.32)*scale,a=.04,r=.08;
+  g.gain.setValueAtTime(0,start);g.gain.linearRampToValueAtTime(peak,start+a);
+  g.gain.setValueAtTime(peak,start+dur-r);g.gain.linearRampToValueAtTime(0,start+dur);
+  if(type==="fiddle"){const lp=c.createBiquadFilter();lp.type="lowpass";lp.frequency.value=4500;o.connect(lp).connect(g)}else o.connect(g);
+  g.connect(c.destination);o.start(start);o.stop(start+dur+.02);
+}
+let playTimers=[];
+async function playPair(){
+  getCtx();playTimers.forEach(clearTimeout);playTimers=[];
+  try{if(ctx.state!=="running")await ctx.resume()}catch(e){}
+  if(ctx.state!=="running"){$("status").className="status bad";
+    $("status").textContent="Audio is blocked. Turn volume up, turn off silent mode, then tap Replay.";setPads(true);return}
+  const t0=ctx.currentTime+.08,d=+S.dur,gp=+S.gap;
+  tone(trial.f[0],t0,d);tone(trial.f[1],t0+d+gp,d);
+  const mark=(i,on)=>$("pad"+i).classList.toggle("playing",on);
+  playTimers.push(setTimeout(()=>mark(0,true),80),setTimeout(()=>mark(0,false),80+d*1000),
+    setTimeout(()=>mark(1,true),80+(d+gp)*1000),setTimeout(()=>{mark(1,false);if(trial&&!trial.done)setPads(true)},80+(2*d+gp)*1000));
+}
+function newTrial(){
+  let note=S.note,oct=S.oct;
+  if(S.randNote){const midi=55+Math.floor(Math.random()*25);note=midi%12;oct=Math.floor(midi/12)-1}
+  const base=freq(note,oct);
+  const sharp=S.dir==="sharp"||(S.dir==="random"&&Math.random()<.5);
+  const off=base*Math.pow(2,(sharp?S.cents:-S.cents)/1200);
+  const offFirst=Math.random()<.5;
+  const f=offFirst?[off,base]:[base,off];
+  trial={note,oct,base,cents:S.cents,sharp,offIdx:offFirst?0:1,f,higher:f[0]>f[1]?0:1,done:false};
+  $("trialNote").firstChild.nodeValue=NAMES[note]+oct;$("trialHz").textContent=base.toFixed(1)+" Hz";
+  $("trialCents").textContent=S.cents+"¢";
+  ["pad0","pad1"].forEach(p=>$(p).classList.remove("right","wrong"));
+  $("pad0info").textContent="tone 1";$("pad1info").textContent="tone 2";
+  setPads(false);$("status").className="status";$("status").textContent="Listening… which one was higher?";
+  $("replayBtn").disabled=false;$("playBtn").textContent="Next";
+  playPair();
+}
+function setPads(on){$("pad0").disabled=!on;$("pad1").disabled=!on}
+function answer(i){
+  if(!trial||trial.done)return;trial.done=true;setPads(false);
+  const ok=i===trial.higher;
+  score.n++;if(ok){score.c++;score.streak++;}else score.streak=0;
+  score.hist.push(ok);if(score.hist.length>40)score.hist.shift();
+  $("pad"+i).classList.add(ok?"right":"wrong");
+  if(!ok)$("pad"+trial.higher).classList.add("right");
+  const lbl=k=>k===trial.offIdx?(trial.sharp?"+":"−")+trial.cents+"¢ ("+trial.f[k].toFixed(2)+" Hz)":"in tune ("+trial.f[k].toFixed(2)+" Hz)";
+  $("pad0info").textContent=lbl(0);$("pad1info").textContent=lbl(1);
+  const which=trial.higher===0?"first":"second";
+  let msg=(ok?"Correct. ":"Not quite. ")+"The "+which+" tone was higher; the off tone was "+trial.cents+"¢ "+(trial.sharp?"sharp":"flat")+".";
+  if(S.adaptive){
+    if(ok){score.run++;if(score.run>=2){score.run=0;const n=Math.max(1,Math.round(S.cents*0.8));if(n<S.cents){S.cents=n;msg+=" Next: "+n+"¢."}}}
+    else{score.run=0;S.cents=Math.min(100,Math.round(S.cents*1.25)+1);msg+=" Next: "+S.cents+"¢."}
+    sync();save();
+  }
+  $("status").className="status "+(ok?"good":"bad");$("status").textContent=msg;
+  renderScore();
+}
+function renderScore(){
+  $("sCorrect").textContent=score.c+"/"+score.n;$("sAcc").textContent=score.n?Math.round(100*score.c/score.n)+"%":"–";
+  $("sStreak").textContent=score.streak;
+  $("hist").innerHTML=score.hist.map(o=>'<i class="'+(o?"g":"b")+'"></i>').join("");
+}
+$("playBtn").onclick=newTrial;
+$("replayBtn").onclick=()=>{if(trial){if(!trial.done)setPads(false);playPair()}};
+$("pad0").onclick=()=>answer(0);$("pad1").onclick=()=>answer(1);
+$("resetBtn").onclick=()=>{score={c:0,n:0,streak:0,run:0,hist:[]};renderScore()};
+document.addEventListener("keydown",e=>{if(location.hash==="#grader"||location.hash==="#intervals")return;
+  if(e.target.tagName==="INPUT"||e.target.tagName==="SELECT")return;
+  if(e.key==="1")answer(0);else if(e.key==="2")answer(1);else if(e.key===" "){e.preventDefault();newTrial()}else if(e.key==="r")$("replayBtn").click()});
+sync();renderScore();
+
+/* ================= INTERVAL TRAINER ================= */
+const IV=[["m2","Minor 2nd",1,16/15],["M2","Major 2nd",2,9/8],["m3","Minor 3rd",3,6/5],["M3","Major 3rd",4,5/4],
+  ["P4","Perfect 4th",5,4/3],["TT","Tritone",6,45/32],["P5","Perfect 5th",7,3/2],["m6","Minor 6th",8,8/5],
+  ["M6","Major 6th",9,5/3],["m7","Minor 7th",10,16/9],["M7","Major 7th",11,15/8],["P8","Octave",12,2]];
+const IV_COMMON=["m3","M3","P4","P5","M6","P8"];
+const IS={note:2,oct:4,rand:false,ints:IV_COMMON.slice(),up:true,down:false,mel:true,har:false,just:false,tone:"fiddle"};
+try{Object.assign(IS,JSON.parse(localStorage.getItem("intervalTrainer")||"{}"))}catch(e){}
+const saveI=()=>{try{localStorage.setItem("intervalTrainer",JSON.stringify(IS))}catch(e){}};
+let ivTrial=null,ivScore={c:0,n:0,streak:0,per:{}},ivTimers=[];
+const mName=m=>NAMES[((m%12)+12)%12]+(Math.floor(m/12)-1);
+
+NAMES.forEach((n,i)=>$("ivNote").add(new Option(n,i)));
+for(let o=2;o<=6;o++)$("ivOct").add(new Option(o,o));
+STRINGS.forEach(([n,o])=>{const b=document.createElement("button");b.className="chip";b.textContent=n+o;
+  b.dataset.n=NAMES.indexOf(n);b.dataset.o=o;b.onclick=()=>{IS.note=+b.dataset.n;IS.oct=o;IS.rand=false;ivChanged()};$("ivStringChips").append(b)});
+IV.forEach(v=>{const b=document.createElement("button");b.className="chip";b.textContent=v[0];b.title=v[1];b.dataset.k=v[0];
+  b.onclick=()=>{IS.ints=IS.ints.includes(v[0])?IS.ints.filter(x=>x!==v[0]):IV.map(x=>x[0]).filter(k=>k===v[0]||IS.ints.includes(k));ivChanged()};
+  $("ivIntChips").append(b)});
+$("ivAll").onclick=()=>{IS.ints=IV.map(v=>v[0]);ivChanged()};
+$("ivCommon").onclick=()=>{IS.ints=IV_COMMON.slice();ivChanged()};
+$("ivClear").onclick=()=>{IS.ints=[];ivChanged()};
+const pair=(a,b,key1,key2)=>{$(a).onclick=()=>{if(IS[key1]&&!IS[key2])return;IS[key1]=!IS[key1];ivChanged()};
+  $(b).onclick=()=>{if(IS[key2]&&!IS[key1])return;IS[key2]=!IS[key2];ivChanged()}};
+pair("ivUp","ivDown","up","down");pair("ivMel","ivHar","mel","har");
+$("ivEq").onclick=()=>{IS.just=false;ivChanged()};$("ivJust").onclick=()=>{IS.just=true;ivChanged()};
+$("ivSine").onclick=()=>{IS.tone="sine";ivChanged(true)};$("ivFid").onclick=()=>{IS.tone="fiddle";ivChanged(true)};
+$("ivNote").onchange=e=>{IS.note=+e.target.value;IS.rand=false;ivChanged()};
+$("ivOct").onchange=e=>{IS.oct=+e.target.value;IS.rand=false;ivChanged()};
+$("ivRand").onchange=e=>{IS.rand=e.target.checked;ivChanged()};
+
+function ivChanged(keepTrial){
+  saveI();
+  if(!keepTrial&&ivTrial&&!ivTrial.done){ivTrial=null;ivTimers.forEach(clearTimeout);
+    $("ivStatus").className="status";$("ivStatus").textContent="Settings changed. Tap Play for a new interval.";$("ivReplay").disabled=true;$("ivPlay").textContent="Play"}
+  ivSync();
+}
+function ivSync(){
+  $("ivNote").value=IS.note;$("ivOct").value=IS.oct;$("ivRand").checked=IS.rand;
+  document.querySelectorAll("#ivStringChips .chip").forEach(b=>b.setAttribute("aria-pressed",!IS.rand&&+b.dataset.n===IS.note&&+b.dataset.o===IS.oct));
+  document.querySelectorAll("#ivIntChips .chip").forEach(b=>b.setAttribute("aria-pressed",IS.ints.includes(b.dataset.k)));
+  [["ivUp",IS.up],["ivDown",IS.down],["ivMel",IS.mel],["ivHar",IS.har],["ivEq",!IS.just],["ivJust",IS.just],["ivSine",IS.tone==="sine"],["ivFid",IS.tone==="fiddle"]]
+    .forEach(([id,on])=>$(id).setAttribute("aria-pressed",on));
+  if(!ivTrial){const m=(IS.oct+1)*12+IS.note;
+    $("ivBase").firstChild.nodeValue=IS.rand?"Random":mName(m);$("ivHz").textContent=IS.rand?"":(S.refA*2**((m-69)/12)).toFixed(1)+" Hz";
+    $("ivMode").textContent=[IS.mel&&"melodic",IS.har&&"together"].filter(Boolean).join(" / ")+" · "+[IS.up&&"higher",IS.down&&"lower"].filter(Boolean).join(" / ")}
+  ivRenderAns();
+}
+function ivRenderAns(){
+  const box=$("ivAns");box.innerHTML="";
+  const pool=IV.filter(v=>IS.ints.includes(v[0]));
+  if(!pool.length){box.innerHTML='<p class="hint" style="grid-column:1/-1">Pick at least one interval below.</p>';return}
+  pool.forEach(v=>{const b=document.createElement("button");b.className="ansb";b.dataset.k=v[0];
+    b.innerHTML=v[1]+"<span>"+v[0]+"</span>";b.disabled=!(ivTrial&&ivTrial.ready&&!ivTrial.done);b.onclick=()=>ivAnswer(v[0]);box.append(b)});
+}
+function ivSetAns(on){document.querySelectorAll("#ivAns .ansb").forEach(b=>b.disabled=!on)}
+function ivNew(){
+  const pool=IV.filter(v=>IS.ints.includes(v[0]));
+  if(!pool.length){$("ivStatus").className="status bad";$("ivStatus").textContent="Pick at least one interval below.";return}
+  const midi=IS.rand?55+Math.floor(Math.random()*20):(IS.oct+1)*12+IS.note;
+  const v=pool[Math.floor(Math.random()*pool.length)];
+  const dirs=[IS.up&&"up",IS.down&&"down"].filter(Boolean),dir=dirs[Math.floor(Math.random()*dirs.length)];
+  const sts=[IS.mel&&"mel",IS.har&&"har"].filter(Boolean),style=sts[Math.floor(Math.random()*sts.length)];
+  const f0=S.refA*2**((midi-69)/12),ratio=IS.just?v[3]:2**(v[2]/12);
+  ivTrial={midi,v,dir,style,f0,f1:dir==="up"?f0*ratio:f0/ratio,just:IS.just,done:false,ready:false};
+  $("ivBase").firstChild.nodeValue=mName(midi);$("ivHz").textContent=f0.toFixed(1)+" Hz";
+  $("ivMode").textContent=(style==="har"?"Together":"Melodic")+" · other note "+(dir==="up"?"higher":"lower");
+  ivRenderAns();
+  $("ivStatus").className="status";$("ivStatus").textContent="Listening… name the interval.";
+  $("ivReplay").disabled=false;$("ivPlay").textContent="Next";
+  ivPlay();
+}
+async function ivPlay(){
+  getCtx();ivTimers.forEach(clearTimeout);ivTimers=[];
+  try{if(ctx.state!=="running")await ctx.resume()}catch(e){}
+  const tr=ivTrial;if(!tr)return;
+  if(ctx.state!=="running"){$("ivStatus").className="status bad";$("ivStatus").textContent="Audio is blocked. Turn volume up, turn off silent mode, then tap Replay.";
+    tr.ready=true;if(!tr.done)ivSetAns(true);return}
+  const t0=ctx.currentTime+.08,d=.9,gp=.2;let end;
+  if(tr.style==="har"){tone(tr.f0,t0,1.8,IS.tone,.7);tone(tr.f1,t0,1.8,IS.tone,.7);end=1.8}
+  else{tone(tr.f0,t0,d,IS.tone);tone(tr.f1,t0+d+gp,d,IS.tone);end=2*d+gp}
+  ivTimers.push(setTimeout(()=>{tr.ready=true;if(!tr.done&&tr===ivTrial)ivSetAns(true)},80+end*1000));
+}
+function ivAnswer(k){
+  const tr=ivTrial;if(!tr||tr.done||!tr.ready)return;tr.done=true;
+  const ok=k===tr.v[0],p=ivScore.per[tr.v[0]]=ivScore.per[tr.v[0]]||{c:0,n:0};
+  ivScore.n++;p.n++;if(ok){ivScore.c++;p.c++;ivScore.streak++}else ivScore.streak=0;
+  document.querySelectorAll("#ivAns .ansb").forEach(b=>{b.disabled=true;
+    if(b.dataset.k===tr.v[0])b.classList.add("right");else if(b.dataset.k===k)b.classList.add("wrong")});
+  const second=tr.midi+(tr.dir==="up"?1:-1)*tr.v[2];
+  $("ivStatus").className="status "+(ok?"good":"bad");
+  $("ivStatus").textContent=(ok?"Correct. ":"Not quite. ")+"It was a "+tr.v[1].toLowerCase()+" "+(tr.dir==="up"?"up":"down")+", "+mName(tr.midi)+" to "+mName(second)+(tr.just?" (just)":"")+". Tap Replay to hear it again.";
+  ivRenderScore();
+}
+function ivRenderScore(){
+  $("ivCorrect").textContent=ivScore.c+"/"+ivScore.n;$("ivAcc").textContent=ivScore.n?Math.round(100*ivScore.c/ivScore.n)+"%":"–";
+  $("ivStreak").textContent=ivScore.streak;
+  $("ivStats").innerHTML=IV.filter(v=>ivScore.per[v[0]]).map(v=>{const p=ivScore.per[v[0]];
+    return "<span>"+v[0]+' <b class="'+(p.c/p.n>=.8?"g":"b")+'">'+p.c+"/"+p.n+"</b></span>"}).join("");
+}
+$("ivPlay").onclick=ivNew;
+$("ivReplay").onclick=()=>{if(ivTrial){if(!ivTrial.done)ivSetAns(false);ivPlay()}};
+$("ivReset").onclick=()=>{ivScore={c:0,n:0,streak:0,per:{}};ivRenderScore()};
+ivSync();ivRenderScore();
+
+/* ================= RECORDING GRADER ================= */
+const GN=["C","C♯","D","E♭","E","F","F♯","G","G♯","A","B♭","B"];
+const JUST=[0,11.7,3.9,15.6,-13.7,-2.0,-9.8,2.0,13.7,-15.6,-3.9,-11.7]; // just interval vs equal temperament, by scale degree
+const KK=[6.35,2.23,3.48,2.33,4.38,4.09,2.52,5.19,2.39,3.66,2.29,2.88];
+const FINGER={55:"open G",56:"G string, low 1",57:"G string, 1",58:"G string, low 2",59:"G string, high 2",60:"G string, 3",61:"G string, high 3",
+ 62:"open D or G string 4",63:"D string, low 1",64:"D string, 1",65:"D string, low 2",66:"D string, high 2",67:"D string, 3",68:"D string, high 3",
+ 69:"open A or D string 4",70:"A string, low 1",71:"A string, 1",72:"A string, low 2",73:"A string, high 2",74:"A string, 3",75:"A string, high 3",
+ 76:"open E or A string 4",77:"E string, low 1",78:"E string, 1",79:"E string, low 2",80:"E string, high 2",81:"E string, 3",82:"E string, high 3",83:"E string, 4"};
+const nm=n=>GN[((n%12)+12)%12]+(Math.floor(n/12)-1);
+const fing=n=>FINGER[n]||(n>83?"E string, up the neck":"");
+const sgn=v=>(v>=0?"+":"−")+Math.abs(Math.round(v));
+const fmtT=t=>Math.floor(t/60)+":"+(t%60).toFixed(1).padStart(4,"0");
+function median(a){if(!a.length)return NaN;const s=[...a].sort((x,y)=>x-y),h=s.length>>1;return s.length%2?s[h]:(s[h-1]+s[h])/2}
+function quant(a,p){const s=[...a].sort((x,y)=>x-y),i=(s.length-1)*p,lo=Math.floor(i);return s[lo]+(s[Math.min(lo+1,s.length-1)]-s[lo])*(i-lo)}
+
+const G={buf:null,name:"",res:null,loading:false};
+const KEY_ORDER=[7,2,9,4,0,5,10,11,6,3,8,1];
+$("gKey").add(new Option("Detect automatically","auto"));
+KEY_ORDER.forEach(k=>$("gKey").add(new Option(GN[k]+" major",k)));
+
+function makeFFT(n){
+  const rev=new Uint32Array(n),lg=Math.log2(n);
+  for(let i=0;i<n;i++){let r=0,x=i;for(let b=0;b<lg;b++){r=(r<<1)|(x&1);x>>=1}rev[i]=r}
+  const cs=new Float64Array(n/2),sn=new Float64Array(n/2);
+  for(let i=0;i<n/2;i++){cs[i]=Math.cos(2*Math.PI*i/n);sn[i]=-Math.sin(2*Math.PI*i/n)}
+  return(re,im)=>{
+    for(let i=0;i<n;i++){const j=rev[i];if(j>i){let t=re[i];re[i]=re[j];re[j]=t;t=im[i];im[i]=im[j];im[j]=t}}
+    for(let size=2;size<=n;size<<=1){const half=size>>1,step=n/size;
+      for(let i=0;i<n;i+=size)for(let j=0,k=0;j<half;j++,k+=step){
+        const a=i+j,b=a+half,tr=re[b]*cs[k]-im[b]*sn[k],ti=re[b]*sn[k]+im[b]*cs[k];
+        re[b]=re[a]-tr;im[b]=im[a]-ti;re[a]+=tr;im[a]+=ti}}
+  }
+}
+
+function resample(x,srIn,srOut){   // windowed-sinc low-pass + resample (Blackman window, 16 zero crossings), kernel precomputed per phase
+  if(Math.abs(srIn-srOut)<1e-6)return Float32Array.from(x);
+  const r=srIn/srOut,fc=.5*Math.min(1,1/r)*.97,half=Math.ceil(16/(2*fc)),nOut=Math.floor(x.length/r),out=new Float32Array(nOut);
+  const P=Math.abs(r-Math.round(r))<1e-9?1:512,taps=2*half,K=[];
+  for(let p=0;p<P;p++){const fr=p/P,h=new Float64Array(taps);let ws=0;
+    for(let q=0;q<taps;q++){const u=(q-half+1)-fr,a=u/half;let v=0;
+      if(a>-1&&a<1){const w=.42+.5*Math.cos(Math.PI*a)+.08*Math.cos(2*Math.PI*a),sv=u===0?1:Math.sin(2*Math.PI*fc*u)/(2*Math.PI*fc*u);v=2*fc*sv*w}
+      h[q]=v;ws+=v}
+    for(let q=0;q<taps;q++)h[q]/=ws;K.push(h)}
+  for(let i=0;i<nOut;i++){const t=i*r,c=Math.floor(t),p=Math.min(P-1,Math.round((t-c)*P))%P,h=K[p];let s=0;const j0=c-half+1;
+    if(j0>=0&&j0+taps<=x.length)for(let q=0;q<taps;q++)s+=x[j0+q]*h[q];
+    else for(let q=0;q<taps;q++){const j=j0+q;if(j>=0&&j<x.length)s+=x[j]*h[q]}
+    out[i]=s}
+  return out;
+}
+function toMono22k(b){
+  const n=b.length,ch=b.numberOfChannels,sr=b.sampleRate,mono=new Float32Array(n);
+  for(let c=0;c<ch;c++){const d=b.getChannelData(c);for(let i=0;i<n;i++)mono[i]+=d[i]/ch}
+  if(Math.abs(sr-22050)>1e-6)return resample(mono,sr,22050);
+  const ratio=1;if(ratio===1)return mono;
+  const w=Math.max(1,Math.round(ratio)),lp=new Float32Array(n);let acc=0;
+  for(let i=0;i<n;i++){acc+=mono[i];if(i>=w)acc-=mono[i-w];lp[i]=acc/Math.min(i+1,w)}
+  const out=new Float32Array(Math.floor(n/ratio)),sh=(w-1)/2;
+  for(let i=0;i<out.length;i++){const x=Math.min(n-1,i*ratio+sh),i0=Math.floor(x),fr=x-i0;out[i]=i0+1<n?lp[i0]*(1-fr)+lp[i0+1]*fr:lp[i0]}
+  return out;
+}
+async function decodeFile(ab){
+  const OAC=window.OfflineAudioContext||window.webkitOfflineAudioContext;
+  const oc=new OAC(1,44100,44100);   // decode at 44.1 kHz, then our own resampler, so every browser feeds the grader the same audio
+  const b=await new Promise((res,rej)=>{const p=oc.decodeAudioData(ab,res,rej);if(p&&p.then)p.then(res,rej)});
+  return toMono22k(b);
+}
+
+/* --- synthesized example: a reel in D, slightly sharp overall, a just F♯, an erratic G, double stops, speeding up ~4% --- */
+async function synthExample(){
+  const sr=44100,OAC=window.OfflineAudioContext||window.webkitOfflineAudioContext;
+  const phrase=[[69,1],[71,1],[74,1],[71,1],[69,1],[66,1],[64,1],[66,1],[[62,66],2],[66,1],[67,1],[69,1],[71,1],[73,1],[74,1],
+    [76,1],[78,1],[76,1],[74,1],[73,1],[71,1],[69,1],[66,1],[67,1],[66,1],[64,1],[66,1],[[62,69],4]];
+  let seed=11;const rnd=()=>(seed=(seed*16807)%2147483647)/2147483647-.5;
+  const gCycle=[24,3,16,-2,21,5];let gi=0;
+  const devOf=m=>m===66||m===78?-13+rnd()*4:m===67?gCycle[gi++%gCycle.length]:m===73?-3+rnd()*6:rnd()*8;
+  const evs=[];let t=.3,reps=3,total=reps*32,k=0;
+  for(let r=0;r<reps;r++)for(const [m,len] of phrase){
+    const bpm=88+3.5*(k/total),e8=60/(bpm*4),ms=Array.isArray(m)?m:[m];
+    const fs=ms.map((x,vi)=>{let dev=ms.length>1&&vi===0?rnd()*3:devOf(x);if(ms.length>1&&x===69)dev=r===2?16:2+rnd()*2;
+      return 440*Math.pow(2,(x-69+(dev+5)/100)/12)});
+    evs.push({t:t+rnd()*.012,d:len*e8-.016,fs});t+=len*e8;k+=len;
+  }
+  const oc=new OAC(1,Math.ceil((t+.5)*sr),sr),wave=oc.createPeriodicWave(HARM.re,HARM.im);
+  for(const e of evs)for(const f of e.fs){const o=oc.createOscillator(),g=oc.createGain(),pk=.22/Math.sqrt(e.fs.length);o.setPeriodicWave(wave);o.frequency.value=f;
+    g.gain.setValueAtTime(0,e.t);g.gain.linearRampToValueAtTime(pk,e.t+.012);g.gain.setValueAtTime(pk,e.t+e.d-.022);g.gain.linearRampToValueAtTime(0,e.t+e.d);
+    o.connect(g).connect(oc.destination);o.start(e.t);o.stop(e.t+e.d+.01)}
+  const b=await new Promise((res,rej)=>{const p=oc.startRendering();if(p&&p.then)p.then(res,rej);else oc.oncomplete=ev=>res(ev.renderedBuffer)});
+  return toMono22k(b);
+}
+
+/* --- analysis: a port of the full grader (onsets, middle-of-note spectral pitch, repeated-phrase tempo) --- */
+const tick=()=>new Promise(r=>setTimeout(r,0));
+const IVN=["unison","minor 2nd","major 2nd","minor 3rd","major 3rd","perfect 4th","tritone","perfect 5th","minor 6th","major 6th","minor 7th","major 7th","octave",
+  "minor 9th","major 9th","minor 10th","major 10th","11th","augmented 11th","12th","minor 13th","major 13th","minor 14th","major 14th","two octaves"];
+const ivName=s=>IVN[Math.max(0,Math.min(24,s))];
+const pyRound=x=>{const f=Math.floor(x),r=x-f;return r>.5?f+1:r<.5?f:(f%2===0?f:f+1)};   // Python's round-half-to-even
+const SR=22050,NFFT=2048,NBIN=NFFT/2+1;
+const FFTS={};const getFFT=n=>FFTS[n]||(FFTS[n]=makeFFT(n));
+let _melBank=null,_chrBank=null,_hannP=null;
+function melBank(){
+  if(_melBank)return _melBank;
+  const nM=128,hz2mel=f=>f<1000?f/(200/3):15+Math.log(f/1000)/(Math.log(6.4)/27),mel2hz=m=>m<15?m*(200/3):1000*Math.exp((m-15)*(Math.log(6.4)/27));
+  const mMax=hz2mel(SR/2),mf=[];for(let i=0;i<nM+2;i++)mf.push(mel2hz(mMax*i/(nM+1)));
+  const bank=[];
+  for(let i=0;i<nM;i++){const lo=mf[i],c=mf[i+1],hi=mf[i+2],en=2/(hi-lo),w=[];let s=-1;
+    for(let k=0;k<NBIN;k++){const f=k*SR/NFFT,v=Math.max(0,Math.min((f-lo)/(c-lo),(hi-f)/(hi-c)));
+      if(v>0){if(s<0)s=k;w.push(v*en)}else if(s>=0)break}
+    bank.push({s:Math.max(0,s),w:Float32Array.from(w)})}
+  return _melBank=bank;
+}
+const CHR_FFT=8192;
+function chromaBank(){
+  if(_chrBank)return _chrBank;
+  const NFFT=CHR_FFT,NBIN=NFFT/2+1;
+  const nC=12,fb=new Float64Array(NFFT);
+  for(let k=1;k<NFFT;k++)fb[k]=nC*Math.log2((k*SR/NFFT)/(440/16));
+  fb[0]=fb[1]-1.5*nC;
+  const bw=new Float64Array(NFFT);for(let k=0;k<NFFT;k++)bw[k]=k<NFFT-1?Math.max(fb[k+1]-fb[k],1):1;
+  const W=[];for(let c=0;c<nC;c++)W.push(new Float64Array(NBIN));
+  for(let k=0;k<NBIN;k++){let ss=0;const col=[];
+    for(let c=0;c<nC;c++){let D=fb[k]-c;D=((D+6+10*nC)%nC+nC)%nC-6;const v=Math.exp(-.5*Math.pow(2*D/bw[k],2));col.push(v);ss+=v*v}
+    const nrm=Math.sqrt(ss)||1,ow=Math.exp(-.5*Math.pow((fb[k]/nC-5)/2,2));
+    for(let c=0;c<nC;c++)W[(c-3+nC)%nC][k]=col[c]/nrm*ow;   // roll so index 0 is C
+  }
+  return _chrBank=W;
+}
+function hannP(){if(_hannP)return _hannP;const w=new Float64Array(NFFT);for(let i=0;i<NFFT;i++)w[i]=.5-.5*Math.cos(2*Math.PI*i/NFFT);return _hannP=w}
+// short-time spectrum (centered frames, zero padded) -> mel power (and chroma) per frame
+async function chromaFrames(y,hop,onProg,p0,p1){
+  const NF=CHR_FFT,NB=NF/2+1,n=y.length,nF=1+Math.floor(n/hop),pad=NF/2,fft=getFFT(NF),W=chromaBank();
+  const win=new Float64Array(NF);for(let i=0;i<NF;i++)win[i]=.5-.5*Math.cos(2*Math.PI*i/NF);
+  const C=new Float32Array(nF*12),re=new Float64Array(NF),im=new Float64Array(NF),p=new Float64Array(NB);
+  for(let f=0;f<nF;f++){const st=f*hop-pad;
+    for(let i=0;i<NF;i++){const j=st+i;re[i]=j>=0&&j<n?y[j]*win[i]:0}im.fill(0);fft(re,im);
+    for(let k=0;k<NB;k++)p[k]=re[k]*re[k]+im[k]*im[k];
+    let mx=0;for(let c=0;c<12;c++){const Wc=W[c];let a=0;for(let k=0;k<NB;k++)a+=Wc[k]*p[k];C[f*12+c]=a;if(a>mx)mx=a}
+    if(mx>0)for(let c=0;c<12;c++)C[f*12+c]/=mx;
+    if(f%200===0){onProg(p0+(p1-p0)*f/nF);await tick()}}
+  return C;
+}
+async function specFrames(y,hop,wantChroma,onProg,p0,p1){
+  wantChroma=false;
+  const n=y.length,nF=1+Math.floor(n/hop),pad=NFFT/2,fft=getFFT(NFFT),win=hannP(),bank=melBank(),W=wantChroma?chromaBank():null;
+  const mel=new Float32Array(nF*128),chroma=wantChroma?new Float32Array(nF*12):null,re=new Float64Array(NFFT),im=new Float64Array(NFFT),p=new Float64Array(NBIN);
+  for(let f=0;f<nF;f++){
+    const st=f*hop-pad;
+    for(let i=0;i<NFFT;i++){const j=st+i;re[i]=j>=0&&j<n?y[j]*win[i]:0}im.fill(0);
+    fft(re,im);for(let k=0;k<NBIN;k++)p[k]=re[k]*re[k]+im[k]*im[k];
+    for(let b=0;b<128;b++){const {s,w}=bank[b];let a=0;for(let j=0;j<w.length;j++)a+=w[j]*p[s+j];mel[f*128+b]=a}
+    if(W){let mx=0;for(let c=0;c<12;c++){const Wc=W[c];let a=0;for(let k=0;k<NBIN;k++)a+=Wc[k]*p[k];chroma[f*12+c]=a;if(a>mx)mx=a}
+      if(mx>0)for(let c=0;c<12;c++)chroma[f*12+c]/=mx}
+    if(f%400===0){onProg(p0+(p1-p0)*f/nF);await tick()}
+  }
+  return{nF,mel,chroma};
+}
+function onsetEnv(mel,nF,hop){
+  const S=new Float32Array(mel.length);let mx=-Infinity;
+  for(let i=0;i<S.length;i++){const v=10*Math.log10(Math.max(1e-10,mel[i]));S[i]=v;if(v>mx)mx=v}
+  for(let i=0;i<S.length;i++)if(S[i]<mx-80)S[i]=mx-80;
+  const pad=1+Math.floor(NFFT/(2*hop)),env=new Float64Array(nF);
+  for(let i=pad;i<nF;i++){const j=i-pad;let s=0;for(let b=0;b<128;b++){const d=S[(j+1)*128+b]-S[j*128+b];if(d>0)s+=d}env[i]=s/128}
+  return env;
+}
+function onsetDetect(env){   // normalize, greedy peak pick (30 ms max window, 100 ms average, delta .05), backtrack to the previous minimum
+  const n=env.length;let mn=Infinity,mx=-Infinity;for(const v of env){if(v<mn)mn=v;if(v>mx)mx=v}
+  const x=new Float64Array(n);for(let i=0;i<n;i++)x[i]=(env[i]-mn)/((mx-mn)+1e-30);
+  const preMax=1,postMax=1,preAvg=4,postAvg=5,delta=.05,wait=1,pk=[];
+  const winMax=(a,b)=>{let m=-Infinity;for(let j=a;j<b;j++)if(x[j]>m)m=x[j];return m},winAvg=(a,b)=>{let s=0;for(let j=a;j<b;j++)s+=x[j];return s/(b-a)};
+  let i=1;
+  if(n&&x[0]>=winMax(0,Math.min(postMax,n))&&x[0]>=winAvg(0,Math.min(postAvg,n))+delta){pk.push(0);i=wait+1}
+  while(i<n){
+    if(x[i]!==winMax(Math.max(0,i-preMax),Math.min(i+postMax,n))){i++;continue}
+    if(!(x[i]>=winAvg(Math.max(0,i-preAvg),Math.min(i+postAvg,n))+delta)){i++;continue}
+    pk.push(i);i+=wait+1;
+  }
+  const mins=[0];for(let j=0;j+2<n;j++)if(x[j+1]<=x[j]&&x[j+1]<x[j+2])mins.push(j+1);
+  return pk.map(p=>{let b=0;for(const m of mins){if(m<=p)b=m;else break}return b});
+}
+function findPeaks(x,lo,hi,height,distance){   // like scipy find_peaks on x[lo..hi): local maxima (plateau middles), height, then distance by priority
+  const pk=[];
+  for(let i=Math.max(lo,1);i<hi-1;i++){
+    if(x[i]>x[i-1]){let j=i;while(j+1<hi&&x[j+1]===x[i])j++;if(j+1<hi&&x[j+1]<x[i]){pk.push((i+j)>>1);i=j}}
+  }
+  const hp=pk.filter(p=>x[p]>=height);
+  if(distance<=1)return hp;
+  const order=hp.map((p,k)=>k).sort((a,b)=>x[hp[a]]-x[hp[b]]||a-b),keep=new Array(hp.length).fill(true);
+  for(let oi=order.length-1;oi>=0;oi--){const k=order[oi];if(!keep[k])continue;
+    for(let j=k-1;j>=0&&hp[k]-hp[j]<distance;j--)keep[j]=false;
+    for(let j=k+1;j<hp.length&&hp[j]-hp[k]<distance;j++)keep[j]=false}
+  return hp.filter((p,k)=>keep[k]);
+}
+const hzToM=f=>12*(Math.log2(f)-Math.log2(440))+69;
+
+async function analyze(full,opt,onProg){
+  const T0=Math.max(0,opt.start||0),i0s=Math.floor(T0*SR),i1s=opt.end>T0?Math.min(full.length,Math.floor(opt.end*SR)):full.length;
+  const y=full.subarray(i0s,i1s),n=y.length;
+  if(n<SR*2)throw new Error("short");
+  // loudness frames (2048 / 512, centered)
+  const nR=1+Math.floor(n/512),rms=new Float64Array(nR);let maxR=0;
+  for(let f=0;f<nR;f++){let s=0;const st=f*512-1024;for(let i=0;i<2048;i++){const j=st+i;if(j>=0&&j<n)s+=y[j]*y[j]}rms[f]=Math.sqrt(s/2048);if(rms[f]>maxR)maxR=rms[f]}
+  const gate=.03*maxR;
+  // onsets
+  const A=await specFrames(y,512,true,onProg,0,.3);
+  const env512=onsetEnv(A.mel,A.nF,512);
+  const onsets=onsetDetect(env512).map(f=>f*512/SR);
+  // one pitch reading per note from the middle of the note (25%..85%): up to two strongest non-harmonic peaks
+  const N=32768,fftB=getFFT(N),bR=new Float64Array(N),bI=new Float64Array(N),hz=SR/N;
+  const kLo=Math.floor(185/hz)+1,kHi=Math.ceil(2700/hz)-1,Sd=new Float64Array(N/2+1),dist=Math.floor(20/hz);
+  const bounds=[...onsets,n/SR],notes=[];
+  for(let k=0;k<bounds.length-1;k++){
+    const a=bounds[k],b=bounds[k+1],d=b-a;if(d<.12)continue;
+    const s0=Math.floor((a+.25*d)*SR),s1=Math.min(n,Math.floor((b-.15*d)*SR)),L=s1-s0;if(L<1024)continue;
+    let e=0;for(let i=s0;i<s1;i++)e+=y[i]*y[i];if(Math.sqrt(e/L)<gate)continue;
+    bR.fill(0);bI.fill(0);const Lc=Math.min(L,N);
+    for(let i=0;i<Lc;i++)bR[i]=y[s0+i]*(.5-.5*Math.cos(2*Math.PI*i/(L-1)));
+    fftB(bR,bI);
+    let mx=-Infinity;for(let q=kLo-1;q<=kHi+1;q++){const inB=q>=kLo&&q<=kHi;Sd[q]=inB?20*Math.log10(Math.sqrt(bR[q]*bR[q]+bI[q]*bI[q])+1e-9):-300;if(inB&&Sd[q]>mx)mx=Sd[q]}
+    const pk=findPeaks(Sd,kLo-1,kHi+2,mx-14,dist);
+    const cand=pk.map(p=>{const al=Sd[p-1],be=Sd[p],ga=Sd[p+1],den=al-2*be+ga;return{f:(p+(den?.5*(al-ga)/den:0))*hz,amp:be}}).sort((u,v)=>u.f-v.f);
+    const keep=[];for(const q of cand){if(keep.some(p=>{const r=q.f/p.f,m=pyRound(r);return m>=2&&Math.abs(r-m)<.02}))continue;keep.push(q)}
+    keep.sort((u,v)=>v.amp-u.amp);
+    if(keep.length)notes.push({t:a+T0,d,ms:keep.slice(0,2).map(q=>hzToM(q.f))});
+    if(k%25===0){onProg(.3+.25*k/bounds.length);await tick()}
+  }
+  if(notes.length<4)throw new Error("nonotes");
+  // tuning center: circular mean of every reading's fractional cents
+  let cx=0,cy=0,cn=0;for(const nt of notes)for(const m of nt.ms){const fr=(m-pyRound(m));cx+=Math.cos(2*Math.PI*fr);cy+=Math.sin(2*Math.PI*fr);cn++}
+  const center=opt.a440?0:Math.atan2(cy/cn,cx/cn)/(2*Math.PI)*100;
+  const items=[],dsArr=[];
+  const OPEN=[55,62,69,76],onStr=(m,s)=>m>=OPEN[s]-.5&&m<=OPEN[s]+7.5;
+  const bowable=(lo,hi)=>{if(hi-lo<.8)return false;for(let s=0;s<3;s++)if(onStr(lo,s)&&onStr(hi,s+1))return true;return false};
+  for(const nt of notes){
+    const vs=nt.ms.map((m,i)=>{const v=m-center/100,nn=pyRound(v);return{t0:nt.t,dur:nt.d,med:m,n:nn,dev:(v-nn)*100,dsI:null,
+      grade:nt.d>=.15&&(i===0||nt.d>=.2)&&nn<=88}});
+    if(vs.length===2&&vs[0].n<=88&&vs[1].n<=88){const lo=Math.min(nt.ms[0],nt.ms[1]),hi=Math.max(nt.ms[0],nt.ms[1]);
+      if(bowable(lo-center/100,hi-center/100)){const di=dsArr.length;dsArr.push({t0:nt.t,dur:nt.d,lo,hi});vs.forEach(v=>v.dsI=di)}}
+    vs.forEach(v=>{if(v.grade||v.dsI!=null)items.push(v)});
+  }
+  const graded=items.filter(x=>x.grade);
+  if(graded.length<4)throw new Error("nonotes");
+  // key
+  let tonic=opt.key,keyAuto=false;
+  if(tonic==="auto"){keyAuto=true;const w=new Array(12).fill(0);graded.forEach(x=>w[((x.n%12)+12)%12]+=x.dur);
+    const mw=w.reduce((a,b)=>a+b)/12,mk=KK.reduce((a,b)=>a+b)/12;let best=-Infinity;
+    for(let T=0;T<12;T++){let sxy=0,sxx=0,syy=0;for(let p=0;p<12;p++){const x=w[p]-mw,yy=KK[(p-T+12)%12]-mk;sxy+=x*yy;sxx+=x*x;syy+=yy*yy}
+      const r=sxy/Math.sqrt(sxx*syy||1);if(r>best){best=r;tonic=T}}}
+  tonic=+tonic;
+  // your rule: equal temperament, just interval in the key, or where you usually put that note; otherwise flagged
+  const groups={};
+  for(const x of graded){x.just=JUST[((x.n-tonic)%12+12)%12];x.dr=pyRound(x.dev);
+    x.status=Math.abs(x.dr)<=10?"et":(Math.abs(x.just)>3&&Math.abs(x.dr-x.just)<=10)?"just":null;
+    (groups[x.n]=groups[x.n]||[]).push(x)}
+  const stats=[];
+  for(const k in groups){const g=groups[k],dv=g.map(x=>x.dr),med=median(dv),spread=g.length>=3?quant(dv,.75)-quant(dv,.25):Infinity;
+    for(const x of g)if(!x.status)x.status=(g.length>=3&&Math.abs(x.dr-med)<=10)?"consistent":"off";
+    const off=g.filter(x=>x.status==="off");
+    stats.push({n:+k,count:g.length,med,spread,off:off.length,just:g[0].just,offTimes:off.map(x=>x.t0)})}
+  const pct=100*graded.filter(x=>x.status!=="off").length/graded.length;
+  const problems=stats.filter(s=>s.count>=4&&s.off/s.count>=.45).sort((a,b)=>b.off-a.off);
+  const dsList=dsArr.map((o,i)=>{const c=(o.hi-o.lo)*100,semis=Math.round(c/100),devET=pyRound(c-semis*100),just=JUST[((semis%12)+12)%12];
+    const loN=pyRound(o.lo-center/100),hiN=pyRound(o.hi-center/100);
+    return Object.assign({},o,{i,loN,hiN,semis,devET,just,key:loN+"-"+hiN,
+      status:Math.abs(devET)<=10?"et":(Math.abs(just)>3&&Math.abs(devET-just)<=10)?"just":null})});
+  const dsG={};dsList.forEach(x=>(dsG[x.key]=dsG[x.key]||[]).push(x));
+  const dsStats=[];
+  for(const key in dsG){const g=dsG[key],dv=g.map(x=>x.devET),med=median(dv),spread=g.length>=3?quant(dv,.75)-quant(dv,.25):Infinity;
+    for(const x of g)if(!x.status)x.status=(g.length>=3&&Math.abs(x.devET-med)<=10)?"consistent":"off";
+    const off=g.filter(x=>x.status==="off");
+    dsStats.push({key,loN:g[0].loN,hiN:g[0].hiN,semis:g[0].semis,just:g[0].just,count:g.length,med,spread,off:off.length,offTimes:off.map(x=>x.t0)})}
+  const dsProblems=dsStats.filter(s=>s.count>=4&&s.off/s.count>.5).sort((a,b)=>b.off-a.off);
+  const dsOk=dsList.filter(x=>x.status!=="off").length,nProb=problems.length+dsProblems.length;
+  let ig=pct>=85?(pct>=96?"A+":pct>=89?"A":"A−"):pct>=70?(pct>=81?"B+":pct>=74?"B":"B−"):pct>=55?(pct>=66?"C+":pct>=59?"C":"C−"):"D";
+  if(nProb>=2&&/^[AB]/.test(ig))ig="C+";else if(nProb===1&&ig[0]==="A")ig="B+";   // recurring problem notes cap the grade
+
+  // ---------- timing ----------
+  let a0=0,a1=nR-1;while(a0<nR&&rms[a0]<=.05*maxR)a0++;while(a1>a0&&rms[a1]<=.05*maxR)a1--;
+  const tOn=a0*512/SR,tOff=a1*512/SR;
+  const B=await specFrames(y,256,false,onProg,.55,.8);
+  const oenv=onsetEnv(B.mel,B.nF,256),fps=SR/256;
+  const acf=(lo,hi,kmax)=>{const L=hi-lo;let mu=0;for(let j=lo;j<hi;j++)mu+=oenv[j];mu/=L;const out=new Float64Array(kmax+2);
+    for(let k=0;k<=kmax+1&&k<L;k++){let s=0;for(let j=lo;j+k<hi;j++)s+=(oenv[j]-mu)*(oenv[j+k]-mu);out[k]=s}return out};
+  const segLo=Math.floor(tOn*fps),segHi=Math.floor(tOff*fps);
+  let eighth=null,ibi=null,bpm=null,chain=null,loc=[];
+  if(segHi-segLo>fps*3){
+    const lo=Math.floor(.09*fps),hi=Math.floor(.32*fps);
+    let ac=acf(segLo,segHi,4*hi+hi);
+    let k0=lo;for(let k=lo;k<hi;k++)if(ac[k]>ac[k0])k0=k;
+    const w=Math.max(2,Math.floor(k0/3));let kb=4*k0-w;for(let k=4*k0-w;k<=4*k0+w;k++)if(ac[k]>ac[kb])kb=k;
+    {const al=ac[kb-1],be=ac[kb],ga=ac[kb+1],den=al-2*be+ga;eighth=(kb+(den?.5*(al-ga)/den:0))/fps/4}
+    const on2=onsets.map(t=>t-T0).filter(t=>t>=tOn&&t<=tOff),ioi=[];for(let i=1;i<on2.length;i++)ioi.push(on2[i]-on2[i-1]);
+    if(ioi.length>10){const im=median(ioi);while(eighth>1.5*im)eighth/=2}
+    ibi=4*eighth;bpm=60/ibi;
+    // repeated phrases (chroma self-similarity), keep the longest evenly spaced chain
+    const frm=SR/512,C=await chromaFrames(y,512,onProg,.8,.85),nC=A.nF,ci0=Math.floor(tOn*frm),ci1=Math.floor(tOff*frm),span=(ci1-ci0)/frm;
+    const dot=(i,j)=>{let s=0;for(let c=0;c<12;c++)s+=C[i*12+c]*C[j*12+c];return s};
+    const stop=Math.min(30,span/2),diagCache={};let period=null,pv=-Infinity;
+    for(let q=0;3+.02*q<stop;q++){const l=3+.02*q,kk=Math.floor(l*frm);
+      if(!(kk in diagCache)){let s=0,c=0;for(let j=ci0;j+kk<ci1;j++){s+=dot(j,j+kk);c++}diagCache[kk]=c?s/c:-Infinity}
+      if(diagCache[kk]>=pv){pv=diagCache[kk];period=l}}
+    await tick();onProg(.85);
+    if(period){
+      const L=Math.floor(Math.min(2,period/3)*frm);let best=[];
+      const nT=Math.ceil(.6*span/.5),stride=Math.max(1,Math.ceil(nT/90));
+      for(let q=0;q<nT;q+=stride){const t0=tOn+.5*q;if(t0>=tOn+.6*span)break;const a=Math.floor(t0*frm);if(a+L>nC)continue;
+        const sc=new Float64Array(Math.max(0,ci1-L-ci0));let smx=-Infinity;
+        for(let j=ci0;j<ci1-L;j++){let s=0;for(let l=0;l<L;l++)s+=dot(a+l,j+l);s/=L;sc[j-ci0]=s;if(s>smx)smx=s}
+        const pk=findPeaks(sc,0,sc.length,.85*smx,Math.floor(.8*period*frm)),ts=pk.map(p=>(p+ci0)/frm);
+        if(ts.length>=3){const d=[];for(let i=1;i<ts.length;i++)d.push(ts[i]-ts[i-1]);const md=median(d);
+          if(d.every(v=>Math.abs(v/md-1)<.12)&&ts.length>best.length)best=ts}
+        if(q%(6*stride)===0){onProg(.85+.1*q/nT);await tick()}
+      }
+      if(best.length>=3){const d=[];for(let i=1;i<best.length;i++)d.push(best[i]-best[i-1]);const md=median(d);
+        const beats=Math.max(1,Math.floor(Math.pow(2,pyRound(Math.log2(md/ibi)))));eighth=md/beats/4;ibi=4*eighth;
+        chain={t:best.slice(0,-1).map(t=>t+T0),bpm:d.map(x=>beats*60/x),beats}}
+    }
+    // local tempo, 6 s windows every 4 s
+    for(let t=tOn;t<tOff-6;t+=4){const lo2=Math.floor(t*fps),hi2=Math.floor((t+6)*fps),l2=Math.floor(.85*ibi*fps),h2=Math.floor(1.15*ibi*fps)+1;
+      const a2=acf(lo2,Math.min(hi2,oenv.length),h2+1);let k=l2;for(let q=l2;q<h2;q++)if(a2[q]>a2[k])k=q;
+      let kk=k;if(k>0&&k<hi2-lo2-1){const al=a2[k-1],be=a2[k],ga=a2[k+1],den=al-2*be+ga;kk=k+(den?.5*(al-ga)/den:0)}
+      if(kk>0)loc.push({t:t+3+T0,bpm:60/(kk/fps)})}
+  }
+  const sm=loc.map((x,i)=>median(loc.slice(Math.max(0,i-1),i+2).map(q=>q.bpm)));
+  let tg="–",drift=null,range=null,ldrift=null,push=0;
+  if(sm.length>=3){const med=median(sm),ts=loc.map(x=>x.t),sl=[];
+    for(let i=0;i<sm.length;i++)for(let j=i+1;j<sm.length;j++)sl.push((sm[j]-sm[i])/(ts[j]-ts[i]));
+    const slope=median(sl),tm=median(ts),fit=t=>med+slope*(t-tm);
+    ldrift=fit(ts[ts.length-1])/fit(ts[0])-1;push=Math.max(...sm.map((v,i)=>Math.abs(v/fit(ts[i])-1)));range=(Math.max(...sm)-Math.min(...sm))/med}
+  const ladder=["A","A−","B","C+","C","D"],mGrade=m=>m<=.02?0:m<=.04?1:m<=.05?2:m<=.07?3:m<=.10?4:5;
+  let gi2=null,refT=null;
+  if(chain){const cb=chain.bpm;drift=cb[cb.length-1]/cb[0]-1;range=(Math.max(...cb)-Math.min(...cb))/median(cb);bpm=median(cb);
+    refT=cb.reduce((a,b)=>a+b)/cb.length;gi2=mGrade(Math.max(Math.abs(drift),range));chain.part=0}
+  else if(sm.length>=3){drift=ldrift;bpm=median(sm);refT=bpm;gi2=mGrade(Math.max(Math.abs(ldrift),push))}
+  if(gi2!=null){let run=0,sg=0,pushV=0;
+    for(const v of sm){const d=v/refT-1;if(Math.abs(d)>.05){if(run&&Math.sign(d)===sg)run++;else{run=1;sg=Math.sign(d)}if(run>=3)pushV=d}else run=0}
+    if(pushV){gi2=Math.min(5,gi2+1);if(chain)chain.part=pushV}
+    tg=ladder[gi2]}
+  onProg(1);
+  return{notes:items,graded,center,tonic,keyAuto,stats,pct,problems,dsList,dsStats,dsProblems,dsOk,ig,tg,bpm,loc,sm,drift,range,chain,
+    tStart:T0,tEnd:T0+n/SR,a440:opt.a440,onsets:onsets.length};
+}
+
+/* --- run + render --- */
+function level(b){const t=+$("gBpm").value;if(!b)return b;if(!t){while(b<60)b*=2;return b}while(b>t*1.41)b/=2;while(b<t/1.41)b*=2;return b}
+async function runGrade(){
+  if(!G.buf)return;
+  $("prog").hidden=false;$("progBar").style.width="0%";$("gStatus").className="status";$("gStatus").textContent="Analyzing…";
+  try{
+    G.res=await analyze(G.buf,{start:+$("gStart").value||0,end:+$("gEnd").value||0,a440:$("gA440").checked,key:$("gKey").value},p=>$("progBar").style.width=Math.round(p*100)+"%");
+    $("gStatus").textContent="";renderReport();drawAll();
+  }catch(err){
+    G.res=null;$("gStatus").className="status bad";
+    $("gStatus").textContent=err.message==="short"?"That stretch is too short to grade. Check the start and end times.":
+      err.message==="nonotes"?"I couldn't find enough steady notes. Make sure the fiddle is clearly audible and the start/end times cover the playing.":"Something went wrong analyzing this file.";
+    clearReport();
+  }
+  $("prog").hidden=true;
+}
+function clearReport(){["gInt","gTim"].forEach(i=>$(i).textContent="–");["gIntSub","gTimSub"].forEach(i=>$(i).textContent=" ");
+  $("gFacts").textContent="";$("gWork").innerHTML="";$("gIssues").innerHTML="";$("dsPanel").hidden=true;drawAll()}
+function li(html){const l=document.createElement("li");l.innerHTML=html;return l}
+const dsName=s=>nm(s.loN)+" + "+nm(s.hiN);
+const wn=v=>Math.abs(v)<.5?"right on equal":sgn(v)+"¢ "+(v>0?"wide":"narrow");
+function renderReport(){
+  const r=G.res,b=level(r.bpm);
+  $("gInt").textContent=r.ig;$("gIntSub").textContent=Math.round(r.pct)+"% accepted · "+r.graded.length+" notes";
+  $("gTim").textContent=r.tg;
+  $("gTimSub").textContent=b?Math.round(b)+" bpm"+(r.drift!=null?" · "+(r.drift>=0?"+":"−")+Math.abs(r.drift*100).toFixed(1)+"% drift":""):"tempo not found";
+  const lvl=+$("gBpm").value?"at your "+Math.round(+$("gBpm").value)+"-bpm level":b!==r.bpm?"at the beat (doubled for a slow tune; set your metronome bpm below to change it)":"at the cut-time pulse ("+Math.round(2*(b||0))+" if you count quarter notes)";
+  let f="Key: "+GN[r.tonic]+" major"+(r.keyAuto?" (detected)":"")+". ";
+  f+=r.a440?"Graded against A440. ":"Your tuning center is "+sgn(r.center)+"¢ vs A440"+(Math.abs(r.center)>8?", which is enough to rub against a band tuned to 440":", close enough to 440 not to matter")+". ";
+  if(b)f+="Tempo about "+Math.round(b)+" bpm "+lvl+". ";
+  if(r.dsList.length)f+="Double stops: "+r.dsOk+" of "+r.dsList.length+" in tune.";
+  $("gFacts").textContent=f;
+  if(r.tg==="–"&&b)$("gTimSub").textContent=Math.round(b)+" bpm · take too short to judge drift";
+  $("dsPanel").hidden=!r.dsList.length;
+  const W=$("gWork"),I=$("gIssues");W.innerHTML="";I.innerHTML="";
+  const good=r.stats.filter(s=>s.count>=3&&(s.count-s.off)/s.count>=.85).sort((a,b)=>b.count-a.count).slice(0,4);
+  good.forEach(s=>{const justy=Math.abs(s.med)>10&&Math.abs(s.med-s.just)<=6;
+    W.append(li("<b>"+nm(s.n)+"</b> ("+fing(s.n)+"): "+(s.count-s.off)+" of "+s.count+" accepted, median "+sgn(s.med)+"¢"+(justy?", sitting on the just interval":"")))});
+  r.dsStats.filter(s=>s.count>=2&&s.off===0).sort((a,b)=>b.count-a.count).slice(0,3).forEach(s=>{
+    const pure=Math.abs(s.just)>3&&Math.abs(s.med-s.just)<=5;
+    W.append(li("<b>"+dsName(s)+"</b> double stop ("+ivName(s.semis)+"): "+s.count+" of "+s.count+" in tune, median "+wn(s.med)+(pure?", right on the pure interval":"")))});
+  if(r.drift!=null&&Math.abs(r.drift)<=.02)W.append(li("<b>Steady tempo:</b> start to end within "+Math.abs(r.drift*100).toFixed(1)+"%."));
+  if(!W.children.length)W.append(li("Nothing stands out yet. Longer takes give more to measure."));
+  r.problems.slice(0,3).forEach(s=>{const dir=s.med>0?"sharp":"flat";
+    const cause=s.spread>16?"placement varies a lot ("+Math.round(s.spread)+"¢ spread), so the finger isn't landing in the same spot":"it sits consistently "+dir+" of both equal and just tuning";
+    I.append(li("<b>"+nm(s.n)+"</b> ("+fing(s.n)+"): "+s.off+" of "+s.count+" flagged, median "+sgn(s.med)+"¢; "+cause+". At "+s.offTimes.slice(0,5).map(fmtT).join(", ")+"."))});
+  r.dsProblems.slice(0,2).forEach(s=>{
+    I.append(li("<b>"+dsName(s)+"</b> double stop ("+ivName(s.semis)+"): "+s.off+" of "+s.count+" flagged, median "+wn(s.med)+
+      (Math.abs(s.just)>3?" (pure is "+sgn(s.just)+"¢)":"")+". Listen for the beats and move the "+(s.med>s.just?"top note down or bottom note up":"top note up or bottom note down")+" until they stop. At "+s.offTimes.slice(0,5).map(fmtT).join(", ")+"."))});
+  const loose=r.graded.filter(n=>n.status==="off"&&!r.problems.some(p=>p.n===n.n));
+  if(loose.length)I.append(li("<b>Scattered misses:</b> "+loose.length+" other note"+(loose.length>1?"s":"")+" flagged with no repeating pattern, at "+loose.slice(0,5).map(n=>fmtT(n.t0)).join(", ")+(loose.length>5?"…":"")+"."));
+  const dsLoose=r.dsList.filter(x=>x.status==="off"&&!r.dsProblems.some(p=>p.key===x.key));
+  if(dsLoose.length)I.append(li("<b>Double stop misses:</b> "+dsLoose.slice(0,5).map(x=>dsName(x)+" "+wn(x.devET)+" at "+fmtT(x.t0)).join("; ")+"."));
+  if(r.chain){const cb=r.chain.bpm.map(level);
+    W.append(li("<b>Phrase repeats:</b> "+cb.map(v=>Math.round(v)).join(" → ")+" bpm"+(r.range<=.04?", nice and even":"")+"."));
+    if(Math.abs(r.drift)>.03)I.append(li("<b>Tempo "+(r.drift>0?"rushes":"drags")+" across repeats:</b> "+cb.map(v=>Math.round(v)).join(" → ")+" bpm ("+(r.drift>0?"+":"−")+Math.abs(r.drift*100).toFixed(1)+"%)."));
+    if(Math.abs(r.chain.part)>.03)I.append(li("<b>Later in the take</b> the tempo sits "+Math.abs(r.chain.part*100).toFixed(1)+"% "+(r.chain.part>0?"faster":"slower")+" than the repeated phrase. The tempo chart shows where."));
+  }else if(r.drift!=null&&Math.abs(r.drift)>.03)I.append(li("<b>Tempo "+(r.drift>0?"rushes":"drags")+":</b> "+Math.round(level(r.sm[0]))+" → "+Math.round(level(r.sm[r.sm.length-1]))+" bpm ("+(r.drift>0?"+":"−")+Math.abs(r.drift*100).toFixed(1)+"%). The tempo chart shows where it moves."));
+  if(!I.children.length)I.append(li("No recurring problems found."));
+}
+
+/* --- charts --- */
+const col=n=>getComputedStyle(document.documentElement).getPropertyValue(n).trim();
+function setup(cv,w,h){const d=window.devicePixelRatio||1;cv.width=Math.round(w*d);cv.height=Math.round(h*d);cv.style.width=w+"px";cv.style.height=h+"px";
+  const c=cv.getContext("2d");c.setTransform(d,0,0,d,0,0);c.clearRect(0,0,w,h);return c}
+const stCol=s=>s==="et"||s==="just"?col("--good"):s==="consistent"?col("--ok"):col("--bad");
+const font=(px,w)=>(w||500)+" "+px+"px "+col("--f-mono");
+function emptyMsg(cv,box,msg){const w=box.clientWidth||300,c=setup(cv,w,90);c.fillStyle=col("--muted");c.font=font(12);c.textAlign="center";c.fillText(msg,w/2,50)}
+function drawAll(){if($("viewGrader").hidden)return;drawTrace();drawNotes();drawDS();drawTempo()}
+let traceGeo=null;
+function drawTrace(){
+  const box=$("traceBox"),cv=$("cvTrace"),r=G.res;
+  if(!r){emptyMsg(cv,box,G.loading?"Analyzing…":"No results yet");traceGeo=null;return}
+  const dur=r.tEnd-r.tStart,cw=box.clientWidth,w=Math.max(cw,Math.min(14000,Math.round(dur*42))),h=230,pl=36,pr=10,pt=12,pb=24;
+  const c=setup(cv,w,h),X=t=>pl+(t-r.tStart)/dur*(w-pl-pr),Y=v=>pt+(50-Math.max(-50,Math.min(50,v)))/100*(h-pt-pb);
+  c.fillStyle=col("--band");c.fillRect(pl,Y(10),w-pl-pr,Y(-10)-Y(10));
+  c.font=font(10);c.textAlign="right";c.textBaseline="middle";
+  for(const v of [-50,-25,0,25,50]){c.strokeStyle=col("--line");c.lineWidth=v===0?1.5:1;c.beginPath();c.moveTo(pl,Y(v)+.5);c.lineTo(w-pr,Y(v)+.5);c.stroke();
+    c.fillStyle=col("--muted");c.fillText(v===0?"0":(v>0?"+":"−")+Math.abs(v),pl-6,Y(v))}
+  const step=dur>120?15:dur>40?10:5;c.textAlign="center";c.textBaseline="alphabetic";
+  for(let t=Math.ceil(r.tStart/step)*step;t<=r.tEnd;t+=step){c.fillStyle=col("--muted");c.fillText(fmtT(t).replace(/\.\d$/,""),X(t),h-7)}
+  const bw=n=>Math.max(3,X(n.t0+n.dur*.85)-X(n.t0));
+  c.globalAlpha=.45;c.fillStyle=col("--muted");
+  for(const n of r.notes)if(n.slide||(n.dsI!=null&&!n.grade))c.fillRect(X(n.t0),Y(n.dev)-1.5,bw(n),3);
+  c.globalAlpha=1;
+  for(const n of r.graded){c.fillStyle=stCol(n.status);c.fillRect(X(n.t0),Y(n.dev)-3,bw(n),6)}
+  c.strokeStyle=col("--ink");c.lineWidth=1;
+  for(const n of r.notes)if(n.dsI!=null)c.strokeRect(X(n.t0)-.5,Y(n.dev)-4.5,bw(n)+1,9);
+  traceGeo={X,Y};
+}
+const stText=s=>s==="et"?"in tune (equal temperament)":s==="just"?"in tune (just)":s==="consistent"?"accepted: consistent placement":"flagged";
+$("cvTrace").addEventListener("click",e=>{
+  const r=G.res;if(!r||!traceGeo)return;const rc=e.target.getBoundingClientRect(),x=e.clientX-rc.left,y=e.clientY-rc.top;
+  let best=null,bd=40;
+  for(const n of r.notes){if(!n.grade&&!n.slide&&n.dsI==null)continue;const x0=traceGeo.X(n.t0),x1=traceGeo.X(n.t0+n.dur*.85);
+    const dx=x<x0?x0-x:x>x1?x-x1:0,d=dx+Math.abs(traceGeo.Y(n.dev)-y)*.5;if(d<bd){bd=d;best=n}}
+  if(!best){$("traceInfo").textContent="Tap closer to a note bar.";return}
+  let st=best.slide?"slide or unstable, not graded":!best.grade?"not graded (too short)":
+    best.status==="consistent"?"accepted: matches where you usually put "+nm(best.n):best.status==="off"?"flagged: off from both tunings and from your usual spot":stText(best.status);
+  let txt=fmtT(best.t0)+" · "+nm(best.n)+(fing(best.n)?" ("+fing(best.n)+")":"")+" · "+sgn(best.dev)+"¢ · "+st;
+  if(best.dsI!=null){const ds=r.dsList[best.dsI];
+    txt+=" · double stop "+nm(ds.loN)+" + "+nm(ds.hiN)+", "+ivName(ds.semis)+" "+wn(ds.devET)+(Math.abs(ds.just)>3?" (pure is "+sgn(ds.just)+"¢)":"")+": "+stText(ds.status)}
+  $("traceInfo").textContent=txt;
+});
+function drawRows(box,cv,rows,emptyText){
+  if(!rows.length){emptyMsg(cv,box,emptyText);return}
+  const w=box.clientWidth,rh=34,pt=8,pb=24,lw=Math.min(132,Math.round(w*.36)),pr=12;
+  const h=pt+rows.length*rh+pb,c=setup(cv,w,h),X=v=>lw+(Math.max(-50,Math.min(50,v))+50)/100*(w-lw-pr);
+  c.fillStyle=col("--band");c.fillRect(X(-10),pt,X(10)-X(-10),rows.length*rh);
+  c.strokeStyle=col("--line");c.lineWidth=1;
+  for(const v of [-50,-25,0,25,50]){c.beginPath();c.moveTo(X(v)+.5,pt);c.lineTo(X(v)+.5,pt+rows.length*rh);c.stroke()}
+  c.font=font(10);c.fillStyle=col("--muted");c.textAlign="center";
+  for(const v of [-50,-25,0,25,50])c.fillText(v===0?"0¢":(v>0?"+":"−")+Math.abs(v),X(v),h-7);
+  rows.forEach((s,i)=>{
+    const yc=pt+i*rh+rh/2;
+    if(i>0){c.strokeStyle=col("--line");c.beginPath();c.moveTo(4,pt+i*rh+.5);c.lineTo(w-4,pt+i*rh+.5);c.stroke()}
+    c.textAlign="left";c.fillStyle=col("--ink");c.font="700 13px "+col("--f-display");c.fillText(s.title,8,yc-2);
+    c.fillStyle=col("--muted");c.font=font(9.5);
+    let lab=s.sub;while(lab.length>3&&c.measureText(lab).width>lw-12)lab=lab.slice(0,-2)+"…";
+    c.fillText(lab,8,yc+11);
+    if(Math.abs(s.just)>3){c.strokeStyle=col("--accent");c.setLineDash([3,2]);c.lineWidth=1.5;c.beginPath();c.moveTo(X(s.just),yc-11);c.lineTo(X(s.just),yc+11);c.stroke();c.setLineDash([])}
+    s.pts.forEach((n,j)=>{c.fillStyle=stCol(n.status);c.globalAlpha=.85;c.beginPath();c.arc(X(n.dev),yc+((j*7)%11-5)*.9,3.4,0,7);c.fill()});
+    c.globalAlpha=1;
+    if(s.count>=2){c.fillStyle=col("--ink");c.fillRect(X(s.med)-1,yc-12,2.5,24)}
+  });
+}
+function drawNotes(){
+  const r=G.res;if(!r){emptyMsg($("cvNotes"),$("notesBox"),"No results yet");return}
+  drawRows($("notesBox"),$("cvNotes"),r.stats.slice().sort((a,b)=>b.n-a.n).map(s=>({title:nm(s.n),sub:fing(s.n).replace(" string,","").replace(" string 4"," 4"),
+    just:s.just,med:s.med,count:s.count,pts:r.graded.filter(n=>n.n===s.n)})),"No graded notes");
+}
+function drawDS(){
+  const r=G.res;if(!r||$("dsPanel").hidden)return;
+  drawRows($("dsBox"),$("cvDS"),r.dsStats.slice().sort((a,b)=>b.hiN-a.hiN||b.loN-a.loN).map(s=>({title:dsName(s),sub:ivName(s.semis),
+    just:s.just,med:s.med,count:s.count,pts:r.dsList.filter(x=>x.key===s.key).map(x=>({dev:x.devET,status:x.status}))})),"No double stops");
+}
+function drawTempo(){
+  const box=$("tempoBox"),cv=$("cvTempo"),r=G.res;
+  if(!r){emptyMsg(cv,box,"No results yet");return}
+  if(r.loc.length<2){emptyMsg(cv,box,r.bpm?"About "+Math.round(level(r.bpm))+" bpm. Take too short for a trend.":"Tempo not found");return}
+  const w=box.clientWidth,h=180,pl=42,pr=14,pt=14,pb=24,c=setup(cv,w,h);
+  const L=r.loc.map(x=>({t:x.t,b:level(x.bpm)})),Sm=r.sm.map(level),med=median(Sm);
+  const CB=r.chain?r.chain.bpm.map(level):[];
+  let lo=Math.min(med*.92,...L.map(x=>x.b),...Sm,...CB),hi=Math.max(med*1.08,...L.map(x=>x.b),...Sm,...CB);
+  const t0=r.tStart,t1=r.tEnd,X=t=>pl+(t-t0)/(t1-t0)*(w-pl-pr),Y=b=>pt+(hi-b)/(hi-lo)*(h-pt-pb);
+  c.font=font(10);c.textAlign="right";c.textBaseline="middle";
+  [Math.round(lo),Math.round(med),Math.round(hi)].forEach(v=>{c.strokeStyle=col("--line");c.lineWidth=1;c.beginPath();c.moveTo(pl,Y(v)+.5);c.lineTo(w-pr,Y(v)+.5);c.stroke();c.fillStyle=col("--muted");c.fillText(v,pl-6,Y(v))});
+  c.textAlign="center";c.textBaseline="alphabetic";const step=(t1-t0)>120?30:(t1-t0)>40?10:5;
+  for(let t=Math.ceil(t0/step)*step;t<=t1;t+=step)c.fillText(fmtT(t).replace(/\.\d$/,""),X(t),h-7);
+  c.fillStyle=col("--muted");c.globalAlpha=.55;L.forEach(p=>{c.beginPath();c.arc(X(p.t),Y(p.b),3,0,7);c.fill()});c.globalAlpha=1;
+  c.strokeStyle=col("--accent");c.lineWidth=2.5;c.lineJoin="round";c.beginPath();
+  L.forEach((p,i)=>{const y=Y(Sm[i]);i?c.lineTo(X(p.t),y):c.moveTo(X(p.t),y)});c.stroke();
+  if(r.chain){c.fillStyle=col("--ink");r.chain.t.forEach((t,i)=>{const b=level(r.chain.bpm[i]);if(b<lo||b>hi)return;const xx=X(t),yy=Y(b);c.beginPath();c.moveTo(xx,yy-6);c.lineTo(xx+6,yy);c.lineTo(xx,yy+6);c.lineTo(xx-6,yy);c.closePath();c.fill()})}
+  const e=L[L.length-1],ey=Y(Sm[Sm.length-1]);c.fillStyle=col("--accent");c.beginPath();c.arc(X(e.t),ey,5,0,7);c.fill();
+  c.fillStyle=col("--ink");c.font=font(11,600);c.textAlign="right";c.fillText(Math.round(Sm[Sm.length-1])+" bpm",X(e.t)-8,ey-9);
+}
+
+/* --- loading --- */
+async function loadExample(){
+  G.loading=true;$("srcLabel").textContent="Example take: synthesized reel in D";$("gStatus").className="status";$("gStatus").textContent="Building example…";drawAll();
+  try{G.buf=await synthExample();G.name="example";$("gStart").value=0;$("gEnd").value="";$("gKey").value="auto";await runGrade()}
+  catch(e){$("gStatus").className="status bad";$("gStatus").textContent="Couldn't build the example in this browser. Load a recording instead."}
+  G.loading=false;
+}
+$("exampleBtn").onclick=loadExample;
+$("fileIn").onchange=async e=>{
+  const file=e.target.files[0];if(!file)return;e.target.value="";
+  G.loading=true;G.res=null;$("srcLabel").textContent=file.name;$("gStatus").className="status";$("gStatus").textContent="Reading file…";clearReport();
+  try{G.buf=await decodeFile(await file.arrayBuffer());G.name=file.name;$("gStart").value=0;$("gEnd").value="";
+    $("srcLabel").textContent=file.name+" · "+fmtT(G.buf.length/22050).replace(/\.\d$/,"");await runGrade()}
+  catch(err){$("gStatus").className="status bad";$("gStatus").textContent="Couldn't read that file. Try exporting it as .m4a, .mp3 or .wav."}
+  G.loading=false;
+};
+$("regradeBtn").onclick=runGrade;
+$("gBpm").onchange=()=>{if(G.res){renderReport();drawAll()}};
+let rt=null;new ResizeObserver(()=>{clearTimeout(rt);rt=setTimeout(drawAll,120)}).observe($("viewGrader"));
+matchMedia("(prefers-color-scheme: dark)").addEventListener("change",drawAll);
+new MutationObserver(drawAll).observe(document.documentElement,{attributes:true,attributeFilter:["data-theme"]});
+
+showView();
+</script>
+
+</body>
+</html>
