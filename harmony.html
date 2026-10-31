@@ -1062,29 +1062,58 @@ const pct=(a,p)=>{const s=[...a].sort((x,y)=>x-y);return s.length?s[Math.min(s.l
 function chordObjs(chords,shiftBeats){return chords.map(c=>{const p=parseChord(c.c);return{t:c.t+(shiftBeats||0),d:c.d,root:p.root,q:p.q,seventh:p.seventh}})}
 function transcribe(frames,o){ // o:{meter,key,chords(beats from bar 1),grid,anchored(bool),bpm}
   const rmsV=frames.filter(f=>f.voiced).map(f=>f.rms),gate=.12*pct(rmsV,.95);
-  const V=frames.filter(f=>f.voiced&&f.rms>=gate&&f.b!=null&&isFinite(f.b));
+  const V=frames.filter(f=>f.voiced&&f.rms>=gate&&f.b!=null&&isFinite(f.b)).sort((x,y)=>x.b-y.b);
   if(V.length<20)return{notes:[],err:"I couldn't hear enough singing. Sing a bit louder or closer to the phone."};
   // tuning: one offset when singing with the backing; a slowly moving one when singing alone (a cappella drift)
   const winB=2.5*o.bpm/60;let offs;
   if(o.anchored){const c=circMean(V.map(f=>f.m-Math.round(f.m)));offs=V.map(()=>c)}
   else{const g0=circMean(V.map(f=>f.m-Math.round(f.m)));   // drift measured relative to the overall center, so it never wraps to the neighboring note
-    offs=V.map(f=>{let d=circMean(V.filter(g=>Math.abs(g.b-f.b)<=winB).map(g=>g.m-Math.round(g.m)))-g0;d-=Math.round(d);return g0+d})}
+    const cs=V.map(f=>Math.cos(2*Math.PI*(f.m-Math.round(f.m)))),sn=V.map(f=>Math.sin(2*Math.PI*(f.m-Math.round(f.m))));let lo=0,hi=0,sc=0,ss=0;
+    offs=V.map(f=>{while(hi<V.length&&V[hi].b<=f.b+winB){sc+=cs[hi];ss+=sn[hi];hi++}while(V[lo].b<f.b-winB){sc-=cs[lo];ss-=sn[lo];lo++}   // sliding window
+      let d=Math.atan2(ss,sc)/(2*Math.PI)-g0;d-=Math.round(d);return g0+d})}
   const mc=V.map((f,i)=>f.m-offs[i]),offCents=Math.round(100*median(offs));
   const CH=chordObjs(o.chords),chAt=b=>{let r=CH[0];for(const c of CH)if(c.t<=b+1e-6)r=c;return r};
   // key: when singing alone you may have pitched it anywhere; move it to the chart's key
   let shift=0;
   if(!o.anchored){let best=-1;for(let s=-6;s<=5;s++){let sc=0;V.forEach((f,i)=>{const m=Math.round(mc[i])+s,r=mod(m-o.key,12);if(MAJ.includes(r))sc+=1;if(triadOf(chAt(f.b)).includes(mod(m,12)))sc+=.7});if(sc>best){best=sc;shift=s}}}
-  const g=o.grid,bs=Math.floor(Math.min(...V.map(f=>f.b))/g)*g,be=Math.ceil(Math.max(...V.map(f=>f.b))/g)*g;
-  const all=frames.filter(f=>f.b!=null&&isFinite(f.b));const cells=[];
-  for(let c=bs;c<be-1e-9;c+=g){const fa=all.filter(f=>f.b>=c&&f.b<c+g),vi=[];V.forEach((f,i)=>{if(f.b>=c&&f.b<c+g)vi.push(i)});
-    if(!fa.length||vi.length/fa.length<.35||vi.length<2){cells.push({c,p:null});continue}
-    const med=median(vi.map(i=>mc[i])),p=Math.round(med)+shift,conf=vi.filter(i=>Math.abs(mc[i]+shift-p)<.5).length/vi.length;
-    cells.push({c,p,conf,rms:median(vi.map(i=>V[i].rms))})}
-  const dip=c=>{const fr=all.filter(f=>Math.abs(f.b-c)<=g*.2);if(!fr.length)return false;const lo=Math.min(...fr.map(f=>f.voiced?f.rms:0));
-    const nb=all.filter(f=>f.voiced&&Math.abs(f.b-c)<=g).map(f=>f.rms);return lo<.55*median(nb)};
+  const g=o.grid,sec=x=>x*o.bpm/60;   // seconds → beats
+  const all=frames.filter(f=>f.b!=null&&isFinite(f.b)).sort((a,b)=>a.b-b.b);
+  const hop=median(V.slice(1).map((f,i)=>f.b-V[i].b).filter(x=>x>0))||sec(.012);
+  // smooth briefly: averages out vibrato wiggle and tracker jitter
+  const ms=mc.map((m,i)=>{const w=[];for(let j=Math.max(0,i-3);j<=Math.min(V.length-1,i+3);j++)if(Math.abs(V[j].b-V[i].b)<=sec(.05))w.push(mc[j]);return median(w)});
+  // loudness dips mark new syllables even when the consonant is voiced (m, n, l)
+  const dip=V.map((f,i)=>{let pre=0,post=0;for(let j=Math.max(0,i-20);j<i;j++)if(f.b-V[j].b<=sec(.12))pre=Math.max(pre,V[j].rms);
+    for(let j=i+1;j<=Math.min(V.length-1,i+20);j++)if(V[j].b-f.b<=sec(.12))post=Math.max(post,V[j].rms);return f.rms<.5*pre&&f.rms<.5*post});   // a real valley, not just a quieter note
+  // 1) stretches where the pitch settles; slides and quick flips break into short or wandering pieces and drop out
+  const segs=[];let cur=null;
+  V.forEach((f,i)=>{if(dip[i]){if(cur){segs.push(cur);cur=null}return}const m=ms[i];
+    if(cur&&(f.b-cur.b1>sec(.045)||Math.abs(m-median(cur.ms.slice(-6)))>.45)){segs.push(cur);cur=null}
+    if(!cur)cur={b0:f.b,b1:f.b,ms:[],is:[]};cur.ms.push(m);cur.is.push(i);cur.b1=f.b});
+  if(cur)segs.push(cur);
+  const minD=Math.max(sec(.09),.3*g);
+  let keep=segs.filter(x=>x.b1-x.b0+hop>=minD).map(x=>{const p=median(x.ms);return{b0:x.b0,b1:x.b1+hop,p,spread:pct(x.ms.map(y=>Math.abs(y-p)),.75),is:x.is}}).filter(x=>x.spread<.4);
+  // grace notes: a very short blip leading straight into a longer note a step or two away is decoration
+  keep=keep.filter((x,k)=>{const nx=keep[k+1];if(!nx)return true;const len=x.b1-x.b0,nlen=nx.b1-nx.b0;
+    return!(len<Math.min(sec(.12),.45*g)&&nx.b0-x.b1<sec(.05)&&nlen>=2*len&&Math.abs(nx.p-x.p)<=2.6&&Math.round(nx.p)!==Math.round(x.p))});
+  // 2) rejoin pieces of one held note, unless a gap or loudness dip shows a new syllable
+  const firstAfter=a=>{let l=0,h=all.length;while(l<h){const m=(l+h)>>1;if(all[m].b<=a)l=m+1;else h=m}return l};
+  const quietRun=(a,b)=>{let run=0,best=0;for(let k=firstAfter(a);k<all.length;k++){const f=all[k];if(f.b>=b)break;if(!f.voiced||f.rms<gate){run+=hop;best=Math.max(best,run)}else run=0}return best};
+  const dipBetween=(a,b)=>V.some((f,i)=>dip[i]&&f.b>=a-hop&&f.b<=b+hop);
+  const joined=[];for(const x of keep){const pr=joined[joined.length-1];
+    if(pr&&Math.round(pr.p)===Math.round(x.p)&&x.b0-pr.b1<sec(.25)&&quietRun(pr.b1,x.b0)<sec(.04)&&!dipBetween(pr.b1,x.b0)){pr.b1=x.b1;pr.is=pr.is.concat(x.is);pr.p=median(pr.is.map(i=>ms[i]))}
+    else joined.push({...x})}
+  // the note really starts at its attack (where the slide or flip into it began), not where the pitch settles
+  const starts=[];{let quiet=Infinity,last=null;all.forEach(f=>{const on=f.voiced&&f.rms>=gate;
+      if(on){if(quiet>=sec(.04))starts.push(f.b);quiet=0}else quiet+=last!=null?f.b-last:0;last=f.b});   // a real gap (consonant or breath), not a tracker blip
+    V.forEach((f,i)=>{if(dip[i]&&V[i+1]&&!dip[i+1])starts.push(V[i+1].b)});starts.sort((a,b)=>a-b)}
+  joined.forEach((x,k)=>{const prevEnd=k?joined[k-1].b1:-Infinity;let st=-Infinity;for(const v of starts){if(v<=x.b0+1e-9)st=v;else break}
+    x.att=Math.max(st,prevEnd);if(!isFinite(x.att)||x.b0-x.att>sec(.35))x.att=Math.max(prevEnd,x.b0-sec(.35))});
+  // 3) onto the beat grid: each note starts on the nearest grid line; if two land on the same line, the longer one wins
   const notes=[];
-  for(const cl of cells){if(cl.p==null)continue;const pr=notes[notes.length-1];
-    if(pr&&pr.m===cl.p&&Math.abs(pr.t+pr.d-cl.c)<1e-6&&!dip(cl.c)){pr.d+=g;pr.conf=Math.min(pr.conf,cl.conf)}else notes.push({t:cl.c,d:g,m:cl.p,conf:cl.conf,ly:""})}
+  for(const x of joined){const t=Math.round(x.att/g)*g,p=Math.round(x.p)+shift,len=x.b1-x.b0,conf=x.is.filter(i=>Math.abs(mc[i]+shift-p)<.5).length/x.is.length,pr=notes[notes.length-1];
+    if(pr&&Math.abs(pr.t-t)<1e-6){if(len>pr.len)Object.assign(pr,{m:p,len,conf,end:x.b1});continue}
+    notes.push({t,m:p,len,conf,end:x.b1,ly:""})}
+  notes.forEach((n,i)=>{const nx=notes[i+1];let e=Math.max(n.t+g,Math.round(n.end/g)*g);if(nx)e=Math.min(e,nx.t);n.d=Math.max(g,+(e-n.t).toFixed(4));delete n.len;delete n.end});
   for(let i=0;i<notes.length-1;i++){const a=notes[i],b=notes[i+1],gap=b.t-(a.t+a.d);if(gap>1e-6&&gap<=g+1e-6&&gap<1-1e-6)a.d+=gap}
   // pickup: notes before bar 1 (sung during the count-in)
   const first=notes.length?notes[0].t:0,pickup=first<0?Math.min(o.meter,Math.ceil(-first-1e-6)):0;
@@ -1129,7 +1158,7 @@ function bdSay(t,cls){$("bdRecStatus").textContent=t;$("bdRecStatus").className=
 function bdFinish(res,how){if(res.err){bdSay(res.err,"bad");return}
   BD.notes=res.notes;BD.pickup=res.pickup;BD.sel=0;$("bdEdit").hidden=false;$("bdSave").disabled=false;bdReflag();
   const fl=BD.notes.filter(n=>n.flag).length,sh=res.shift?` You sang it ${Math.abs(res.shift)} half step${Math.abs(res.shift)>1?"s":""} ${res.shift>0?"lower":"higher"} than ${keyName(+$("bdKey").value)}, so I moved it into the chart's key.`:"";
-  $("bdSummary").textContent=`Found ${BD.notes.length} notes${BD.pickup?` (${BD.pickup}-beat pickup)`:""}.${sh} ${fl?`${fl} flagged to check; tap Next flag.`:"Nothing looks off, but play it back to check."} Fix anything that sounds wrong, then Save.`;
+  $("bdSummary").textContent=(BD.mode==="load"&&BD.tapNote?BD.tapNote:"")+`Found ${BD.notes.length} notes${BD.pickup?` (${BD.pickup}-beat pickup)`:""}.${sh} ${fl?`${fl} flagged to check; tap Next flag.`:"Nothing looks off, but play it back to check."} Fix anything that sounds wrong, then Save.`;
   bdSay(how,"good");bdDraw();$("bdEdit").scrollIntoView({behavior:"smooth",block:"start"})}
 /* record with backing */
 $("bdRec").onclick=async()=>{
@@ -1163,13 +1192,30 @@ $("bdTapPlay").onclick=()=>{if(!BD.audio)return;const r=bdReady();if(!r)return;
   src.onended=()=>{BD.tapSrc=null;$("bdTap").disabled=true;$("bdTapPlay").textContent="▶ Play and tap";bdUseTaps()}};
 const tapNow=()=>{if(!BD.tapSrc)return;BD.taps.push(AC.currentTime-BD.tapT0);bdSay(`${BD.taps.length} taps`)};
 $("bdTap").addEventListener("pointerdown",e=>{e.preventDefault();tapNow()});
-function bdUseTaps(){const t=BD.taps;if(t.length<8){bdSay("I need at least 8 taps. Tap Play and try again.","warn");return}
-  const iv=[];for(let i=1;i<t.length;i++)iv.push(t[i]-t[i-1]);const med=median(iv);
+function tapMap(t){const iv=[];for(let i=1;i<t.length;i++)iv.push(t[i]-t[i-1]);const med=median(iv);
   // smooth the taps: drop wild ones, then a running median of the gaps (people tap a little unevenly)
   const sm=iv.map((v,i)=>median(iv.slice(Math.max(0,i-2),i+3).filter(x=>x>.5*med&&x<1.6*med))||med),bt=[t[0]];sm.forEach(v=>bt.push(bt[bt.length-1]+v));
-  const toBeat=time=>{if(time<=bt[0])return(time-bt[0])/sm[0];for(let i=1;i<bt.length;i++)if(time<=bt[i])return i-1+(time-bt[i-1])/(bt[i]-bt[i-1]);
-    return bt.length-1+(time-bt[bt.length-1])/sm[sm.length-1]};
-  BD.bpm=Math.round(60/med);$("bdBpm").value=BD.bpm;BD.frames=BD.rawFrames.map(f=>({...f,b:toBeat(f.time)}));bdDoTranscribe("load")}
+  return{med,toBeat:time=>{if(time<=bt[0])return(time-bt[0])/sm[0];for(let i=1;i<bt.length;i++)if(time<=bt[i])return i-1+(time-bt[i-1])/(bt[i]-bt[i-1]);
+    return bt.length-1+(time-bt[bt.length-1])/sm[sm.length-1]}}}
+// how well a melody fits the chart: held notes that are chord tones, minus notes that fight the chord
+function chartFit(notes,chords,pickup){const CH=chordObjs(chords,pickup),chAt=b=>{let r=CH[0];for(const c of CH)if(c.t<=b+1e-6)r=c;return r};
+  let sc=0,tot=0;for(const n of notes){const tri=triadOf(chAt(n.t));tot+=n.d;sc+=tri.includes(mod(n.m,12))?n.d:-.5*n.d}return tot?sc/tot:-1}
+function bdUseTaps(){const t=BD.taps;if(t.length<8){bdSay("I need at least 8 taps. Tap Play and try again.","warn");return}
+  const r=bdReady();if(!r)return;const meter=+$("bdMeter").value,key=+$("bdKey").value;
+  // try the ways the taps could line up with the chart: as tapped, every other tap, twice as fast; starting a beat or two off
+  const half=t.filter((x,i)=>i%2===0),dbl=[];t.forEach((x,i)=>{dbl.push(x);if(t[i+1])dbl.push((x+t[i+1])/2)});
+  const cands=[["as tapped",t,1],["every other tap",half,.5],["twice as fast",dbl,2]].filter(c=>c[1].length>=6);
+  let best=null;
+  for(const[label,taps,scale]of cands){const mp=tapMap(taps),bpm=60/mp.med;
+    for(let ph=-(meter-1);ph<=meter-1;ph++){const frames=BD.rawFrames.map(f=>({...f,b:mp.toBeat(f.time)+ph}));
+      const res=transcribe(frames,{meter,key,chords:r.chords,grid:BD.grid,anchored:false,bpm});if(res.err||!res.notes.length)continue;
+      const fit=chartFit(res.notes,r.chords,res.pickup)-.03*Math.abs(ph)-(scale===1?0:.02);
+      if(!best||fit>best.fit)best={fit,label,ph,mp,bpm,frames,res}}}
+  if(!best){bdSay("I couldn't hear enough singing in that recording.","bad");return}
+  BD.bpm=Math.round(best.bpm);$("bdBpm").value=BD.bpm;BD.frames=best.frames;BD.mode="load";
+  BD.tapNote=(best.label!=="as tapped"?`Your taps looked like ${best.label==="every other tap"?"twice the chart's beat, so I counted every other tap":"half the chart's beat, so I added a beat between taps"}. `:"")+
+    (best.ph?`The chords fit best with your taps shifted ${Math.abs(best.ph)} beat${Math.abs(best.ph)>1?"s":""} ${best.ph>0?"later":"earlier"}, so I lined them up that way. `:"");
+  bdFinish(best.res,"Transcribed from your recording and taps.")}
 /* editor */
 function bdReflag(){flagNotes(BD.notes,parseChart($("bdChart").value,+$("bdMeter").value).chords,BD.pickup,+$("bdKey").value)}
 function bdDraw(){if(!BD.notes.length)return;const s=fixPickupChords(bdSong()),H=harmonize(s,0,{});BD.sel=Math.max(0,Math.min(BD.sel,BD.notes.length-1));
