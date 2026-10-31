@@ -118,6 +118,11 @@ ul.cues{margin:0;padding-left:1.1em;display:flex;flex-direction:column;gap:5px}
 .meterbox{border:1px solid var(--line);border-radius:10px;background:var(--bg)}
 @media (max-width:420px){.mrow input[type=range]{width:64px}.steps button{font-size:.72rem}}
 @media (prefers-reduced-motion: reduce){*{transition:none!important}}
+.tappad{appearance:none;width:100%;min-height:46vh;border:2px solid var(--accent);border-radius:18px;background:var(--surface);color:var(--ink);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;cursor:pointer;touch-action:manipulation;user-select:none;-webkit-user-select:none;-webkit-touch-callout:none;-webkit-tap-highlight-color:transparent;padding:16px;transition:background .06s}
+.tappad.hit{background:var(--accent);color:var(--accent-ink)}
+.tpword{font:700 2.4rem/1.1 var(--f-display);text-align:center;word-break:break-word}
+.tpnext{font:500 1rem var(--f-body);opacity:.65;text-align:center}
+.tpcount{font:500 .85rem var(--f-mono);opacity:.6}
 </style>
 </head>
 <body>
@@ -184,11 +189,23 @@ ul.cues{margin:0;padding-left:1.1em;display:flex;flex-direction:column;gap:5px}
         <div class="row"><label class="btn grow" for="bdShot" id="bdShotLbl">Read a chart screenshot</label><input type="file" id="bdShot" accept="image/*" style="position:absolute;width:1px;height:1px;opacity:0;pointer-events:none"><button class="linkbtn" id="bdShotUndo" hidden>Undo</button></div>
         <p class="hint">Screenshot your Strum Machine chart and choose it here; set beats per bar first. Or type it: bars split with |, one chord per bar or one per beat, / repeats the last chord. B, E7, F#m, Bb all work.</p>
         <div class="hint" id="bdChartOut"></div>
+        <label class="field"><span class="label">Lyrics (optional, but they help)</span>
+          <textarea id="bdLyrics" rows="3" style="font:500 .93rem var(--f-body);background:var(--surface);color:var(--ink);border:1px solid var(--line);border-radius:8px;padding:8px 10px;resize:vertical" placeholder="Paste the words. Each word gets one tap. A word sung over two notes: split it with a hyphen (moun-tains)."></textarea></label>
+        <p class="hint">While you sing and tap, the next word shows on the tap pad. Words are matched to notes in order.</p>
       </div>
       <div class="stage">
         <h3>2 · Record the melody</h3>
-        <div class="chips" id="bdRecMode"><button class="chip" data-v="backing">Sing with backing</button><button class="chip" data-v="visual">On-screen beat (no audio)</button><button class="chip" data-v="load">Load a recording</button></div>
-        <label class="field"><span class="label">Microphone</span><select id="bdMic" aria-label="Microphone"></select></label>
+        <div class="chips" id="bdRecMode"><button class="chip" data-v="tap">Sing and tap</button><button class="chip" data-v="tapfile">Tap to a recording</button><button class="chip" data-v="more">Other ways</button></div>
+        <div class="chips" id="bdMoreMode" hidden><button class="chip" data-v="backing">Sing with backing</button><button class="chip" data-v="visual">On-screen beat</button><button class="chip" data-v="load">Recording + tap the beat</button></div>
+        <label class="field" id="bdMicField"><span class="label">Microphone</span><select id="bdMic" aria-label="Microphone"></select></label>
+        <div class="col" id="bdTapBox" style="gap:10px">
+          <p class="hint">Sing the melody however feels natural: any key, any speed, slow down wherever you like. Tap the pad once as each word starts. A word you hold across two notes gets two taps. No backing plays, so any headphones (or none) work. The app fits what you sang to your chart's bars and key.</p>
+          <div class="row"><button class="btn grow" id="bdKeyBtn2">Hear the key</button><button class="btn primary grow" id="bdTapRec">● Start</button></div>
+          <div id="bdPadBox" hidden class="col" style="gap:8px">
+            <button id="bdPad" class="tappad"><span id="bdPadWord" class="tpword">Tap as each word starts</span><span id="bdPadNext" class="tpnext"></span><span id="bdPadCount" class="tpcount"></span></button>
+            <div class="row"><button class="btn grow" id="bdTapUndo">Undo last tap</button><button class="btn primary grow" id="bdTapDone">■ Done</button></div>
+          </div>
+        </div>
         <div class="col" id="bdBacking" style="gap:10px">
           <p class="hint">The app plays 4 count-in clicks with the key note under them, then boom-chuck guitar from your chart. Sing the melody over it with headphones on, so the microphone only hears you. If the song starts with pickup notes, sing them during the end of the count-in.</p>
           <label class="toggle"><input type="checkbox" id="bdClick" checked> Add a click</label>
@@ -202,7 +219,7 @@ ul.cues{margin:0;padding-left:1.1em;display:flex;flex-direction:column;gap:5px}
           <div id="bdBeatBox" hidden style="text-align:center;padding:10px 0"><div id="bdBeatBig" style="font:700 5rem/1 var(--f-display);transition:color .08s">1</div><div class="hint" id="bdBeatSmall"></div></div>
         </div>
         <div class="col" id="bdLoad" style="gap:10px" hidden>
-          <p class="hint">Load a recording of you singing, with or without guitar. Voice Memos: Share → Save to Files, then choose it here. Then play it back and tap along on every beat, starting on the first strong beat of the first full bar.</p>
+          <p class="hint" id="bdLoadHint">Load a recording of you singing, with or without guitar. Voice Memos: Share → Save to Files, then choose it here. Then play it back and tap along on every beat, starting on the first strong beat of the first full bar.</p>
           <div class="row"><label class="btn grow" for="bdFile">Choose recording</label><input type="file" id="bdFile" accept="audio/*,video/*,.m4a,.mp3,.wav,.mov,.mp4,.aac" style="position:absolute;width:1px;height:1px;opacity:0;pointer-events:none"></div>
           <div class="row"><button class="btn grow" id="bdTapPlay" disabled>▶ Play and tap</button><button class="btn primary grow" id="bdTap" disabled style="padding:22px 14px;font-size:1.1rem">TAP</button></div>
         </div>
@@ -218,11 +235,14 @@ ul.cues{margin:0;padding-left:1.1em;display:flex;flex-direction:column;gap:5px}
           <button id="bdLonger">Longer</button><button id="bdShorter">Shorter</button><button id="bdSplit">Split</button><button id="bdJoin">Join next</button>
           <button id="bdDel">Delete</button><button id="bdFlag">Next flag</button><button id="bdPlaySel">▶ From here</button><button id="bdPlayParts">▶ With parts</button>
         </div>
+        <div class="field"><span class="label">Length of this note</span>
+          <div class="chips" id="bdLen"><button class="chip" data-v="0.5">½</button><button class="chip" data-v="1">1</button><button class="chip" data-v="1.5">1½</button><button class="chip" data-v="2">2</button><button class="chip" data-v="3">3</button><button class="chip" data-v="4">4 beats</button></div>
+          <label class="toggle"><input type="checkbox" id="bdRipple"> Move the notes after it too</label></div>
+        <div class="row"><button class="btn grow" id="bdSingNote">🎤 Sing this note</button></div>
+        <div class="field"><span class="label">Whole melody against the chords</span>
+          <div class="row"><button class="btn grow" id="bdAllEarly">‹ A beat earlier</button><button class="btn grow" id="bdAllLate">A beat later ›</button></div></div>
         <div class="field"><span class="label">Rhythm detail</span>
           <div class="chips" id="bdGrid"><button class="chip" data-v="0.5">Normal (half beats)</button><button class="chip" data-v="0.25">Fine (quarter beats)</button></div></div>
-        <label class="field"><span class="label">Lyrics (optional)</span>
-          <textarea id="bdLyrics" rows="3" style="font:500 .93rem var(--f-body);background:var(--surface);color:var(--ink);border:1px solid var(--line);border-radius:8px;padding:8px 10px;resize:vertical" placeholder="Type the words. Split syllables with hyphens (moun-tains). Use _ to hold a syllable over the next note."></textarea></label>
-        <p class="hint">Lyrics are matched to notes in order, one syllable per note.</p>
       </div>
       <div class="row"><button class="btn primary grow" id="bdSave" disabled>Save song</button><button class="btn grow" id="bdDelete" hidden>Delete song</button></div>
       <div class="row" id="bdDelConfirm" hidden><span>Delete this song from this device?</span><button class="btn" id="bdDelYes">Delete</button><button class="btn" id="bdDelNo">Keep</button></div>
@@ -1080,8 +1100,82 @@ function exPattern(kind){let pat=makePattern(kind);
     saveBS();renderProg();bCue(lines.join(" · "));bMsg(allOk?"Got it.":"Close. Try it again.",allOk?"good":"warn")};
 }
 
+/* ================= sing and tap: your taps say where notes start, your voice says which note, the chart says where the bars are ================= */
+function fromTaps(frames,tapsIn,o){ // o:{meter,key,chords(beats from bar 1),bars,grid}
+  const u=o.grid||.5,meter=o.meter,B=o.bars*meter;
+  const taps=[];for(const t of [...tapsIn].sort((a,b)=>a-b))if(!taps.length||t-taps[taps.length-1]>.08)taps.push(t);
+  const fr=frames.filter(f=>f.time!=null).sort((a,b)=>a.time-b.time),vs=fr.filter(f=>f.voiced).map(f=>f.rms);
+  const gate=.12*(vs.length?[...vs].sort((a,b)=>a-b)[Math.floor(vs.length*.95)]:0),V=fr.filter(f=>f.voiced&&f.rms>=gate);
+  if(taps.length<4)return{err:"I need at least 4 taps, one for each note you sing."};
+  if(V.length<10)return{err:"I couldn't hear enough singing. Sing a bit louder or closer to the phone."};
+  const lastVoice=V[V.length-1].time,vIn=(a,b)=>V.filter(f=>f.time>=a&&f.time<b);
+  // 0) Bluetooth and phone audio add delay between your taps and what the microphone heard. Find it: with the right offset
+  //    each tap's note holds one steady pitch; with the wrong one, windows straddle two notes.
+  const spreadAt=d=>{let s=0,c=0;taps.forEach((t0,i)=>{const t=t0+d,nx=i+1<taps.length?taps[i+1]+d:t+.5,ioi=nx-t;if(ioi<.12)return;
+      const w=vIn(t+.15*ioi,nx-.1*ioi);if(w.length<3){s+=.6;c++;return}const ms=w.map(f=>f.m).sort((a,b)=>a-b),md=ms[ms.length>>1];
+      s+=Math.min(1,pct(ms.map(x=>Math.abs(x-md)),.8));c++});return c?s/c:9};
+  let lag=0,bestSp=Infinity;if(o.findLag!==false)for(let d=-.45;d<=.45+1e-9;d+=.025){const sp=spreadAt(d)+.12*Math.abs(d);if(sp<bestSp){bestSp=sp;lag=d}}
+  for(let i=0;i<taps.length;i++)taps[i]+=lag;
+  // 1) one note per tap: its pitch from the steady part of the singing until the next tap
+  let N=[];
+  taps.forEach((t,i)=>{const nx=i+1<taps.length?taps[i+1]:Math.min(lastVoice+.05,t+3),ioi=nx-t;
+    let w=vIn(t+Math.min(.15,.3*ioi),nx-Math.min(.05,.1*ioi));if(w.length<3)w=vIn(t-.03,nx);if(w.length<2)return;
+    const ms=w.map(f=>f.m).sort((a,b)=>a-b),all=vIn(t-.03,nx);
+    N.push({tap:t,p:ms[ms.length>>1],off:all.length?all[all.length-1].time:t+.1})});
+  if(N.length<4)return{err:"I couldn't match enough of your taps to singing. Tap right as each note starts."};
+  // 2) tuning and drift (singing alone wanders): follow the center note by note, unwrapped so it never jumps a semitone
+  const fracs=N.map(n=>n.p-Math.round(n.p)),cm=a=>{let c=0,s=0;for(const v of a){c+=Math.cos(2*Math.PI*v);s+=Math.sin(2*Math.PI*v)}return Math.atan2(s,c)/(2*Math.PI)};
+  let prevC=null;const cen=N.map((n,i)=>{let c=cm(fracs.slice(Math.max(0,i-4),i+5));if(prevC!=null)c=prevC+((c-prevC)-Math.round(c-prevC));prevC=c;return c});
+  const mc=N.map((n,i)=>n.p-cen[i]);
+  const T=N.map(n=>n.tap),n=T.length,lastOff=N[n-1].off;
+  // 3) the rhythm: search every way the taps could sit on the chart's beats (Viterbi over beat position and tempo).
+  //    It prefers a steady-ish tempo, notes on the beat, chord tones on strong beats, and ending where the chart ends.
+  const CH=chordObjs(o.chords),chAt=b=>{let r=CH[0];for(const c of CH)if(c.t<=b+1e-6)r=c;return r};
+  const IOI=T.slice(1).map((t,i)=>t-T[i]);
+  const NP=44,P0=.2,PR=Math.pow(9,1/(NP-1)),per=[...Array(NP)].map((_,j)=>P0*Math.pow(PR,j));   // 0.2–1.8 s per beat (33–300 bpm)
+  const lo=-Math.round(meter/u),hi=Math.round(B/u),NPOS=hi-lo+1,KM=Math.round(8/u),DJ=2;
+  const DB=[...Array(NPOS)].map((_,q)=>Math.abs(mod((q+lo)*u,meter))<1e-6),TRI=CH.map(c=>triadOf(c)),LP=per.map(Math.log),LK=[0,...Array(KM)].map((_,k)=>k?Math.log(k*u):0),OB=[...Array(NPOS+KM)].map((_,q)=>{const b=(q+lo)*u;return Math.abs(b-Math.round(b))>1e-6?.9:0});
+  const onsetC=pos=>{const b=pos*u;if(Math.abs(b-Math.round(b))>1e-6)return .9;return 0};
+  function viterbi(sh,p0){   // p0: the first note's position (a pickup starts before bar 1)
+    const pcs=mc.map(x=>Math.round(x)+sh),INF=1e18;
+    const NF=new Float64Array(n*NPOS);   // cost factor for note i starting at each position (0 = chord tone)
+    for(let i=0;i<n;i++)for(let pi=0;pi<NPOS;pi++){const b=(pi+lo)*u,m=pcs[i],ch=chAt(Math.max(0,b)),db=Math.abs(mod(b,meter))<1e-6;
+      NF[i*NPOS+pi]=TRI[CH.indexOf(ch)].includes(mod(m,12))?0:(MAJ.includes(mod(m-o.key,12))?.45:1.1)*(db?1.5:1)}
+    const noteC=(i,pos,k)=>NF[i*NPOS+pos-lo]*Math.min(2,k*u);
+    let C=new Float64Array(NPOS*NP).fill(INF);const BP=[];
+    for(let j=0;j<NP;j++)C[(p0-lo)*NP+j]=onsetC(p0)+(p0<0?.15*(-p0):0);const endB=B+p0*u;   // a pickup is taken out of the last bar
+    for(let i=0;i<n-1;i++){const D=new Float64Array(NPOS*NP).fill(INF),bp=new Int32Array(NPOS*NP).fill(-1),io=IOI[i],sig=Math.hypot(.07,.035/io);
+      const lio=Math.log(io),is2=1/(2*sig*sig),nfo=i*NPOS;let cmin=INF;for(let q=0;q<C.length;q++)if(C[q]<cmin)cmin=C[q];const cut=cmin+20;   // skip hopeless paths
+      for(let pi=0;pi<NPOS;pi++){const nf=NF[nfo+pi];for(let j=0;j<NP;j++){const c0=C[pi*NP+j];if(c0>cut)continue;
+        for(let k=1;k<=KM&&pi+k<NPOS;k++){const nc=c0+nf*Math.min(2,k*u)+OB[pi+k]+((k*u)%1?.25:0)+(k*u>=2-1e-6&&!DB[pi]?.35:0),le=lio-LK[k];
+          for(let jj=Math.max(0,j-DJ);jj<=Math.min(NP-1,j+DJ);jj++){const e=le-LP[jj];const c=nc+e*e*is2+.6*(jj-j)*(jj-j);
+            const id=(pi+k)*NP+jj;if(c<D[id]){D[id]=c;bp[id]=pi*NP+j}}}}}
+      C=D;BP.push(bp)}
+    // the last note: let it end near the end of the chart
+    let best=INF,bi=-1;for(let pi=0;pi<NPOS;pi++)for(let j=0;j<NP;j++){const c0=C[pi*NP+j];if(c0>=INF)continue;const pos=pi+lo,b=pos*u,dur=(lastOff-T[n-1])/per[j],rest=endB-b;
+      if(rest<u-1e-6)continue;const c=c0+noteC(n-1,pos,Math.round(rest/u))+1.2*Math.abs(Math.min(dur,rest)+Math.max(0,dur-rest)*.15-rest)/meter;if(c<best){best=c;bi=pi*NP+j}}
+    if(bi<0)return null;
+    const path=[bi];for(let i=n-2;i>=0;i--)path.unshift(BP[i][path[0]]);
+    return{cost:best/n,endB,g:path.map(id=>(Math.floor(id/NP)+lo)*u),sl:path.map(id=>per[id%NP])}}
+  // key: try the likely transpositions (by how well your notes fit the key), keep the one whose rhythm fits best
+  const tryS=[];for(let s=-6;s<=5;s++){let sc=0;N.forEach((x,i)=>{const m=Math.round(mc[i])+s,w=Math.min(2,(i+1<n?IOI[i]:.5));if(MAJ.includes(mod(m-o.key,12)))sc+=w;if(mod(m-o.key,12)===0)sc+=.3*w});
+    if(mod(Math.round(mc[n-1])+s-o.key,12)===0)sc+=1.5;tryS.push({s,sc})}
+  tryS.sort((a,b)=>b.sc-a.sc);
+  let best=null;for(const {s} of tryS.slice(0,3))for(let p0=lo;p0<=0;p0++){const v=viterbi(s,p0);if(v&&(!best||v.cost<best.cost))best={...v,s}}
+  if(!best)return{err:"I couldn't fit your taps to the chart. Check the chart has the right number of bars."};
+  const g=best.g,s=best.s;
+  // 4) lengths: each note lasts until the next one, unless your voice stopped well before it (a rest)
+  const notes=N.map((x,i)=>({t:g[i],m:Math.round(mc[i])+s,ly:"",conf:1}));
+  notes.forEach((x,i)=>{const nx=notes[i+1],sl=best.sl[i],offB=x.t+(N[i].off-T[i])/sl;let e=nx?nx.t:best.endB;
+    if(nx&&(T[i+1]-N[i].off)>.75*sl)e=Math.min(nx.t,Math.max(x.t+u,Math.round(offB/u)*u));
+    x.d=Math.max(u,+(e-x.t).toFixed(4))});
+  const first=notes[0].t,pickup=first<0?Math.min(meter,Math.ceil(-first-1e-6)):0;
+  const out=notes.filter(x=>x.t>=-pickup-1e-6).map(x=>({...x,t:+(x.t+pickup).toFixed(4)}));
+  const bpm=Math.round(60/median(best.sl));
+  return{notes:out,pickup,shift:s,lag:Math.round(lag*1000),offCents:Math.round(100*median(cen)),bpm,fitCost:best.cost}}
+
 /* ================= song builder (runs on the device, from the user's own singing) ================= */
-const BD={editId:null,frames:null,mode:"backing",recMode:"backing",grid:.5,notes:[],sel:0,taps:[],audio:null,bpm:90,meter:2,key:11,chords:[],pickup:0,info:""};
+const BD={editId:null,frames:null,mode:"tap",recMode:"tap",shift:0,offC:0,grid:.5,notes:[],sel:0,taps:[],audio:null,bpm:90,meter:2,key:11,chords:[],pickup:0,info:""};
 
 /* ---- chord chart ---- */
 function parseChart(text,meter){
@@ -1193,8 +1287,14 @@ function openBuilder(song){eStop();BD.editId=song?song.id:null;$("songsHome").hi
   $("bdEdit").hidden=!BD.notes.length;$("bdSave").disabled=!BD.notes.length;$("bdDelete").hidden=!(song&&userSongs().some(x=>x.id===song.id));$("bdDelConfirm").hidden=true;
   $("bdRecStatus").textContent="";$("bdStatus").textContent="";$("bdSummary").textContent=song?"Edit the notes, chords or lyrics, or record it again.":"";
   $("bdPhones").checked=!!T.phones;refreshMics();$("bdMic").onchange=e=>{T.micId=e.target.value;saveT()};bdMode(BD.recMode);chipGroup("bdGrid",String(BD.grid),bdGridPick);chartPreview();if(BD.notes.length){bdReflag();bdDraw()}window.scrollTo(0,0)}
-function bdMode(v){BD.recMode=v;chipGroup("bdRecMode",v,bdMode);$("bdBacking").hidden=v!=="backing";$("bdLoad").hidden=v!=="load";$("bdVisual").hidden=v!=="visual";
-  $("bdRec").disabled=!MIC_OK;$("bdRecV").disabled=!MIC_OK;$("bdLatOut").textContent=T.lat!=null?"Now "+T.lat+" ms":"";if(v!=="load"&&!MIC_OK)$("bdRecStatus").textContent="Recording needs the standalone version (your GitHub link). You can still load a recording here.";else if(v==="load")$("bdRecStatus").textContent=""}
+function bdMode(v){if(v==="more")v=["backing","visual","load"].includes(BD.recMode)?BD.recMode:"backing";BD.recMode=v;
+  const more=["backing","visual","load"].includes(v);chipGroup("bdRecMode",more?"more":v,bdMode);$("bdMoreMode").hidden=!more;if(more)chipGroup("bdMoreMode",v,bdMode);
+  $("bdTapBox").hidden=v!=="tap";$("bdBacking").hidden=v!=="backing";$("bdLoad").hidden=v!=="load"&&v!=="tapfile";$("bdVisual").hidden=v!=="visual";$("bdMicField").hidden=v==="load"||v==="tapfile";
+  $("bdLoadHint").textContent=v==="tapfile"?"Load a recording of you singing (guitar is fine too). Voice Memos: Share → Save to Files, then choose it here. Then play it back and tap the pad once as each word starts, like you're pointing at each note.":
+    "Load a recording of you singing, with or without guitar. Voice Memos: Share → Save to Files, then choose it here. Then play it back and tap along on every beat, starting on the first strong beat of the first full bar.";
+  $("bdTap").textContent=v==="tapfile"?"TAP each word":"TAP the beat";
+  $("bdRec").disabled=!MIC_OK;$("bdRecV").disabled=!MIC_OK;$("bdTapRec").disabled=!MIC_OK;$("bdLatOut").textContent=T.lat!=null?"Now "+T.lat+" ms":"";
+  if(v!=="load"&&v!=="tapfile"&&!MIC_OK)$("bdRecStatus").textContent="Recording needs the standalone version (your GitHub link). You can still use Tap to a recording here.";else $("bdRecStatus").textContent=""}
 $("bdChart").oninput=chartPreview;$("bdMeter").onchange=chartPreview;$("bdKey").onchange=()=>{chartPreview();if(BD.notes.length){bdReflag();bdDraw()}};
 $("bdBpm").onchange=e=>{BD.bpm=Math.max(40,Math.min(220,+e.target.value||90))};
 $("bdBack").onclick=()=>{eStop();micStop();$("builder").hidden=true;$("songsHome").hidden=false;renderSets()};
@@ -1202,9 +1302,9 @@ $("bdPhones").checked=!!T.phones;$("bdPhones").onchange=e=>{T.phones=e.target.ch
 function bdReady(){const r=chartPreview();if(!r.bars.length){bdSay("Add the chord chart first.","bad");return null}if(r.errs.length){bdSay("Fix the chord chart first.","bad");return null}return r}
 function bdSay(t,cls){$("bdRecStatus").textContent=t;$("bdRecStatus").className="status"+(cls?" "+cls:"")}
 function bdFinish(res,how){if(res.err){bdSay(res.err,"bad");return}
-  BD.notes=res.notes;BD.pickup=res.pickup;BD.sel=0;$("bdEdit").hidden=false;$("bdSave").disabled=false;bdReflag();
+  BD.notes=res.notes;BD.pickup=res.pickup;BD.sel=0;BD.shift=res.shift||0;BD.offC=res.offCents||0;$("bdEdit").hidden=false;$("bdSave").disabled=false;applyLyrics(BD.notes,$("bdLyrics").value);bdReflag();
   const fl=BD.notes.filter(n=>n.flag).length,sh=res.shift?` You sang it ${Math.abs(res.shift)} half step${Math.abs(res.shift)>1?"s":""} ${res.shift>0?"lower":"higher"} than ${keyName(+$("bdKey").value)}, so I moved it into the chart's key.`:"";
-  $("bdSummary").textContent=(BD.mode==="load"&&BD.tapNote?BD.tapNote:"")+(BD.latNote||"")+`Found ${BD.notes.length} notes${BD.pickup?` (${BD.pickup}-beat pickup)`:""}.${sh} ${fl?`${fl} flagged to check; tap Next flag.`:"Nothing looks off, but play it back to check."} Fix anything that sounds wrong, then Save.`;
+  $("bdSummary").textContent=((BD.mode==="load"||BD.mode==="tap")&&BD.tapNote?BD.tapNote:"")+(BD.latNote||"")+`Found ${BD.notes.length} notes${BD.pickup?` (${BD.pickup}-beat pickup)`:""}.${sh} ${fl?`${fl} flagged to check; tap Next flag.`:"Nothing looks off, but play it back to check."} Fix anything that sounds wrong, then Save.`;
   bdSay(how,"good");bdDraw();$("bdEdit").scrollIntoView({behavior:"smooth",block:"start"})}
 /* record with backing */
 $("bdRec").onclick=async()=>{
@@ -1263,8 +1363,10 @@ $("bdTapPlay").onclick=()=>{if(!BD.audio)return;const r=bdReady();if(!r)return;
   if(BD.tapSrc){try{BD.tapSrc.stop()}catch(e){}return}
   const a=ac(),src=a.createBufferSource();src.buffer=BD.audio.buf;src.connect(a.destination);BD.tapT0=a.currentTime+.1;src.start(BD.tapT0);BD.taps=[];BD.tapSrc=src;
   $("bdTap").disabled=false;$("bdTapPlay").textContent="■ Stop";bdSay("Tap on every beat, starting on the first strong beat of bar 1.");
-  src.onended=()=>{BD.tapSrc=null;$("bdTap").disabled=true;$("bdTapPlay").textContent="▶ Play and tap";bdUseTaps()}};
-const tapNow=()=>{if(!BD.tapSrc)return;BD.taps.push(AC.currentTime-BD.tapT0);bdSay(`${BD.taps.length} taps`)};
+  if(BD.recMode==="tapfile")bdSay("Tap the pad once as each word starts.");BD.tapAt=null;bdTapWords();
+  src.onended=()=>{BD.tapSrc=null;$("bdTap").disabled=true;$("bdTapPlay").textContent="▶ Play and tap";if(BD.recMode==="tapfile"){if(BD.taps.length<4){bdSay("I need a tap for each note. Tap Play and try again.","warn");return}
+      bdSay("Fitting your taps to the chart…");setTimeout(()=>bdFit(BD.rawFrames,BD.taps,"Fitted your recording and taps to the chart."),30)}else bdUseTaps()}};
+const tapNow=()=>{if(!BD.tapSrc)return;BD.taps.push(AC.currentTime-BD.tapT0);if(BD.recMode==="tapfile")bdTapWords();else bdSay(`${BD.taps.length} taps`)};
 $("bdTap").addEventListener("pointerdown",e=>{e.preventDefault();tapNow()});
 function tapMap(t0){let t=t0.slice(),lead=0;const dif=a=>a.slice(1).map((x,i)=>x-a[i]);
   // hesitant first taps: compare the first few taps with the steady tempo of the taps after them, and drop the ones that are off (keep the beat count)
@@ -1308,6 +1410,33 @@ function bdUseTaps2(){const t=BD.taps;
   BD.tapNote=(best.label!=="as tapped"?`Your taps looked like ${best.label==="every other tap"?"twice the chart's beat, so I counted every other tap":"half the chart's beat, so I added a beat between taps"}. `:"")+
     (best.ph?`The chords fit best with your taps moved ${Math.abs(best.ph)} beat${Math.abs(best.ph)>1?"s":""} ${best.ph>0?"later":"earlier"}, so I lined them up that way. `:"");
   bdFinish(best.res,"Transcribed from your recording and taps.")}
+/* sing and tap (the main way): sing freely, tap as each word starts */
+function lyricToks(){const toks=[];$("bdLyrics").value.replace(/\s+/g," ").trim().split(" ").filter(Boolean).forEach(w=>{if(w==="_"){toks.push("(hold)");return}
+  const parts=w.split("-");parts.forEach((p,i)=>{if(p)toks.push(p+(i<parts.length-1?"-":""))})});return toks}
+function bdTapWords(){const toks=lyricToks(),k=BD.taps.length,live=BD.recMode==="tap";
+  const word=toks.length?(toks[k]||"(end of the words)"):(k?"Tap":"Tap as each word starts"),next=toks.slice(k+1,k+4).join(" ");
+  if(live){$("bdPadWord").textContent=word;$("bdPadNext").textContent=next?"then: "+next:"";$("bdPadCount").textContent=k+(toks.length?" of "+toks.length:"")+" taps"}
+  else bdSay(toks.length?`${k} taps · next: ${word}${next?"  ("+next+")":""}`:`${k} taps`)}
+function bdFit(frames,taps,how){const r=bdReady();if(!r)return;const meter=+$("bdMeter").value,key=+$("bdKey").value;
+  BD.meter=meter;BD.key=key;BD.chords=r.chords;BD.mode="tap";BD.tapFrames=frames;BD.tapTaps=taps.slice();BD.latNote="";
+  const res=fromTaps(frames,taps,{meter,key,chords:r.chords,bars:r.bars.length,grid:BD.grid});
+  if(!res.err){BD.bpm=Math.max(40,Math.min(220,res.bpm));$("bdBpm").value=BD.bpm;const toks=lyricToks().length,nn=res.notes.length;
+    BD.tapNote=`You sang it at about ${res.bpm} bpm, so the song's tempo is set to that. `+(toks&&toks!==nn?`You tapped ${nn} notes and the lyrics have ${toks} words, so ${toks>nn?"some words have no note (a missed tap?)":"some notes have no word (an extra tap, or a word held over two notes: hyphenate it)"}. `:"")}
+  bdFinish(res,how)}
+$("bdKeyBtn2").onclick=()=>$("bdKeyBtn").onclick();
+$("bdTapRec").onclick=async()=>{if(BD.rec)return;const r=bdReady();if(!r)return;
+  const frames=[];BD.taps=[];
+  try{await micStart(f=>frames.push({time:f.time,m:f.m,voiced:f.voiced,rms:f.rms}))}
+  catch(e){bdSay(e&&e.name==="NotAllowedError"?"Microphone access was blocked. Allow it for this site in your browser settings.":"The microphone isn't available here.","bad");return}
+  BD.rec=true;BD.liveFrames=frames;$("bdPadBox").hidden=false;$("bdTapRec").disabled=true;$("bdTapRec").textContent="Listening…";bdTapWords();
+  bdSay("Listening. Sing, and tap the pad as each word starts. Tap Done at the end.");$("bdPadBox").scrollIntoView({behavior:"smooth",block:"center"})};
+$("bdPad").addEventListener("pointerdown",e=>{e.preventDefault();if(!BD.rec||BD.recMode!=="tap")return;BD.taps.push(AC.currentTime);bdTapWords();
+  const p=$("bdPad");p.classList.add("hit");setTimeout(()=>p.classList.remove("hit"),90);try{navigator.vibrate&&navigator.vibrate(8)}catch(_){}});
+$("bdPad").addEventListener("contextmenu",e=>e.preventDefault());
+$("bdTapUndo").onclick=()=>{if(BD.taps.length){BD.taps.pop();bdTapWords()}};
+$("bdTapDone").onclick=()=>{if(!BD.rec)return;micStop();BD.rec=false;$("bdPadBox").hidden=true;$("bdTapRec").disabled=!MIC_OK;$("bdTapRec").textContent="● Start again";
+  if(BD.taps.length<4){bdSay("I need a tap for each note you sing (at least 4). Tap Start and try again.","warn");return}
+  bdSay("Fitting your singing to the chart…");const fr=BD.liveFrames,tp=BD.taps.slice();setTimeout(()=>bdFit(fr,tp,"Fitted your singing to the chart."),30)};
 /* editor */
 function bdReflag(){flagNotes(BD.notes,parseChart($("bdChart").value,+$("bdMeter").value).chords,BD.pickup,+$("bdKey").value)}
 function bdDraw(){if(!BD.notes.length)return;const s=fixPickupChords(bdSong()),H=harmonize(s,0,{});BD.sel=Math.max(0,Math.min(BD.sel,BD.notes.length-1));
@@ -1319,7 +1448,7 @@ function bdDraw(){if(!BD.notes.length)return;const s=fixPickupChords(bdSong()),H
     if(x.flag){c.strokeStyle=cssv("--warn");c.lineWidth=2;c.strokeRect(x0,Y(x.m)-8,Math.max(4,x1-x0),16)}
     if(i===BD.sel){c.strokeStyle=cssv("--accent");c.lineWidth=3;c.strokeRect(x0-1,Y(x.m)-9,Math.max(5,x1-x0+2),18)}});
   const pk=BD.pickup,meter=+$("bdMeter").value,bar=n.t<pk?"pickup":"bar "+(Math.floor((n.t-pk)/meter)+1)+", beat "+(Math.floor(mod(n.t-pk,meter))+1);
-  const dur=n.d===1?"1 beat":n.d+" beats";
+  const dur=n.d===1?"1 beat":n.d+" beats";chipGroup("bdLen",String(n.d),bdSetLen);
   $("bdSel").textContent=`Note ${BD.sel+1} of ${BD.notes.length}: ${noteName(n.m,+$("bdKey").value)}, ${dur}, ${bar}${n.ly?` "${n.ly}"`:""}${n.flag?` · Check: ${n.flag}`:""}`}
 function bdEdit(fn){const n=BD.notes[BD.sel];if(!n)return;fn(n);BD.notes.sort((a,b)=>a.t-b.t);applyLyrics(BD.notes,$("bdLyrics").value);bdReflag();bdDraw()}
 const G=()=>BD.grid;
@@ -1330,6 +1459,24 @@ $("bdShorter").onclick=()=>bdEdit(n=>{if(n.d>G()+1e-6)n.d-=G()});
 $("bdSplit").onclick=()=>bdEdit(n=>{if(n.d<2*G()-1e-6)return;const h=Math.round(n.d/2/G())*G();BD.notes.splice(BD.sel+1,0,{t:n.t+h,d:n.d-h,m:n.m,conf:1,ly:""});n.d=h});
 $("bdJoin").onclick=()=>bdEdit(n=>{const nx=BD.notes[BD.sel+1];if(!nx)return;n.d=nx.t+nx.d-n.t;BD.notes.splice(BD.sel+1,1)});
 $("bdDel").onclick=()=>{if(BD.notes.length<2)return;BD.notes.splice(BD.sel,1);BD.sel=Math.min(BD.sel,BD.notes.length-1);applyLyrics(BD.notes,$("bdLyrics").value);bdReflag();bdDraw()};
+function bdSetLen(v){bdEdit(n=>{const i=BD.notes.indexOf(n),d=+v,delta=d-n.d,nx=BD.notes[i+1],rip=$("bdRipple").checked;if(Math.abs(delta)<1e-6)return;
+  if(rip||!nx){if(nx)for(let j=i+1;j<BD.notes.length;j++)BD.notes[j].t+=delta;n.d=d;return}
+  const adj=Math.abs(nx.t-(n.t+n.d))<1e-6,ne=nx.t+nx.d,ns=n.t+d;
+  if(delta>0&&ns>nx.t){if(ne-ns>=G()-1e-6){nx.t=ns;nx.d=ne-ns}else for(let j=i+1;j<BD.notes.length;j++)BD.notes[j].t+=delta}
+  else if(delta<0&&adj){nx.t=ns;nx.d=ne-ns}
+  n.d=d})}
+$("bdSingNote").onclick=async()=>{if(BD.rec||!BD.notes.length)return;const n=BD.notes[BD.sel],fr=[];
+  try{await micStart(f=>{if(f.voiced)fr.push(f.m)})}catch(e){$("bdSel").textContent="The microphone isn't available here.";return}
+  $("bdSingNote").disabled=true;$("bdSel").textContent="Listening… sing the note and hold it.";
+  setTimeout(()=>{micStop();$("bdSingNote").disabled=false;const ms=fr.slice(Math.floor(fr.length*.25));
+    if(ms.length<8){bdDraw();$("bdSel").textContent="I didn't hear a note. Try again a little louder.";return}
+    const m=Math.round(median(ms)-BD.offC/100)+BD.shift;bdEdit(x=>{x.m=m;x.conf=1})},1700)};
+function bdShiftAll(dir){if(!BD.notes.length)return;const meter=+$("bdMeter").value,ns=BD.notes;
+  if(dir<0){if(ns[0].t>=1-1e-6)ns.forEach(x=>x.t-=1);else if(BD.pickup<meter)BD.pickup+=1;else return}
+  else{if(BD.pickup>=1)BD.pickup-=1;else ns.forEach(x=>x.t+=1)}
+  const r=parseChart($("bdChart").value,meter),end=BD.pickup+r.beats,last=ns[ns.length-1];if(last.t+last.d>end+1e-6&&end-last.t>=G())last.d=end-last.t;
+  bdReflag();bdDraw()}
+$("bdAllEarly").onclick=()=>bdShiftAll(-1);$("bdAllLate").onclick=()=>bdShiftAll(1);
 $("bdFlag").onclick=()=>{const n=BD.notes.length;for(let k=1;k<=n;k++){const i=(BD.sel+k)%n;if(BD.notes[i].flag){BD.sel=i;bdDraw();return}}$("bdSel").textContent="No flagged notes left."};
 $("bdLane").addEventListener("click",e=>{if(!BD.notes.length)return;const r=e.target.getBoundingClientRect(),w=r.width,span=w<420?7:10,b=BD.notes[BD.sel].t+((e.clientX-r.left)-w*.26)/(w/span);
   let best=0,bd=1e9;BD.notes.forEach((n,i)=>{const d=b<n.t?n.t-b:b>n.t+n.d?b-n.t-n.d:0;if(d<bd){bd=d;best=i}});BD.sel=best;bdDraw()});
@@ -1337,7 +1484,7 @@ function bdPlay(withParts){const s=fixPickupChords(bdSong()),pref=defPref(),H=ha
   const lv=withParts?{tenor:.8,lead:.8,bari:.8,gtr:.35,click:0}:{lead:.9,gtr:.35,click:0};
   ePlay({ev:buildEvents(s,H,pref),from:withParts?0:BD.notes[BD.sel].t,to:songLen(s),countIn:false,levels:lv,bpm:s.bpm,meter:s.meter,tone:"ooh"})}
 $("bdPlaySel").onclick=()=>{if(E.on)eStop();else bdPlay(false)};$("bdPlayParts").onclick=()=>{if(E.on)eStop();else bdPlay(true)};
-function bdGridPick(v){BD.grid=+v;chipGroup("bdGrid",String(v),bdGridPick);if(BD.frames)bdDoTranscribe(BD.mode)}
+function bdGridPick(v){BD.grid=+v;chipGroup("bdGrid",String(v),bdGridPick);if(BD.mode==="tap"&&BD.tapFrames)bdFit(BD.tapFrames,BD.tapTaps,"Fitted again with the new rhythm detail.");else if(BD.frames&&BD.mode!=="tap")bdDoTranscribe(BD.mode)}
 $("bdLyrics").oninput=()=>{applyLyrics(BD.notes,$("bdLyrics").value);if(BD.notes.length)bdDraw()};
 $("bdSave").onclick=()=>{if(!BD.notes.length)return;const r=bdReady();if(!r)return;applyLyrics(BD.notes,$("bdLyrics").value);
   const s=fixPickupChords(bdSong());s.notes=BD.notes.map(n=>({t:n.t,d:n.d,m:n.m,ly:n.ly||""}));
