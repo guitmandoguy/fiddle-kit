@@ -51,6 +51,12 @@ h2{font:700 1.1rem/1.2 var(--f-display);margin:0}
 .ivstats b{font-weight:500}.ivstats .g{color:var(--good)}.ivstats .b{color:var(--bad)}
 .mini{display:flex;gap:6px;flex-wrap:wrap}
 .mini button{appearance:none;border:0;background:none;color:var(--accent);font:600 .85rem var(--f-body);padding:2px 4px;cursor:pointer;text-decoration:underline;text-underline-offset:3px}
+.seg{display:grid;grid-template-columns:1fr 1fr;gap:4px;background:var(--chip);border:1px solid var(--line);border-radius:10px;padding:3px}
+.seg button{appearance:none;border:0;background:none;color:var(--ink);font:600 .9rem var(--f-body);padding:7px 6px;border-radius:7px;cursor:pointer}
+.seg button[aria-selected="true"]{background:var(--surface);box-shadow:0 1px 2px rgba(0,0,0,.12)}
+.sub-view{display:flex;flex-direction:column;gap:20px}
+.big-play{font-size:1.05rem;padding:14px 16px}
+.big-play.live{background:var(--ink);border-color:var(--ink);color:var(--bg)}
 .tabs{display:grid;grid-template-columns:1fr 1fr 1fr;background:var(--chip);border:1px solid var(--line);border-radius:12px;padding:4px;gap:4px;margin-top:14px}
 .tabs a{text-align:center;padding:9px 6px;border-radius:9px;color:var(--ink);text-decoration:none;font-weight:600;font-size:.95rem}
 .tabs a[aria-selected="true"]{background:var(--surface);box-shadow:0 1px 2px rgba(0,0,0,.12)}
@@ -141,6 +147,8 @@ ul.report b{font-weight:600}
 
   <!-- ================= EAR TRAINER ================= -->
   <div class="view" id="viewTrainer">
+    <div class="seg" role="tablist" aria-label="Cents mode"><button id="cSegQuiz" role="tab" aria-selected="true">Quiz</button><button id="cSegTrain" role="tab" aria-selected="false">Train</button></div>
+    <div class="sub-view" id="cQuiz">
     <p class="sub">Two tones play. One is the note, one is off by your cent amount. Pick the higher one.</p>
     <div class="stage" aria-live="polite">
       <div class="trial-head">
@@ -220,10 +228,66 @@ ul.report b{font-weight:600}
         </div>
       </div>
     </section>
+    </div>
+
+    <div class="sub-view" id="cTrain" hidden>
+      <p class="sub">Hear what a cent difference sounds like. Pick the gap, then how you want to hear it.</p>
+      <div class="stage" aria-live="polite">
+        <div class="trial-head">
+          <div class="trial-note" id="ctNote">A4<small id="ctHz">440.0 Hz</small></div>
+          <div class="label">Gap <span class="mono" id="ctCentsOut" style="font-size:1rem;color:var(--ink)">10¢</span></div>
+        </div>
+        <div class="info" id="ctInfo"></div>
+        <div class="row"><button class="btn primary big-play" id="ctPlay">▶ Play</button></div>
+        <p class="hint">Change anything while it plays and you'll hear it right away.</p>
+      </div>
+      <section class="settings">
+        <div class="field">
+          <span class="label">How to hear it</span>
+          <div class="chips" id="ctModeChips">
+            <button class="chip" data-mode="osc" aria-pressed="true">Glide back and forth</button>
+            <button class="chip" data-mode="burst" aria-pressed="false">Quick alternating bursts</button>
+            <button class="chip" data-mode="beat" aria-pressed="false">Both at once (beats)</button>
+          </div>
+        </div>
+        <div class="field" id="ctSpeedField">
+          <span class="label"><span id="ctSpeedLabel">Glides per second</span> <span class="mono" id="ctSpeedOut">1.5</span></span>
+          <input type="range" id="ctSpeed" min="0.2" max="8" step="0.1" value="1.5" aria-label="Speed">
+        </div>
+        <div class="field">
+          <span class="label">Cent difference</span>
+          <div class="cents-row">
+            <input type="range" id="ctCentsRange" min="1" max="100" step="1" value="10" aria-label="Cent difference slider">
+            <input type="number" id="ctCentsNum" min="1" max="100" step="1" value="10" aria-label="Cent difference">
+          </div>
+          <div class="chips">
+            <button class="chip" id="ctUp" aria-pressed="true">Second pitch sharp</button>
+            <button class="chip" id="ctDown" aria-pressed="false">Second pitch flat</button>
+          </div>
+        </div>
+        <div class="field">
+          <span class="label">Note</span>
+          <div class="chips" id="ctStringChips"></div>
+          <div class="row" style="flex-wrap:nowrap">
+            <select id="ctNoteName" aria-label="Note name" style="flex:1"></select>
+            <select id="ctOct" aria-label="Octave" style="flex:1"></select>
+          </div>
+        </div>
+        <div class="field">
+          <span class="label">Tone</span>
+          <div class="chips">
+            <button class="chip" id="ctSine" aria-pressed="true">Pure sine</button>
+            <button class="chip" id="ctFid" aria-pressed="false">Fiddle-like</button>
+          </div>
+        </div>
+      </section>
+    </div>
   </div>
 
   <!-- ================= INTERVAL TRAINER ================= -->
   <div class="view" id="viewIntervals" hidden>
+    <div class="seg" role="tablist" aria-label="Intervals mode"><button id="iSegQuiz" role="tab" aria-selected="true">Quiz</button><button id="iSegTrain" role="tab" aria-selected="false">Train</button></div>
+    <div class="sub-view" id="iQuiz">
     <p class="sub">Hear the base note and a second note, then name the interval.</p>
     <div class="stage" aria-live="polite">
       <div class="trial-head">
@@ -291,6 +355,65 @@ ul.report b{font-weight:600}
         </div>
       </div>
     </section>
+    </div>
+
+    <div class="sub-view" id="iTrain" hidden>
+      <p class="sub">Pick an interval and hear it, one note after the other or together as a chord.</p>
+      <div class="stage" aria-live="polite">
+        <div class="trial-head">
+          <div class="trial-note" id="itName">Perfect 5th<small id="itNotes">D4 → A4</small></div>
+        </div>
+        <div class="info" id="itInfo"></div>
+        <div class="row" style="align-items:center">
+          <button class="btn primary big-play" id="itPlay">▶ Play</button>
+          <label class="toggle" style="flex:none"><input type="checkbox" id="itLoop"> Repeat</label>
+        </div>
+      </div>
+      <section class="settings">
+        <div class="field">
+          <span class="label">Interval</span>
+          <div class="chips" id="itIntChips"></div>
+        </div>
+        <div class="field">
+          <span class="label">How it plays</span>
+          <div class="chips" id="itStyleChips">
+            <button class="chip" data-style="mel" aria-pressed="false">One after the other</button>
+            <button class="chip" data-style="har" aria-pressed="false">Together (chord)</button>
+            <button class="chip" data-style="both" aria-pressed="true">Both</button>
+          </div>
+        </div>
+        <div class="field">
+          <span class="label">Second note</span>
+          <div class="chips">
+            <button class="chip" id="itUp" aria-pressed="true">Above</button>
+            <button class="chip" id="itDown" aria-pressed="false">Below</button>
+          </div>
+        </div>
+        <div class="field">
+          <span class="label">Tuning</span>
+          <div class="chips" id="itTuneChips">
+            <button class="chip" data-tune="et" aria-pressed="true">Equal temperament</button>
+            <button class="chip" data-tune="just" aria-pressed="false">Just (pure)</button>
+            <button class="chip" data-tune="cmp" aria-pressed="false">Equal, then just</button>
+          </div>
+        </div>
+        <div class="field">
+          <span class="label">Base note</span>
+          <div class="chips" id="itStringChips"></div>
+          <div class="row" style="flex-wrap:nowrap">
+            <select id="itNote" aria-label="Base note name" style="flex:1"></select>
+            <select id="itOct" aria-label="Base octave" style="flex:1"></select>
+          </div>
+        </div>
+        <div class="field">
+          <span class="label">Tone</span>
+          <div class="chips">
+            <button class="chip" id="itSine" aria-pressed="false">Pure sine</button>
+            <button class="chip" id="itFid" aria-pressed="true">Fiddle-like</button>
+          </div>
+        </div>
+      </section>
+    </div>
   </div>
 
   <!-- ================= RECORDING GRADER ================= -->
@@ -393,6 +516,7 @@ function showView(){
   $("viewTrainer").hidden=g||iv;$("viewGrader").hidden=!g;$("viewIntervals").hidden=!iv;
   $("tabTrainer").setAttribute("aria-selected",!g&&!iv);$("tabGrader").setAttribute("aria-selected",g);$("tabIntervals").setAttribute("aria-selected",iv);
   if(g){if(!G.buf&&!G.loading)loadExample();else drawAll()}
+  if(window.ctStop)ctStop();if(window.itStop)itStop();
 }
 window.addEventListener("hashchange",showView);
 
@@ -452,7 +576,7 @@ function unlockAudio(){
 function getCtx(){unlockAudio();if(!ctx){ctx=new (window.AudioContext||window.webkitAudioContext)();
   fiddleWave=ctx.createPeriodicWave(HARM.re,HARM.im)}
   if(ctx.state==="suspended")ctx.resume();return ctx}
-function tone(f,start,dur,type,scale){
+function tone(f,start,dur,type,scale,dest){
   type=type||S.tone;scale=scale||1;
   const c=ctx,o=c.createOscillator(),g=c.createGain();
   if(type==="fiddle"){o.setPeriodicWave(fiddleWave)}else o.type="sine";
@@ -461,7 +585,7 @@ function tone(f,start,dur,type,scale){
   g.gain.setValueAtTime(0,start);g.gain.linearRampToValueAtTime(peak,start+a);
   g.gain.setValueAtTime(peak,start+dur-r);g.gain.linearRampToValueAtTime(0,start+dur);
   if(type==="fiddle"){const lp=c.createBiquadFilter();lp.type="lowpass";lp.frequency.value=4500;o.connect(lp).connect(g)}else o.connect(g);
-  g.connect(c.destination);o.start(start);o.stop(start+dur+.02);
+  g.connect(dest||c.destination);o.start(start);o.stop(start+dur+.02);
 }
 let playTimers=[];
 async function playPair(){
@@ -476,6 +600,7 @@ async function playPair(){
     setTimeout(()=>mark(1,true),80+(d+gp)*1000),setTimeout(()=>{mark(1,false);if(trial&&!trial.done)setPads(true)},80+(2*d+gp)*1000));
 }
 function newTrial(){
+  if(window.ctStop)ctStop();
   let note=S.note,oct=S.oct;
   if(S.randNote){const midi=55+Math.floor(Math.random()*25);note=midi%12;oct=Math.floor(midi/12)-1}
   const base=freq(note,oct);
@@ -521,7 +646,7 @@ $("playBtn").onclick=newTrial;
 $("replayBtn").onclick=()=>{if(trial){if(!trial.done)setPads(false);playPair()}};
 $("pad0").onclick=()=>answer(0);$("pad1").onclick=()=>answer(1);
 $("resetBtn").onclick=()=>{score={c:0,n:0,streak:0,run:0,hist:[]};renderScore()};
-document.addEventListener("keydown",e=>{if(location.hash==="#grader"||location.hash==="#intervals")return;
+document.addEventListener("keydown",e=>{if(location.hash==="#grader"||location.hash==="#intervals"||!$("cTrain").hidden)return;
   if(e.target.tagName==="INPUT"||e.target.tagName==="SELECT")return;
   if(e.key==="1")answer(0);else if(e.key==="2")answer(1);else if(e.key===" "){e.preventDefault();newTrial()}else if(e.key==="r")$("replayBtn").click()});
 sync();renderScore();
@@ -582,6 +707,7 @@ function ivRenderAns(){
 }
 function ivSetAns(on){document.querySelectorAll("#ivAns .ansb").forEach(b=>b.disabled=!on)}
 function ivNew(){
+  if(window.itStop)itStop();
   const pool=IV.filter(v=>IS.ints.includes(v[0]));
   if(!pool.length){$("ivStatus").className="status bad";$("ivStatus").textContent="Pick at least one interval below.";return}
   const midi=IS.rand?55+Math.floor(Math.random()*20):(IS.oct+1)*12+IS.note;
@@ -629,6 +755,157 @@ $("ivPlay").onclick=ivNew;
 $("ivReplay").onclick=()=>{if(ivTrial){if(!ivTrial.done)ivSetAns(false);ivPlay()}};
 $("ivReset").onclick=()=>{ivScore={c:0,n:0,streak:0,per:{}};ivRenderScore()};
 ivSync();ivRenderScore();
+
+/* ================= TRAINING (cents + intervals) ================= */
+const SUB={c:"quiz",i:"quiz"};
+try{Object.assign(SUB,JSON.parse(localStorage.getItem("subViews")||"{}"))}catch(e){}
+function setSub(k,v){SUB[k]=v;try{localStorage.setItem("subViews",JSON.stringify(SUB))}catch(e){}
+  $(k+"Quiz").hidden=v!=="quiz";$(k+"Train").hidden=v!=="train";
+  $(k+"SegQuiz").setAttribute("aria-selected",v==="quiz");$(k+"SegTrain").setAttribute("aria-selected",v==="train");
+  ctStop();itStop();}
+$("cSegQuiz").onclick=()=>setSub("c","quiz");$("cSegTrain").onclick=()=>setSub("c","train");
+$("iSegQuiz").onclick=()=>setSub("i","quiz");$("iSegTrain").onclick=()=>setSub("i","train");
+function voice(f,type){const o=ctx.createOscillator();if(type==="fiddle")o.setPeriodicWave(fiddleWave);else o.type="sine";o.frequency.value=f;
+  let n=o;if(type==="fiddle"){const lp=ctx.createBiquadFilter();lp.type="lowpass";lp.frequency.value=4500;o.connect(lp);n=lp}return{o,n}}
+const peakOf=t=>t==="fiddle"?.16:.32;
+function notePicker(prefix,st,onChange){
+  NAMES.forEach((n,i)=>$(prefix+(prefix==="ct"?"NoteName":"Note")).add(new Option(n,i)));
+  for(let o=2;o<=6;o++)$(prefix+"Oct").add(new Option(o,o));
+  STRINGS.forEach(([n,o])=>{const b=document.createElement("button");b.className="chip";b.textContent=n+o;b.dataset.n=NAMES.indexOf(n);b.dataset.o=o;
+    b.onclick=()=>{st.note=+b.dataset.n;st.oct=o;onChange()};$(prefix+"StringChips").append(b)});
+  $(prefix+(prefix==="ct"?"NoteName":"Note")).onchange=e=>{st.note=+e.target.value;onChange()};
+  $(prefix+"Oct").onchange=e=>{st.oct=+e.target.value;onChange()};
+}
+function syncPicker(prefix,st){$(prefix+(prefix==="ct"?"NoteName":"Note")).value=st.note;$(prefix+"Oct").value=st.oct;
+  document.querySelectorAll("#"+prefix+"StringChips .chip").forEach(b=>b.setAttribute("aria-pressed",+b.dataset.n===st.note&&+b.dataset.o===st.oct))}
+
+/* ---- cents training ---- */
+const CT={note:9,oct:4,cents:10,sharp:true,mode:"osc",osc:1.5,burst:6,tone:"sine"};
+try{Object.assign(CT,JSON.parse(localStorage.getItem("centsTrain")||"{}"))}catch(e){}
+const saveCT=()=>{try{localStorage.setItem("centsTrain",JSON.stringify(CT))}catch(e){}};
+let ctLive=null;
+const ctSigned=()=>(CT.sharp?1:-1)*CT.cents;
+const ctF=()=>{const f0=freq(CT.note,CT.oct);return[f0,f0*2**(ctSigned()/1200)]};
+function ctSync(){
+  const [f0,f1]=ctF();syncPicker("ct",CT);
+  $("ctCentsRange").value=CT.cents;$("ctCentsNum").value=CT.cents;
+  $("ctUp").setAttribute("aria-pressed",CT.sharp);$("ctDown").setAttribute("aria-pressed",!CT.sharp);
+  $("ctSine").setAttribute("aria-pressed",CT.tone==="sine");$("ctFid").setAttribute("aria-pressed",CT.tone==="fiddle");
+  document.querySelectorAll("#ctModeChips .chip").forEach(b=>b.setAttribute("aria-pressed",b.dataset.mode===CT.mode));
+  $("ctNote").firstChild.nodeValue=NAMES[CT.note]+CT.oct;$("ctHz").textContent=f0.toFixed(1)+" Hz";
+  $("ctCentsOut").textContent=(CT.sharp?"+":"−")+CT.cents+"¢";
+  const sp=$("ctSpeed");$("ctSpeedField").hidden=CT.mode==="beat";
+  if(CT.mode==="osc"){sp.min=.2;sp.max=8;sp.step=.1;sp.value=CT.osc;$("ctSpeedLabel").textContent="Glides per second";$("ctSpeedOut").textContent=(+CT.osc).toFixed(1)}
+  else if(CT.mode==="burst"){sp.min=1;sp.max=16;sp.step=.5;sp.value=CT.burst;$("ctSpeedLabel").textContent="Notes per second";$("ctSpeedOut").textContent=(+CT.burst).toFixed(1)}
+  const a=f0.toFixed(1),b=f1.toFixed(1);
+  $("ctInfo").textContent=CT.mode==="osc"?"Glides smoothly between "+a+" and "+b+" Hz, "+(+CT.osc).toFixed(1)+" times a second.":
+    CT.mode==="burst"?"Alternates "+a+" and "+b+" Hz, "+(+CT.burst).toFixed(1)+" notes a second.":
+    "Both pitches together beat about "+Math.abs(f1-f0).toFixed(1)+" times a second. As two notes get closer in tune, the beats slow down and disappear.";
+}
+function ctStart(){
+  getCtx();if(ctx.state!=="running")ctx.resume();
+  const c=ctx,t=c.currentTime,out=c.createGain(),[f0,f1]=ctF(),pk=peakOf(CT.tone);
+  out.gain.setValueAtTime(0,t);out.gain.linearRampToValueAtTime(1,t+.05);out.connect(c.destination);
+  const L={mode:CT.mode,tone:CT.tone,out,nodes:[]};
+  if(CT.mode==="osc"){
+    const v=voice(f0,CT.tone),g=c.createGain();g.gain.value=pk;v.n.connect(g).connect(out);
+    const lfo=c.createOscillator(),dep=c.createGain();lfo.type="sine";lfo.frequency.value=CT.osc;
+    dep.gain.value=ctSigned()/2;v.o.detune.value=ctSigned()/2;lfo.connect(dep).connect(v.o.detune);
+    v.o.start(t);lfo.start(t);Object.assign(L,{o:v.o,lfo,dep});L.nodes.push(v.o,lfo);
+  }else if(CT.mode==="beat"){
+    const a=voice(f0,CT.tone),b=voice(f1,CT.tone),g=c.createGain();g.gain.value=pk*.7;a.n.connect(g);b.n.connect(g);g.connect(out);
+    a.o.start(t);b.o.start(t);Object.assign(L,{o:a.o,o2:b.o});L.nodes.push(a.o,b.o);
+  }else{
+    const v=voice(f0,CT.tone),g=c.createGain();g.gain.value=0;v.n.connect(g).connect(out);v.o.start(t);
+    Object.assign(L,{o:v.o,g,next:t+.05,idx:0});L.nodes.push(v.o);
+    const sched=()=>{while(L.next<c.currentTime+.15){const per=1/CT.burst,d=per*.82,a=Math.min(.012,d/4),r=Math.min(.025,d/4);
+        v.o.detune.setValueAtTime(L.idx%2?ctSigned():0,L.next);
+        g.gain.setValueAtTime(0,L.next);g.gain.linearRampToValueAtTime(pk,L.next+a);g.gain.setValueAtTime(pk,L.next+d-r);g.gain.linearRampToValueAtTime(0,L.next+d);
+        L.next+=per;L.idx++}};
+    sched();L.timer=setInterval(sched,25);
+  }
+  ctLive=L;$("ctPlay").textContent="■ Stop";$("ctPlay").classList.add("live");
+}
+function ctStop(){
+  if(!ctLive)return;const L=ctLive;ctLive=null;clearInterval(L.timer);
+  try{const t=ctx.currentTime;L.out.gain.cancelScheduledValues(t);L.out.gain.setValueAtTime(L.out.gain.value,t);L.out.gain.linearRampToValueAtTime(0,t+.04);
+    L.nodes.forEach(n=>n.stop(t+.06));setTimeout(()=>{try{L.out.disconnect()}catch(e){}},200)}catch(e){}
+  $("ctPlay").textContent="▶ Play";$("ctPlay").classList.remove("live");
+}
+window.ctStop=ctStop;
+function ctChanged(){
+  saveCT();ctSync();if(!ctLive)return;
+  const L=ctLive;if(L.mode!==CT.mode||L.tone!==CT.tone){ctStop();ctStart();return}
+  const t=ctx.currentTime,[f0,f1]=ctF();
+  L.o.frequency.setTargetAtTime(f0,t,.01);
+  if(L.mode==="osc"){L.dep.gain.setTargetAtTime(ctSigned()/2,t,.01);L.o.detune.setTargetAtTime(ctSigned()/2,t,.01);L.lfo.frequency.setTargetAtTime(CT.osc,t,.02)}
+  if(L.mode==="beat")L.o2.frequency.setTargetAtTime(f1,t,.01);
+}
+notePicker("ct",CT,ctChanged);
+$("ctCentsRange").oninput=e=>{CT.cents=clampC(e.target.value);ctChanged()};
+$("ctCentsNum").onchange=e=>{CT.cents=clampC(e.target.value);ctChanged()};
+$("ctUp").onclick=()=>{CT.sharp=true;ctChanged()};$("ctDown").onclick=()=>{CT.sharp=false;ctChanged()};
+$("ctSine").onclick=()=>{CT.tone="sine";ctChanged()};$("ctFid").onclick=()=>{CT.tone="fiddle";ctChanged()};
+document.querySelectorAll("#ctModeChips .chip").forEach(b=>b.onclick=()=>{CT.mode=b.dataset.mode;ctChanged()});
+$("ctSpeed").oninput=e=>{if(CT.mode==="osc")CT.osc=+e.target.value;else if(CT.mode==="burst")CT.burst=+e.target.value;ctChanged()};
+$("ctPlay").onclick=()=>{ctLive?ctStop():ctStart()};
+ctSync();
+
+/* ---- interval training ---- */
+const IT={note:2,oct:4,k:"P5",style:"both",up:true,tune:"et",tone:"fiddle",loop:false};
+try{Object.assign(IT,JSON.parse(localStorage.getItem("intervalTrain")||"{}"))}catch(e){}
+const saveIT=()=>{try{localStorage.setItem("intervalTrain",JSON.stringify(IT))}catch(e){}};
+let itLive=null;
+IV.forEach(v=>{const b=document.createElement("button");b.className="chip";b.textContent=v[0];b.title=v[1];b.dataset.k=v[0];
+  b.onclick=()=>{IT.k=v[0];itChanged()};$("itIntChips").append(b)});
+function itSync(){
+  syncPicker("it",IT);const v=IV.find(x=>x[0]===IT.k)||IV[6];
+  document.querySelectorAll("#itIntChips .chip").forEach(b=>b.setAttribute("aria-pressed",b.dataset.k===IT.k));
+  document.querySelectorAll("#itStyleChips .chip").forEach(b=>b.setAttribute("aria-pressed",b.dataset.style===IT.style));
+  document.querySelectorAll("#itTuneChips .chip").forEach(b=>b.setAttribute("aria-pressed",b.dataset.tune===IT.tune));
+  $("itUp").setAttribute("aria-pressed",IT.up);$("itDown").setAttribute("aria-pressed",!IT.up);
+  $("itSine").setAttribute("aria-pressed",IT.tone==="sine");$("itFid").setAttribute("aria-pressed",IT.tone==="fiddle");$("itLoop").checked=IT.loop;
+  const m=(IT.oct+1)*12+IT.note,m2=m+(IT.up?1:-1)*v[2];
+  $("itName").firstChild.nodeValue=v[1];$("itNotes").textContent=mName(m)+(IT.up?" → ":" ↓ ")+mName(m2);
+  const jc=1200*Math.log2(v[3])-v[2]*100;
+  $("itInfo").textContent=v[2]+" half step"+(v[2]>1?"s":"")+". "+(v[2]===12?"Equal and just octaves are the same.":
+    "Just is "+Math.abs(jc).toFixed(1)+"¢ "+(jc>0?"wider":"narrower")+" than equal temperament.");
+}
+function itSeq(){   // [{t, fs:[...]}] relative times
+  const v=IV.find(x=>x[0]===IT.k)||IV[6],m=(IT.oct+1)*12+IT.note,f0=S.refA*2**((m-69)/12),seq=[];let t=0;
+  const tunings=IT.tune==="cmp"?[false,true]:[IT.tune==="just"];
+  tunings.forEach((just,ti)=>{
+    const r=just?v[3]:2**(v[2]/12),f1=IT.up?f0*r:f0/r;
+    if(IT.style!=="har"){seq.push({t,d:.85,fs:[f0]});seq.push({t:t+1,d:.85,fs:[f1]});t+=2.1}
+    if(IT.style!=="mel"){seq.push({t,d:2,fs:[f0,f1]});t+=2.3}
+    if(ti<tunings.length-1)t+=.5;
+  });
+  return{seq,len:t};
+}
+function itRun(){
+  getCtx();if(ctx.state!=="running")ctx.resume();
+  const bus=ctx.createGain();bus.connect(ctx.destination);const t0=ctx.currentTime+.08,{seq,len}=itSeq();
+  for(const e of seq)for(const f of e.fs)tone(f,t0+e.t,e.d,IT.tone,e.fs.length>1?.7:1,bus);
+  if(itLive&&itLive.bus){const old=itLive.bus;setTimeout(()=>{try{old.disconnect()}catch(e){}},100)}
+  itLive={bus,timer:setTimeout(()=>{if(IT.loop&&itLive)itRun();else itStop()},(len+(IT.loop?.6:0))*1000)};
+  $("itPlay").textContent="■ Stop";$("itPlay").classList.add("live");
+}
+function itStop(){
+  if(itLive){clearTimeout(itLive.timer);const b=itLive.bus;itLive=null;
+    try{const t=ctx.currentTime;b.gain.setValueAtTime(b.gain.value,t);b.gain.linearRampToValueAtTime(0,t+.04);setTimeout(()=>{try{b.disconnect()}catch(e){}},120)}catch(e){}}
+  $("itPlay").textContent="▶ Play";$("itPlay").classList.remove("live");
+}
+window.itStop=itStop;
+function itChanged(){saveIT();itSync()}
+notePicker("it",IT,itChanged);
+document.querySelectorAll("#itStyleChips .chip").forEach(b=>b.onclick=()=>{IT.style=b.dataset.style;itChanged()});
+document.querySelectorAll("#itTuneChips .chip").forEach(b=>b.onclick=()=>{IT.tune=b.dataset.tune;itChanged()});
+$("itUp").onclick=()=>{IT.up=true;itChanged()};$("itDown").onclick=()=>{IT.up=false;itChanged()};
+$("itSine").onclick=()=>{IT.tone="sine";itChanged()};$("itFid").onclick=()=>{IT.tone="fiddle";itChanged()};
+$("itLoop").onchange=e=>{IT.loop=e.target.checked;itChanged()};
+$("itPlay").onclick=()=>{itLive?itStop():itRun()};
+itSync();
+setSub("c",SUB.c);setSub("i",SUB.i);
 
 /* ================= RECORDING GRADER ================= */
 const GN=["C","C♯","D","E♭","E","F","F♯","G","G♯","A","B♭","B"];
