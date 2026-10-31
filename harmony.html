@@ -195,9 +195,19 @@ ul.cues{margin:0;padding-left:1.1em;display:flex;flex-direction:column;gap:5px}
       </div>
       <div class="stage">
         <h3>2 · Record the melody</h3>
-        <div class="chips" id="bdRecMode"><button class="chip" data-v="tap">Sing and tap</button><button class="chip" data-v="tapfile">Tap to a recording</button><button class="chip" data-v="more">Other ways</button></div>
+        <div class="chips" id="bdRecMode"><button class="chip" data-v="hold">Hold with backing</button><button class="chip" data-v="tap">Sing and tap</button><button class="chip" data-v="tapfile">Tap to a recording</button><button class="chip" data-v="more">Other ways</button></div>
         <div class="chips" id="bdMoreMode" hidden><button class="chip" data-v="backing">Sing with backing</button><button class="chip" data-v="visual">On-screen beat</button><button class="chip" data-v="load">Recording + tap the beat</button></div>
         <label class="field" id="bdMicField"><span class="label">Microphone</span><select id="bdMic" aria-label="Microphone"></select></label>
+        <div class="col" id="bdHoldBox" style="gap:10px">
+          <p class="hint">Guitar plays your chart at the tempo above. Sing the melody and <b>hold the pad down for as long as each note lasts</b>: press as the word starts, let go when it ends. During the first bar of clicks, tap along with the clicks (that measures your headphone delay). If the song has pickup notes, sing them in the second bar of clicks. Wear headphones so the microphone only hears you.</p>
+          <div class="row" style="gap:14px;flex-wrap:wrap"><label class="toggle"><input type="checkbox" id="bdPhones2"> I'm wearing headphones</label><label class="toggle"><input type="checkbox" id="bdHoldClick" checked> Click on every beat</label></div>
+          <div class="row"><button class="btn primary grow" id="bdHoldRec">● Start</button></div>
+          <div id="bdHPadBox" hidden class="col" style="gap:8px">
+            <div class="cue" id="bdHBar" style="text-align:center;font:600 1.1rem var(--f-display)"></div>
+            <button id="bdHPad" class="tappad"><span id="bdHWord" class="tpword">Hold while you sing each note</span><span id="bdHNext" class="tpnext"></span><span id="bdHCount" class="tpcount"></span></button>
+            <div class="row"><button class="btn grow" id="bdHoldStop">■ Stop</button></div>
+          </div>
+        </div>
         <div class="col" id="bdTapBox" style="gap:10px">
           <p class="hint">Sing the melody however feels natural: any key, any speed, slow down wherever you like. Tap the pad once as each word starts. A word you hold across two notes gets two taps. No backing plays, so any headphones (or none) work. The app fits what you sang to your chart's bars and key.</p>
           <div class="row"><button class="btn grow" id="bdKeyBtn2">Hear the key</button><button class="btn primary grow" id="bdTapRec">● Start</button></div>
@@ -380,6 +390,7 @@ ul.cues{margin:0;padding-left:1.1em;display:flex;flex-direction:column;gap:5px}
     <div class="chips" id="bEx">
       <button class="chip" data-v="range">1 · Find your range</button><button class="chip" data-v="match">2 · Match a note</button>
       <button class="chip" data-v="updown">3 · Up or down</button><button class="chip" data-v="steps">4 · Steps and leaps</button>
+      <button class="chip" data-v="scale">5 · Scales</button><button class="chip" data-v="arp">6 · Chord tones</button><button class="chip" data-v="harm">7 · Harmony notes</button>
     </div>
     <div class="stage" aria-live="polite">
       <h3 id="bTitle">Find your range</h3>
@@ -389,6 +400,7 @@ ul.cues{margin:0;padding-left:1.1em;display:flex;flex-direction:column;gap:5px}
       <div class="row" id="bBtns"></div>
       <div class="status" id="bStatus"></div>
     </div>
+    <div class="stage" id="bSet"></div>
     <div class="stage" id="bProg"></div>
     <section class="settings">
       <label class="toggle"><input type="checkbox" id="bDrone" checked> Keep the target tone playing quietly while I sing</label>
@@ -565,7 +577,7 @@ function ePlay(o){
   eStop();const a=ac();E.ch=makeChain(a);for(const k of CH_KEYS)E.ch.partGain[k].gain.value=o.levels[k]==null?0:o.levels[k];
   Object.assign(E,{on:true,ev:o.ev,bps:o.bpm/60,seg:[o.from,o.to],loop:!!o.loop,tone:o.tone,onEnd:o.onEnd||null,endTimer:null});
   let t0=a.currentTime+.15;const spb=1/E.bps;
-  if(o.countIn){const n=countBeats(o.meter);for(let i=0;i<n;i++)click(a,E.ch.partIn.click,t0+i*spb,i===0);E.ch.partGain.click.gain.value=Math.max(.45,E.ch.partGain.click.gain.value);
+  if(o.countIn){const n=o.countN||countBeats(o.meter);for(let i=0;i<n;i++)click(a,E.ch.partIn.click,t0+i*spb,i===0);E.ch.partGain.click.gain.value=Math.max(.45,E.ch.partGain.click.gain.value);
     if(o.leadTone!=null){const lt=a.createGain();lt.gain.value=1;lt.connect(E.ch.master);playNote(a,lt,freqOf(o.leadTone),t0,n*spb-.05,"ooh",.2)}   // reference tone under the count-in
     t0+=n*spb}
   E.startTime=t0;E.startBeat=o.from;E.ei=E.ev.findIndex(e=>e.b>=o.from-1e-6);if(E.ei<0)E.ei=E.ev.length;
@@ -1002,22 +1014,40 @@ function showResults(g,mode,s,H,key){
 $("tGo").onclick=()=>{if(TR.running)trainerStop("Stopped.");else trainerStart()};
 
 /* ================= pitch basics ================= */
-const BS=Object.assign({ex:"range",lo:null,hi:null,match:{ok:0,tries:0},updown:{ok:0,n:0},steps:{ok:0,n:0,level:1,run:0}},store.get("hc.basics",{}));
+const BS_DEF={ex:"range",lo:null,hi:null,match:{ok:0,tries:0},updown:{ok:0,n:0,level:1,run:0},steps:{ok:0,n:0,level:1,run:0},scale:{ok:0,n:0},arp:{ok:0,n:0},harm:{ok:0,tries:0},
+  set:{rangeMode:"mine",cLo:50,cHi:62,key:-1,adapt:true,tol:0,tone:"ooh",noteLen:.75,auto:"right",hold:1,jump:4,len:3,maxStep:2,ivs:[1,2,3,4,5,7],dir:"both",
+    scale:"major",span:"oct",sdir:"updown",arp:"maj",apat:"135",hiv:"M3a",hrand:false}};
+const BS=Object.assign({},BS_DEF,store.get("hc.basics",{}));BS.set=Object.assign({},BS_DEF.set,BS.set||{});
+["updown","steps","scale","arp","harm"].forEach(k=>BS[k]=Object.assign({},BS_DEF[k],BS[k]||{}));
 const saveBS=()=>store.set("hc.basics",BS);
 const BX={on:false,trace:[],target:null,targets:null,drone:null,raf:0,hold:0,busy:false};
-const BINFO={range:["Find your range","Sing or hum your lowest comfortable note, then your highest comfortable note. Comfortable, not your absolute limit. Every other exercise stays inside this range."],
-  match:["Match a note","A note plays. Slide your voice up or down until the line turns green, then hold it for a second. This is the core skill."],
-  updown:["Up or down","Three short notes play. Sing them back. The main thing is moving the right direction each time."],
-  steps:["Steps and leaps","Two notes play. Sing them back, matching the size of the jump. Leaps get bigger as you get them right."]};
-const midOf=()=>BS.lo!=null&&BS.hi!=null?Math.round((BS.lo+BS.hi)/2):55;
-const clampR=m=>BS.lo!=null&&BS.hi!=null?Math.max(BS.lo+1,Math.min(BS.hi-1,m)):Math.max(48,Math.min(64,m));
+const BINFO={range:["Find your range","Sing or hum your lowest comfortable note, then your highest comfortable note. Comfortable, not your absolute limit. The other exercises use this range unless you set your own in Practice settings."],
+  match:["Match a note","A note plays. Slide your voice up or down until the line turns green, then hold it. This is the core skill."],
+  updown:["Up or down","A few short notes play. Sing them back. The main thing is moving the right direction each time."],
+  steps:["Steps and leaps","Two notes play. Sing them back, matching the size of the jump. Pick which jumps to practice below."],
+  scale:["Scales","A scale plays. Sing it back on \"loo\". You'll see which notes landed and which drifted."],
+  arp:["Chord tones","The notes of a chord play one at a time (1, 3, 5). Sing them back. These are the notes harmony parts live on."],
+  harm:["Harmony notes","A note keeps sounding. Sing a harmony note against it (a third above, a fifth above, and so on) and hold it. Counts as right on the equal-tempered or the pure version."]};
+const IVN={1:"half step",2:"whole step",3:"minor 3rd",4:"major 3rd",5:"4th",6:"tritone",7:"5th",8:"minor 6th",9:"major 6th",10:"minor 7th",11:"major 7th",12:"octave"};
+const SCALES={major:[0,2,4,5,7,9,11,12],pent:[0,2,4,7,9,12],minpent:[0,3,5,7,10,12],minor:[0,2,3,5,7,8,10,12],blues:[0,3,5,6,7,10,12]};
+const SCALEN={major:"Major",pent:"Major pentatonic",minpent:"Minor pentatonic",minor:"Natural minor",blues:"Blues"};
+const ARPS={maj:[0,4,7],min:[0,3,7],dom7:[0,4,7,10],maj6:[0,4,7,9]},ARPN={maj:"Major",min:"Minor",dom7:"Dominant 7",maj6:"Major 6"};
+const DEG={0:"1",2:"2",3:"♭3",4:"3",5:"4",6:"♭5",7:"5",8:"♭6",9:"6",10:"♭7",11:"7",12:"8"};
+// harmony intervals: semitones from the sounding note, and how far the pure (just) version sits from equal temperament
+const HIV={M3a:[4,-13.7,"major 3rd above"],m3a:[3,15.6,"minor 3rd above"],P5a:[7,2,"5th above"],P4a:[5,-2,"4th above"],M6a:[9,-15.6,"6th above"],
+  M3b:[-4,13.7,"major 3rd below"],m3b:[-3,-15.6,"minor 3rd below"],P4b:[-5,2,"4th below"],P5b:[-7,-2,"5th below"],oct:[12,0,"octave above"]};
+const tolB=()=>BS.set.tol||T.tol;
+const rng=()=>BS.set.rangeMode==="custom"?[Math.min(BS.set.cLo,BS.set.cHi),Math.max(BS.set.cLo,BS.set.cHi)]:BS.lo!=null&&BS.hi!=null?[BS.lo,BS.hi]:[48,64];
+const midOf=()=>{const[l,h]=rng();return Math.round((l+h)/2)};
+const clampR=m=>{const[l,h]=rng();return h-l>=3?Math.max(l+1,Math.min(h-1,m)):Math.max(l,Math.min(h,m))};
 const octErr=(m,t)=>{const d=m-t;return(d-12*Math.round(d/12))*100};
+const rint=n=>Math.floor(Math.random()*n),pick=a=>a[rint(a.length)];
 function bMsg(t,cls){$("bStatus").textContent=t;$("bStatus").className="status"+(cls?" "+cls:"")}
 function bCue(t){$("bCue").textContent=t}
 function bBtn(label,fn,primary){const b=document.createElement("button");b.className="btn grow"+(primary?" primary":"");b.textContent=label;b.onclick=fn;$("bBtns").append(b);return b}
-function playTone(m,dur,level){const a=ac(),t=a.currentTime+.05;playNote(a,a.destination,freqOf(m),t,dur,"ooh",level||.25);return t+dur}
-function droneOn(m){droneOff();if(!$("bDrone").checked)return;const a=ac(),o=a.createOscillator(),g=a.createGain();o.setPeriodicWave(waves(a).ooh);o.frequency.value=freqOf(m);
-  g.gain.setValueAtTime(0,a.currentTime);g.gain.linearRampToValueAtTime(.05,a.currentTime+.3);o.connect(g);g.connect(a.destination);o.start();BX.drone={o,g}}
+function playTone(m,dur,level){const a=ac(),t=a.currentTime+.05;playNote(a,a.destination,freqOf(m),t,dur,BS.set.tone,level||.25);return t+dur}
+function droneOn(m,lvl){droneOff();if(!$("bDrone").checked&&lvl==null)return;const a=ac(),o=a.createOscillator(),g=a.createGain();o.setPeriodicWave(waves(a).ooh);o.frequency.value=freqOf(m);
+  g.gain.setValueAtTime(0,a.currentTime);g.gain.linearRampToValueAtTime(lvl||.05,a.currentTime+.3);o.connect(g);g.connect(a.destination);o.start();BX.drone={o,g}}
 function droneOff(){if(!BX.drone)return;const{o,g}=BX.drone,a=AC;BX.drone=null;try{g.gain.setTargetAtTime(0,a.currentTime,.05);o.stop(a.currentTime+.3)}catch(e){}}
 function drawMeter(){const cv=$("bCv"),w=cv.parentElement.clientWidth||320,h=200,c=setupCv(cv,w,h),now=AC?AC.currentTime:0;
   const tg=BX.targets||(BX.target!=null?[BX.target]:[]),ctr=tg.length?(Math.min(...tg)+Math.max(...tg))/2:(BX.trace.length?BX.trace[BX.trace.length-1].m:midOf());
@@ -1025,7 +1055,8 @@ function drawMeter(){const cv=$("bCv"),w=cv.parentElement.clientWidth||320,h=200
   const line=cssv("--line"),muted=cssv("--muted"),font=cssv("--f-mono");c.font="500 10px "+font;c.textBaseline="middle";
   for(let m=Math.ceil(lo);m<=hi;m++){c.strokeStyle=line;c.globalAlpha=mod(m,12)===0?1:.5;c.beginPath();c.moveTo(40,Y(m)+.5);c.lineTo(w,Y(m)+.5);c.stroke();c.globalAlpha=1;
     if(mod(m,2)===0&&Y(m)>8&&Y(m)<h-8){c.fillStyle=muted;c.fillText(noteName(m,0),4,Y(m))}}
-  const tol=T.tol/100;for(const t of tg){c.fillStyle=cssv("--good");c.globalAlpha=.18;c.fillRect(40,Y(t+tol),w-40,Y(t-tol)-Y(t+tol));c.globalAlpha=1;
+  if(BX.droneM!=null){c.strokeStyle=muted;c.setLineDash([4,4]);c.lineWidth=1.5;c.beginPath();c.moveTo(40,Y(BX.droneM));c.lineTo(w,Y(BX.droneM));c.stroke();c.setLineDash([])}
+  const tol=tolB()/100;for(const t of tg){c.fillStyle=cssv("--good");c.globalAlpha=.18;c.fillRect(40,Y(t+tol),w-40,Y(t-tol)-Y(t+tol));c.globalAlpha=1;
     c.strokeStyle=cssv("--good");c.lineWidth=2;c.beginPath();c.moveTo(40,Y(t));c.lineTo(w,Y(t));c.stroke()}
   if(BX.trace.length){const ref=tg.length===1?tg[0]:null;c.lineWidth=3;c.lineJoin="round";let pen=false,lt=0;c.strokeStyle=cssv("--ink");c.beginPath();
     for(const p of BX.trace){if(now-p.t>span)continue;let m=p.m;if(ref!=null)m=ref+octErr(m,ref)/100;const x=X(p.t),y=Y(m);
@@ -1035,22 +1066,62 @@ function bAnim(){drawMeter();BX.raf=requestAnimationFrame(bAnim)}
 function bStopAll(){micStop();droneOff();cancelAnimationFrame(BX.raf);BX.on=false;BX.busy=false;clearTimeout(BX.timer);drawMeter()}
 async function bMic(onFrame){try{await micStart(f=>{const t=f.time;if(f.voiced){BX.trace.push({t,m:f.m});if(BX.trace.length>600)BX.trace.shift()}onFrame&&onFrame(f,t)});BX.on=true;cancelAnimationFrame(BX.raf);bAnim();return true}
   catch(e){bMsg(e&&e.name==="NotAllowedError"?"Microphone access was blocked. Allow it for this site in your browser settings.":"The microphone isn't available here.","bad");return false}}
-function stableSegments(fr){const segs=[];let cur=null;
+function stableSegments(fr,minLen){const segs=[];let cur=null;minLen=minLen||.25;
   for(const f of fr){if(!f.voiced){if(cur&&f.t-cur.end>.12){segs.push(cur);cur=null}continue}
     if(cur&&Math.abs(f.m-median(cur.ms.slice(-6)))>.5){segs.push(cur);cur=null}
     if(!cur)cur={start:f.t,end:f.t,ms:[]};cur.ms.push(f.m);cur.end=f.t}
   if(cur)segs.push(cur);const out=[];
-  for(const s of segs.filter(s=>s.end-s.start>=.25)){const m=median(s.ms);const p=out[out.length-1];if(p&&Math.abs(p.m-m)<.5){p.end=s.end;p.ms.push(...s.ms);p.m=median(p.ms)}else out.push({start:s.start,end:s.end,ms:s.ms,m})}
+  for(const s of segs.filter(s=>s.end-s.start>=minLen)){const m=median(s.ms);const p=out[out.length-1];if(p&&Math.abs(p.m-m)<.5&&s.start-p.end<.08){p.end=s.end;p.ms.push(...s.ms);p.m=median(p.ms)}else out.push({start:s.start,end:s.end,ms:s.ms,m})}
   return out}
+
+/* ---- practice settings ---- */
+function sNote(lbl,val,fn){const f=document.createElement("label");f.className="field";f.style.flex="1";f.innerHTML=`<span class="label"></span><select></select>`;f.querySelector(".label").textContent=lbl;
+  const s=f.querySelector("select");for(let m=40;m<=84;m++)s.add(new Option(noteName(m,0),m));s.value=val;s.onchange=()=>fn(+s.value);return f}
+function sSel(lbl,opts,val,fn){const f=document.createElement("label");f.className="field";f.style.flex="1";f.innerHTML=`<span class="label"></span><select></select>`;f.querySelector(".label").textContent=lbl;
+  const s=f.querySelector("select");opts.forEach(([v,t])=>s.add(new Option(t,v)));s.value=String(val);s.onchange=()=>fn(s.value);return f}
+function sChips(lbl,opts,val,fn,multi){const f=document.createElement("div");f.className="field";f.innerHTML=`<span class="label"></span><div class="chips"></div>`;f.querySelector(".label").textContent=lbl;
+  const box=f.querySelector(".chips");opts.forEach(([v,t])=>{const b=document.createElement("button");b.className="chip";b.textContent=t;
+    const on=()=>multi?val.includes(v):String(val)===String(v);b.setAttribute("aria-pressed",on());
+    b.onclick=()=>{if(multi){const i=val.indexOf(v);if(i>=0){if(val.length>1)val.splice(i,1)}else val.push(v);val.sort((a,b)=>a-b);fn(val);box.querySelectorAll(".chip").forEach((x,k)=>x.setAttribute("aria-pressed",val.includes(opts[k][0])))}else fn(v)};box.append(b)});return f}
+function sRow(...els){const r=document.createElement("div");r.className="row";r.style.gap="8px";els.forEach(e=>r.append(e));return r}
+const setB=(k,v,rerender)=>{BS.set[k]=v;saveBS();if(rerender!==false)renderBasics()};
+const KEYOPTS=[[-1,"Any key (changes)"],...KEY_ORDER.map(k=>[k,keyName(k)])];
+function renderSettings(){const box=$("bSet"),S=BS.set,ex=BS.ex;box.innerHTML="<h3>Practice settings</h3>";if(ex==="range"){box.hidden=true;return}box.hidden=false;
+  const[l,h]=rng();
+  box.append(sChips("Range",[["mine",BS.lo!=null?"My range ("+noteName(BS.lo,0)+"–"+noteName(BS.hi,0)+")":"My range (not set: using "+noteName(48,0)+"–"+noteName(64,0)+")"],["custom","Pick my own"]],S.rangeMode,v=>setB("rangeMode",v)));
+  if(S.rangeMode==="custom")box.append(sRow(sNote("Lowest note",S.cLo,v=>setB("cLo",v)),sNote("Highest note",S.cHi,v=>setB("cHi",v))));
+  const adaptable=ex==="updown"||ex==="steps";
+  if(adaptable)box.append(sChips("Difficulty",[[true,"Adjust as I go"],[false,"Stay put (use my settings)"]],S.adapt,v=>setB("adapt",v)));
+  if(ex==="match"){box.append(sRow(sSel("Biggest jump to the next note",[[0,"Same note every time"],[2,"Up to a whole step"],[4,"Up to a 3rd"],[7,"Up to a 5th"],[12,"Up to an octave"]],S.jump,v=>setB("jump",+v,false)),
+    sSel("Hold for",[[.5,"½ second"],[1,"1 second"],[2,"2 seconds"],[3,"3 seconds"]],S.hold,v=>setB("hold",+v,false))))}
+  if(ex==="updown"&&!S.adapt)box.append(sRow(sSel("Notes per pattern",[[3,"3"],[4,"4"],[5,"5"],[6,"6"]],S.len,v=>setB("len",+v,false)),
+    sSel("Biggest step",[[1,"Half step"],[2,"Whole step"],[3,"Minor 3rd"],[4,"Major 3rd"],[5,"4th"],[7,"5th"]],S.maxStep,v=>setB("maxStep",+v,false))));
+  if(ex==="updown"&&S.adapt)box.append(Object.assign(document.createElement("p"),{className:"hint",textContent:`Level ${BS.updown.level} of 4: ${["3 notes, small steps","4 notes, small steps","4 notes, up to a 3rd","5 notes, up to a 4th"][BS.updown.level-1]}. Three right in a row moves you up; three misses moves you down.`}));
+  if(ex==="steps"){box.append(sChips(S.adapt?"Jumps to practice (unlocked smallest first as you get them right)":"Jumps to practice",Object.entries(IVN).map(([k,t])=>[+k,t]),S.ivs,v=>setB("ivs",v,false),true));
+    box.append(sChips("Direction",[["up","Up"],["down","Down"],["both","Both"]],S.dir,v=>setB("dir",v)));
+    if(S.adapt){const pool=stepPool();box.append(Object.assign(document.createElement("p"),{className:"hint",textContent:`Right now: ${pool.map(x=>IVN[x]).join(", ")}. Three right in a row unlocks the next one.`}))}}
+  if(ex==="scale"){box.append(sRow(sSel("Scale",Object.entries(SCALEN),S.scale,v=>setB("scale",v,false)),sSel("How much",[["five","First 5 notes"],["oct","Full octave"]],S.span,v=>setB("span",v,false))));
+    box.append(sChips("Direction",[["up","Up"],["down","Down"],["updown","Up and back down"]],S.sdir,v=>setB("sdir",v)))}
+  if(ex==="arp")box.append(sRow(sSel("Chord",Object.entries(ARPN),S.arp,v=>setB("arp",v,false)),sSel("Pattern",[["135","1 3 5"],["1358","1 3 5 8"],["13531","1 3 5 3 1"],["5131","5 1 3 1 (from below)"],["1358531","1 3 5 8 5 3 1"]],S.apat,v=>setB("apat",v,false))));
+  if(ex==="harm"){box.append(sSel("Harmony note",Object.entries(HIV).map(([k,v])=>[k,"A "+v[2]]),S.hiv,v=>setB("hiv",v)));
+    box.append(sChips("Next note",[[false,"Same interval every time"],[true,"Mix them up"]],S.hrand,v=>setB("hrand",v)))}
+  if(ex!=="harm"&&ex!=="match")box.append(sChips("New pattern",[["right","After I get it right"],["always","After every try"],["manual","Only when I tap New"]],S.auto,v=>setB("auto",v,false)));
+  if(["scale","arp","updown","steps"].includes(ex)||ex==="match"&&false){}
+  if(["scale","arp","updown","steps"].includes(ex))box.append(sRow(sSel("Key",KEYOPTS,S.key,v=>setB("key",+v,false)),sSel("Note speed",[[1.1,"Slow"],[.75,"Normal"],[.5,"Quick"]],S.noteLen,v=>setB("noteLen",+v,false))));
+  box.append(sRow(sSel("Accuracy",[[0,"Same as Sing tab (±"+T.tol+"¢)"],[50,"Loose ±50¢"],[25,"Medium ±25¢"],[15,"Tight ±15¢"]],S.tol,v=>setB("tol",+v,false)),
+    sSel("Sound",[["ooh","Voice (ooh)"],["piano","Piano"]],S.tone,v=>setB("tone",v,false))))}
+
 function renderBasics(){
-  bStopAll();BX.trace=[];BX.target=null;BX.targets=null;
+  bStopAll();BX.trace=[];BX.target=null;BX.targets=null;BX.droneM=null;
   document.querySelectorAll("#bEx .chip").forEach(b=>{b.setAttribute("aria-pressed",b.dataset.v===BS.ex);b.onclick=()=>{BS.ex=b.dataset.v;saveBS();renderBasics()}});
   $("micNotice2").hidden=MIC_OK;$("micNotice2").textContent="Pitch basics needs the microphone, which works in the standalone version (your GitHub link). Here you can hear the notes but not sing into it.";
   const[title,how]=BINFO[BS.ex];$("bTitle").textContent=title;$("bHow").textContent=how;$("bBtns").innerHTML="";bMsg("");bCue("");
-  ({range:exRange,match:exMatch,updown:()=>exPattern("updown"),steps:()=>exPattern("steps")})[BS.ex]();renderProg();drawMeter();
+  ({range:exRange,match:exMatch,harm:exHarm,updown:()=>exPattern("updown"),steps:()=>exPattern("steps"),scale:()=>exPattern("scale"),arp:()=>exPattern("arp")})[BS.ex]();renderSettings();renderProg();drawMeter();
 }
-function renderProg(){const p=$("bProg");const rng=BS.lo!=null&&BS.hi!=null?noteName(BS.lo,0)+" to "+noteName(BS.hi,0):"not set yet";
-  p.innerHTML=`<h3>Your progress</h3><div class="hint">Range: ${rng}<br>Notes matched: ${BS.match.ok}${BS.match.tries?` of ${BS.match.tries} tries`:""}<br>Up or down: ${BS.updown.ok} of ${BS.updown.n} right<br>Steps and leaps: level ${BS.steps.level} of 4 · ${BS.steps.ok} of ${BS.steps.n} right</div>`}
+function renderProg(){const p=$("bProg");const rng0=BS.lo!=null&&BS.hi!=null?noteName(BS.lo,0)+" to "+noteName(BS.hi,0):"not set yet",f=o=>`${o.ok} of ${o.n} right`;
+  p.innerHTML=`<h3>Your progress</h3><div class="hint">Range: ${rng0}<br>Notes matched: ${BS.match.ok}${BS.match.tries?` of ${BS.match.tries} tries`:""}<br>Up or down: ${f(BS.updown)}${BS.set.adapt?` · level ${BS.updown.level} of 4`:""}<br>Steps and leaps: ${f(BS.steps)}<br>Scales: ${f(BS.scale)}<br>Chord tones: ${f(BS.arp)}<br>Harmony notes: ${BS.harm.ok}${BS.harm.tries?` of ${BS.harm.tries} tries`:""}</div>
+  <div class="row"><button class="linkbtn" id="bReset">Reset progress</button></div>`;
+  $("bReset").onclick=()=>{["match","harm"].forEach(k=>BS[k]={ok:0,tries:0});["updown","steps"].forEach(k=>BS[k]={ok:0,n:0,level:1,run:0});["scale","arp"].forEach(k=>BS[k]={ok:0,n:0});saveBS();renderBasics()}}
 function exRange(){
   const rec=which=>async()=>{if(BX.busy)return;BX.busy=true;BX.trace=[];const fr=[];bMsg(which==="lo"?"Sing your lowest comfortable note and hold it…":"Sing your highest comfortable note and hold it…");
     const t0=performance.now();if(!await bMic((f,t)=>{if(performance.now()-t0>700&&f.voiced)fr.push(f.m)})){BX.busy=false;return}
@@ -1063,41 +1134,76 @@ function showFit(){if(BS.lo==null||BS.hi==null){bCue("");return}
   for(const k of PART_KEYS){const ms=H[k].map(n=>n.m);let lo=Math.min(...ms),hi=Math.max(...ms);
     for(const o of [-12,0,12])if(lo+o>=BS.lo-1&&hi+o<=BS.hi+1){fits.push(PNAME[k]+(o?(o<0?" (octave down)":" (octave up)"):""));break}}
   bCue(`Comfortable range ${noteName(BS.lo,0)} to ${noteName(BS.hi,0)}. In ${s.title} (key of ${keyName(key)}), parts that fit you: ${fits.length?fits.join(", "):"none in this key; try another key in the player"}.`)}
+// hold-to-match, shared by single notes and harmony notes
+function holdMatch(o){let okSince=null;const go=bBtn("Start singing",async()=>{if(BX.on){bStopAll();go.textContent="Start singing";go.classList.remove("live");return}
+    o.onStart();BX.trace=[];
+    if(!await bMic((f,t)=>{if(BX.matched)return;if(!f.voiced){okSince=null;bCue("Sing or hum \"loo\".");return}
+      const ets=o.targets(),errs=ets.map(x=>octErr(f.m,x)),e=errs.reduce((a,b)=>Math.abs(b)<Math.abs(a)?b:a);
+      if(Math.abs(e)<=tolB()){okSince=okSince??t;const held=t-okSince;bCue(held>=BS.set.hold?"Matched!":"Hold it there…");
+        if(held>=BS.set.hold){BX.matched=true;o.onMatch(f.m);setTimeout(()=>{BX.matched=false;okSince=null;if(BX.on)o.next()},1500)}}
+      else{okSince=null;const e0=errs[0];bCue(e0<0?`Slide up ↑ (${Math.round(-e0)}¢ low)`:`Slide down ↓ (${Math.round(e0)}¢ high)`)}}))return;
+    o.afterMic&&o.afterMic();go.textContent="■ Stop";go.classList.add("live")},true);return go}
 function exMatch(){
-  BX.target=clampR(midOf());let okSince=null;
-  const newNote=()=>{const step=(1+Math.floor(Math.random()*4))*(Math.random()<.5?-1:1);BX.target=clampR(BX.target+step);okSince=null;bCue("");bMsg("");
+  BX.target=clampR(midOf());
+  const newNote=()=>{const J=BS.set.jump;if(J>0){let step=0;for(let k=0;k<8&&step===0;k++){step=(1+rint(J))*(Math.random()<.5?-1:1);if(clampR(BX.target+step)===BX.target)step=0}BX.target=clampR(BX.target+step)}bCue("");bMsg("");
     if(BX.on){droneOff();playTone(BX.target,1.2);setTimeout(()=>{if(BX.on)droneOn(BX.target)},1300)}drawMeter()};
   bBtn("Play the note",()=>{playTone(BX.target,1.4);drawMeter()});
-  const go=bBtn("Start singing",async()=>{if(BX.on){bStopAll();go.textContent="Start singing";go.classList.remove("live");return}
-    BS.match.tries++;saveBS();renderProg();BX.trace=[];playTone(BX.target,1.2);
-    if(!await bMic((f,t)=>{if(!f.voiced){okSince=null;bCue("Sing or hum \"loo\".");return}
-      const e=octErr(f.m,BX.target);if(Math.abs(e)<=T.tol){okSince=okSince??t;const held=t-okSince;bCue(held>=1?"Matched!":"Hold it there…");
-        if(held>=1&&!BX.matched){BX.matched=true;BS.match.ok++;saveBS();renderProg();bMsg("Matched "+noteName(BX.target,0)+". Next note coming.","good");
-          setTimeout(()=>{BX.matched=false;if(BX.on)newNote()},1500)}}
-      else{okSince=null;bCue(e<0?`Slide up ↑ (${Math.round(-e)}¢ low)`:`Slide down ↓ (${Math.round(e)}¢ high)`)}}))return;
-    setTimeout(()=>{if(BX.on)droneOn(BX.target)},1300);go.textContent="■ Stop";go.classList.add("live")},true);
+  holdMatch({targets:()=>[BX.target],onStart:()=>{BS.match.tries++;saveBS();renderProg();playTone(BX.target,1.2)},afterMic:()=>setTimeout(()=>{if(BX.on)droneOn(BX.target)},1300),
+    onMatch:()=>{BS.match.ok++;saveBS();renderProg();bMsg("Matched "+noteName(BX.target,0)+"."+(BS.set.jump?" Next note coming.":" Again."),"good")},next:()=>{BS.match.tries++;saveBS();newNote()}});
   bBtn("New note",()=>{if(BX.on){BS.match.tries++;saveBS();renderProg()}newNote()});
 }
-function makePattern(kind){const base=clampR(midOf()-2+Math.floor(Math.random()*5));
-  if(kind==="updown"){const p=[base];for(let i=0;i<2;i++){const st=(1+Math.floor(Math.random()*2))*(Math.random()<.5?-1:1);p.push(clampR(p[i]+st)===p[i]?p[i]-st:clampR(p[i]+st))}return p}
-  const sets={1:[1,2],2:[3,4],3:[5,7],4:[8,9,12]}[BS.steps.level],iv=sets[Math.floor(Math.random()*sets.length)],up=Math.random()<.5;
-  let a=base,b=up?base+iv:base-iv;if(BS.hi!=null&&b>BS.hi){b=base-iv}if(BS.lo!=null&&b<BS.lo){b=base+iv}return[a,b]}
-function exPattern(kind){let pat=makePattern(kind);
-  const play=()=>{const a=ac();let t=a.currentTime+.08;for(const m of pat){playNote(a,a.destination,freqOf(m),t,.75,"ooh",.25);t+=.85}return(t-a.currentTime)*1000};
+function exHarm(){const pickBase=()=>{const iv=HIV[BS.set.hiv][0],[l,h]=rng();let lo=l-Math.min(0,iv),hi=h-Math.max(0,iv);if(hi<lo){lo=hi=Math.round((l+h)/2-iv/2)}return lo+rint(hi-lo+1)};
+  let base=pickBase();
+  const tg=()=>{const[iv,just]=HIV[BS.set.hiv];return[base+iv,base+iv+just/100]};
+  const show=()=>{BX.droneM=base;BX.targets=null;BX.target=base+HIV[BS.set.hiv][0];bCue(`The note is ${noteName(base,0)}. Sing a ${HIV[BS.set.hiv][2]}: ${noteName(base+HIV[BS.set.hiv][0],0)}.`);drawMeter()};
+  const next=()=>{if(BS.set.hrand){BS.set.hiv=pick(Object.keys(HIV));saveBS();renderSettings()}base=pickBase();show();if(BX.on){droneOn(base,.08)}};
+  bBtn("Hear both",()=>{const a=ac(),t=a.currentTime+.05;playNote(a,a.destination,freqOf(base),t,1.6,BS.set.tone,.22);playNote(a,a.destination,freqOf(tg()[1]),t+.7,1.2,BS.set.tone,.2)});
+  holdMatch({targets:tg,onStart:()=>{BS.harm.tries++;saveBS();renderProg();droneOn(base,.08)},
+    onMatch:m=>{BS.harm.ok++;saveBS();renderProg();const[iv,just]=HIV[BS.set.hiv],e=octErr(m,base+iv);bMsg(`Got the ${HIV[BS.set.hiv][2]} (${Math.round(e)>0?"+":""}${Math.round(e)}¢ from equal${just?`; pure is ${just>0?"+":""}${Math.round(just)}¢`:""}).`,"good")},
+    next:()=>{BS.harm.tries++;saveBS();next()}});
+  bBtn("New note",()=>next());show()}
+
+/* ---- patterns: up/down, steps and leaps, scales, chord tones ---- */
+function stepPool(){const ivs=BS.set.ivs.length?BS.set.ivs:[2];if(!BS.set.adapt)return ivs;const n=Math.min(ivs.length,1+Math.floor((BS.steps.level-1)));return ivs.slice(0,Math.max(1,n))}
+function tonicFor(span){const[l,h]=rng(),k=BS.set.key>=0?BS.set.key:rint(12),c=[];for(let m=l-12;m<=h;m++)if(mod(m-k,12)===0)c.push(m);
+  const fit=c.filter(m=>m>=l&&m+span<=h);if(fit.length)return pick(fit);const mid=(l+h-span)/2;return c.reduce((a,b)=>Math.abs(b-mid)<Math.abs(a-mid)?b:a)}
+function makePattern(kind){const S=BS.set;
+  if(kind==="updown"){const lv=BS.updown.level,len=S.adapt?[3,4,4,5][lv-1]:S.len,mx=S.adapt?[2,2,4,5][lv-1]:S.maxStep,p=[clampR(midOf()-2+rint(5))];
+    for(let i=1;i<len;i++){let st=(1+rint(mx))*(Math.random()<.5?-1:1),nx=p[i-1]+st;if(clampR(nx)!==nx)nx=p[i-1]-st;p.push(nx)}return p}
+  if(kind==="steps"){const iv=pick(stepPool()),[l,h]=rng();let up=S.dir==="up"?true:S.dir==="down"?false:Math.random()<.5;
+    const lo=up?l:l+iv,hi=up?h-iv:h;let a=hi>=lo?lo+rint(hi-lo+1):Math.round((l+h)/2-(up?iv:-iv)/2);return[a,up?a+iv:a-iv]}
+  if(kind==="scale"){let sc=SCALES[S.scale];if(S.span==="five")sc=sc.slice(0,5);const top=sc[sc.length-1],t=tonicFor(top);BX.tonic=t;let seq=sc.map(x=>t+x);
+    if(S.sdir==="down")seq=seq.reverse();else if(S.sdir==="updown")seq=seq.concat(seq.slice(0,-1).reverse());return seq}
+  const ch=ARPS[S.arp],degs={135:[0,1,2],1358:[0,1,2,"8"],13531:[0,1,2,1,0],5131:["5-",0,1,0],1358531:[0,1,2,"8",2,1,0]}[S.apat],t=tonicFor(12);BX.tonic=t;
+  return degs.map(d=>d==="8"?t+12:d==="5-"?t+ch[2]-12:t+ch[d])}
+function patLabel(kind,pat){if(kind==="steps"){const iv=pat[1]-pat[0];return`${IVN[Math.abs(iv)]} ${iv>0?"up":"down"} from ${noteName(pat[0],0)}`}
+  if(kind==="scale")return`${SCALEN[BS.set.scale]} in ${noteName(BX.tonic??pat[0],0).replace(/\d/,"")}`;if(kind==="arp")return`${ARPN[BS.set.arp]} chord on ${noteName(BX.tonic??pat[0],0).replace(/\d/,"")}`;return""}
+function exPattern(kind){let pat;const fresh=()=>{BX.tonic=null;pat=makePattern(kind);BX.targets=pat;bCue(patLabel(kind,pat))};fresh();
+  const nl=()=>BS.set.noteLen;
+  const play=()=>{const a=ac();let t=a.currentTime+.08;for(const m of pat){playNote(a,a.destination,freqOf(m),t,nl(),BS.set.tone,.25);t+=nl()+.1}return(t-a.currentTime)*1000};
   bBtn("Hear it",()=>{BX.targets=pat;play();drawMeter()});
-  const go=bBtn("Hear it, then sing it back",async()=>{if(BX.busy)return;BX.busy=true;BX.targets=pat;BX.trace=[];bMsg("Listen…");bCue("");const ms=play();
+  bBtn("Hear it, then sing it back",async()=>{if(BX.busy)return;BX.busy=true;BX.targets=pat;BX.trace=[];bMsg("Listen…");const ms=play();
     setTimeout(async()=>{bMsg("Your turn: sing them back.");const fr=[];if(!await bMic((f,t)=>fr.push({t,m:f.m,voiced:f.voiced}))){BX.busy=false;return}
-      BX.timer=setTimeout(()=>{bStopAll();judge(stableSegments(fr))},pat.length*1100+1600)},ms+250)},true);
-  bBtn("New pattern",()=>{pat=makePattern(kind);BX.targets=pat;bMsg("");bCue("");drawMeter()});
+      BX.timer=setTimeout(()=>{bStopAll();judge(stableSegments(fr,Math.min(.25,nl()*.35)))},pat.length*(nl()+.35)*1000+1600)},ms+250)},true);
+  bBtn("New pattern",()=>{fresh();bMsg("");drawMeter()});
   const judge=segs=>{const n=pat.length;if(segs.length<n){bMsg(`I heard ${segs.length} of ${n} notes. Give each note a moment, and sing a little louder.`,"warn");return}
-    const s=segs.slice(0,n).map(x=>x.m),lines=[];let allOk=true;
-    for(let i=1;i<n;i++){const ti=pat[i]-pat[i-1],si=s[i]-s[i-1],dirOk=Math.sign(si)===Math.sign(ti)&&Math.abs(si)>=.5,sizeErr=(si-ti)*100;
+    const s=segs.slice(0,n).map(x=>x.m),lines=[];let allOk=true;const tol=tolB();
+    if(kind==="scale"||kind==="arp"){   // judge every note; if you were steady but in another key, judge the shape
+      const e=s.map((m,i)=>octErr(m,pat[i])),c=median(e),shifted=Math.abs(c)>Math.max(tol,40),ee=shifted?e.map(x=>x-c):e,ton=BX.tonic;
+      const bad=[];ee.forEach((x,i)=>{if(Math.abs(x)>Math.max(tol,25)){bad.push(`${DEG[mod(pat[i]-ton,12)===0&&pat[i]>ton?12:mod(pat[i]-ton,12)]||"?"} ${x<0?"flat":"sharp"} ${Math.abs(Math.round(x))}¢`)}});
+      allOk=!bad.length;lines.push(shifted?`You sang it ${Math.abs(Math.round(c))}¢ ${c<0?"low":"high"} overall (fine on your own); judging the shape.`:"");
+      lines.push(allOk?`All ${n} notes landed.`:`${n-bad.length} of ${n} landed. Off: ${bad.join(", ")}.`)}
+    else for(let i=1;i<n;i++){const ti=pat[i]-pat[i-1],si=s[i]-s[i-1],dirOk=Math.sign(si)===Math.sign(ti)&&Math.abs(si)>=.5,sizeErr=(si-ti)*100;
       const name=ti>0?"Up":"Down";if(!dirOk){allOk=false;lines.push(`${name}: you went ${si>0.5?"up":si<-.5?"down":"nowhere"} ✗`)}
-      else if(Math.abs(sizeErr)<=Math.max(T.tol,30)||kind==="updown")lines.push(`${name} ✓`+(kind==="steps"?" right size":""));
+      else if(Math.abs(sizeErr)<=Math.max(tol,30)||kind==="updown")lines.push(`${name} ✓`+(kind==="steps"?" right size":""));
       else{allOk=kind==="updown"?allOk:false;lines.push(`${name} ✓ but ${sizeErr<0?"too small":"too big"} by ${Math.abs(Math.round(sizeErr))}¢`)}}
-    const st=BS[kind];st.n++;if(allOk){st.ok++;if(kind==="steps"){st.run=Math.max(0,st.run)+1;if(st.run>=3&&st.level<4){st.level++;st.run=0;lines.push("Level up! Bigger leaps next.")}}}
-    else if(kind==="steps"){st.run=Math.min(0,st.run)-1;if(st.run<=-3&&st.level>1){st.level--;st.run=0;lines.push("Back to smaller leaps for a bit.")}}
-    saveBS();renderProg();bCue(lines.join(" · "));bMsg(allOk?"Got it.":"Close. Try it again.",allOk?"good":"warn")};
+    const st=BS[kind];st.n++;if(allOk)st.ok++;
+    if((kind==="steps"||kind==="updown")&&BS.set.adapt){const before=kind==="steps"?stepPool().length:st.level;
+      if(allOk){st.run=Math.max(0,st.run)+1;if(st.run>=3){st.run=0;if(kind==="steps"&&st.level<BS.set.ivs.length){st.level++;lines.push("Unlocked: "+IVN[BS.set.ivs[stepPool().length-1]]+".")}else if(kind==="updown"&&st.level<4){st.level++;lines.push("Level up!")}}}
+      else{st.run=Math.min(0,st.run)-1;if(st.run<=-3&&st.level>1){st.level--;st.run=0;lines.push("Easing off a little.")}}
+      if((kind==="steps"?stepPool().length:st.level)!==before)renderSettings()}
+    saveBS();renderProg();bCue(lines.filter(Boolean).join(" · "));bMsg(allOk?"Got it.":"Close. Try it again.",allOk?"good":"warn");
+    const A=BS.set.auto;if(A==="always"||A==="right"&&allOk)setTimeout(()=>{fresh();drawMeter();bCue(lines.filter(Boolean).join(" · ")+"  → Next: "+patLabel(kind,pat))},300)};
 }
 
 /* ================= sing and tap: your taps say where notes start, your voice says which note, the chart says where the bars are ================= */
@@ -1174,8 +1280,32 @@ function fromTaps(frames,tapsIn,o){ // o:{meter,key,chords(beats from bar 1),bar
   const bpm=Math.round(60/median(best.sl));
   return{notes:out,pickup,shift:s,lag:Math.round(lag*1000),offCents:Math.round(100*median(cen)),bpm,fitCost:best.cost}}
 
+/* ================= hold with backing: you hold the pad while each note sounds; the backing track says where the beats are ================= */
+function fromHolds(frames,holds,o){ // holds:[{on,off}] in beats (already corrected for delay); frames: {time,m,voiced,rms}; o:{meter,grid,beatToTime}
+  const u=o.grid||.5,meter=o.meter,H=holds.filter(h=>h.off-h.on>.04).sort((a,b)=>a.on-b.on);
+  if(H.length<2)return{err:"I need a press for each note. Hold the pad down while you sing each one."};
+  const fr=frames.filter(f=>f.time!=null).sort((a,b)=>a.time-b.time),vs=fr.filter(f=>f.voiced).map(f=>f.rms);
+  const gate=.12*(vs.length?[...vs].sort((a,b)=>a-b)[Math.floor(vs.length*.95)]:0),V=fr.filter(f=>f.voiced&&f.rms>=gate);
+  const vIn=(a,b)=>V.filter(f=>f.time>=a&&f.time<b),tt=b=>o.beatToTime(b);
+  // the microphone can run late (Bluetooth): pick the delay where each held note is one steady pitch
+  const win=(h,d)=>{const a=tt(h.on)+d,b=tt(h.off)+d,len=b-a;return vIn(a+Math.min(.12,.25*len),b-Math.min(.05,.1*len))};
+  let lag=0,best=Infinity;for(let d=-.1;d<=.45+1e-9;d+=.025){let s=0,c=0;for(const h of H){const w=win(h,d);if(w.length<3){s+=.7;c++;continue}const ms=w.map(f=>f.m).sort((a,b)=>a-b),md=ms[ms.length>>1];s+=Math.min(1,pct(ms.map(x=>Math.abs(x-md)),.8));c++}
+    const v=s/c+.1*Math.abs(d);if(v<best){best=v;lag=d}}
+  const P=H.map(h=>{let w=win(h,lag);if(w.length<3)w=vIn(tt(h.on)+lag,tt(h.off)+lag+.05);return w.length>=2?median(w.map(f=>f.m)):null});
+  const known=P.filter(x=>x!=null);if(known.length<2)return{err:"I couldn't hear singing while you held the pad. Sing a bit louder or closer to the phone, and wear headphones so it doesn't hear the guitar."};
+  const c=circMean(known.map(x=>x-Math.round(x)));
+  // onto the beat grid
+  const notes=[];H.forEach((h,i)=>{let t=Math.round(h.on/u)*u;const pr=notes[notes.length-1];if(pr&&t<=pr.t+1e-6)t=pr.t+u;
+    const m=P[i]!=null?Math.round(P[i]-c):(pr?pr.m:60);notes.push({t,offB:h.off,m,ly:"",conf:P[i]!=null?1:0})});
+  notes.forEach((n,i)=>{const nx=notes[i+1];let e=Math.max(n.t+u,Math.round(n.offB/u)*u);if(nx){if(nx.t-e<1-1e-6)e=nx.t;e=Math.min(e,nx.t)}   // a gap under a beat is just letting go early
+    n.d=Math.max(u,+(e-n.t).toFixed(4));delete n.offB});
+  const first=notes[0].t,pickup=first<0?Math.min(meter,Math.ceil(-first-1e-6)):0;
+  if(o.endBeat!=null){const last=notes[notes.length-1],end=o.endBeat-pickup;if(end-last.t>=u-1e-6&&Math.abs(end-(last.t+last.d))<=1.5+1e-6)last.d=+(end-last.t).toFixed(4)}   // the last note rings to the end of the song
+  const out=notes.filter(n=>n.t>=-pickup-1e-6).map(n=>({...n,t:+(n.t+pickup).toFixed(4)}));
+  return{notes:out,pickup,shift:0,offCents:Math.round(100*c),lag:Math.round(lag*1000),dropped:notes.length-out.length}}
+
 /* ================= song builder (runs on the device, from the user's own singing) ================= */
-const BD={editId:null,frames:null,mode:"tap",recMode:"tap",shift:0,offC:0,grid:.5,notes:[],sel:0,taps:[],audio:null,bpm:90,meter:2,key:11,chords:[],pickup:0,info:""};
+const BD={editId:null,frames:null,mode:"hold",recMode:"hold",shift:0,offC:0,grid:.5,notes:[],sel:0,taps:[],audio:null,bpm:90,meter:2,key:11,chords:[],pickup:0,info:""};
 
 /* ---- chord chart ---- */
 function parseChart(text,meter){
@@ -1289,7 +1419,7 @@ function openBuilder(song){eStop();BD.editId=song?song.id:null;$("songsHome").hi
   $("bdPhones").checked=!!T.phones;refreshMics();$("bdMic").onchange=e=>{T.micId=e.target.value;saveT()};bdMode(BD.recMode);chipGroup("bdGrid",String(BD.grid),bdGridPick);chartPreview();if(BD.notes.length){bdReflag();bdDraw()}window.scrollTo(0,0)}
 function bdMode(v){if(v==="more")v=["backing","visual","load"].includes(BD.recMode)?BD.recMode:"backing";BD.recMode=v;
   const more=["backing","visual","load"].includes(v);chipGroup("bdRecMode",more?"more":v,bdMode);$("bdMoreMode").hidden=!more;if(more)chipGroup("bdMoreMode",v,bdMode);
-  $("bdTapBox").hidden=v!=="tap";$("bdBacking").hidden=v!=="backing";$("bdLoad").hidden=v!=="load"&&v!=="tapfile";$("bdVisual").hidden=v!=="visual";$("bdMicField").hidden=v==="load"||v==="tapfile";
+  $("bdTapBox").hidden=v!=="tap";$("bdHoldBox").hidden=v!=="hold";$("bdHoldRec").disabled=!MIC_OK;$("bdPhones2").checked=!!T.phones;$("bdBacking").hidden=v!=="backing";$("bdLoad").hidden=v!=="load"&&v!=="tapfile";$("bdVisual").hidden=v!=="visual";$("bdMicField").hidden=v==="load"||v==="tapfile";
   $("bdLoadHint").textContent=v==="tapfile"?"Load a recording of you singing (guitar is fine too). Voice Memos: Share → Save to Files, then choose it here. Then play it back and tap the pad once as each word starts, like you're pointing at each note.":
     "Load a recording of you singing, with or without guitar. Voice Memos: Share → Save to Files, then choose it here. Then play it back and tap along on every beat, starting on the first strong beat of the first full bar.";
   $("bdTap").textContent=v==="tapfile"?"TAP each word":"TAP the beat";
@@ -1298,13 +1428,13 @@ function bdMode(v){if(v==="more")v=["backing","visual","load"].includes(BD.recMo
 $("bdChart").oninput=chartPreview;$("bdMeter").onchange=chartPreview;$("bdKey").onchange=()=>{chartPreview();if(BD.notes.length){bdReflag();bdDraw()}};
 $("bdBpm").onchange=e=>{BD.bpm=Math.max(40,Math.min(220,+e.target.value||90))};
 $("bdBack").onclick=()=>{eStop();micStop();$("builder").hidden=true;$("songsHome").hidden=false;renderSets()};
-$("bdPhones").checked=!!T.phones;$("bdPhones").onchange=e=>{T.phones=e.target.checked;saveT()};
+$("bdPhones").checked=!!T.phones;$("bdPhones").onchange=e=>{T.phones=e.target.checked;saveT()};$("bdPhones2").onchange=e=>{T.phones=e.target.checked;$("bdPhones").checked=T.phones;saveT()};
 function bdReady(){const r=chartPreview();if(!r.bars.length){bdSay("Add the chord chart first.","bad");return null}if(r.errs.length){bdSay("Fix the chord chart first.","bad");return null}return r}
 function bdSay(t,cls){$("bdRecStatus").textContent=t;$("bdRecStatus").className="status"+(cls?" "+cls:"")}
 function bdFinish(res,how){if(res.err){bdSay(res.err,"bad");return}
   BD.notes=res.notes;BD.pickup=res.pickup;BD.sel=0;BD.shift=res.shift||0;BD.offC=res.offCents||0;$("bdEdit").hidden=false;$("bdSave").disabled=false;applyLyrics(BD.notes,$("bdLyrics").value);bdReflag();
   const fl=BD.notes.filter(n=>n.flag).length,sh=res.shift?` You sang it ${Math.abs(res.shift)} half step${Math.abs(res.shift)>1?"s":""} ${res.shift>0?"lower":"higher"} than ${keyName(+$("bdKey").value)}, so I moved it into the chart's key.`:"";
-  $("bdSummary").textContent=((BD.mode==="load"||BD.mode==="tap")&&BD.tapNote?BD.tapNote:"")+(BD.latNote||"")+`Found ${BD.notes.length} notes${BD.pickup?` (${BD.pickup}-beat pickup)`:""}.${sh} ${fl?`${fl} flagged to check; tap Next flag.`:"Nothing looks off, but play it back to check."} Fix anything that sounds wrong, then Save.`;
+  $("bdSummary").textContent=((BD.mode==="load"||BD.mode==="tap"||BD.mode==="hold")&&BD.tapNote?BD.tapNote:"")+(BD.latNote||"")+`Found ${BD.notes.length} notes${BD.pickup?` (${BD.pickup}-beat pickup)`:""}.${sh} ${fl?`${fl} flagged to check; tap Next flag.`:"Nothing looks off, but play it back to check."} Fix anything that sounds wrong, then Save.`;
   bdSay(how,"good");bdDraw();$("bdEdit").scrollIntoView({behavior:"smooth",block:"start"})}
 /* record with backing */
 $("bdRec").onclick=async()=>{
@@ -1410,7 +1540,51 @@ function bdUseTaps2(){const t=BD.taps;
   BD.tapNote=(best.label!=="as tapped"?`Your taps looked like ${best.label==="every other tap"?"twice the chart's beat, so I counted every other tap":"half the chart's beat, so I added a beat between taps"}. `:"")+
     (best.ph?`The chords fit best with your taps moved ${Math.abs(best.ph)} beat${Math.abs(best.ph)>1?"s":""} ${best.ph>0?"later":"earlier"}, so I lined them up that way. `:"");
   bdFinish(best.res,"Transcribed from your recording and taps.")}
-/* sing and tap (the main way): sing freely, tap as each word starts */
+/* hold with backing (the main way): the backing fixes the beat; your presses give each note's start and length */
+function bdHoldFit(){const r=bdReady();if(!r)return;const d=BD.holdData,meter=+$("bdMeter").value;BD.mode="hold";BD.latNote="";
+  const toBeat=t=>d.sb+(t-d.outLat-d.st)*d.bps,beatToTime=b=>d.st+(b-d.sb)/d.bps+d.outLat;
+  const holds=d.presses.filter(p=>!p.cal).map(p=>({on:toBeat(p.on),off:toBeat(p.off)}));
+  const res=fromHolds(d.frames,holds,{meter,grid:BD.grid,beatToTime,endBeat:r.beats});
+  const toks=lyricToks().length,nn=res.notes?res.notes.length:0;
+  BD.tapNote=(d.calN?`Measured about ${Math.round(d.outLat*1000)} ms of headphone delay from your count-in taps. `:`You didn't tap the count-in, so I guessed the headphone delay (${Math.round(d.outLat*1000)} ms). `)+
+    (res.dropped?`${res.dropped} press${res.dropped>1?"es":""} came too early in the count-in and were left out. `:"")+(toks&&nn&&toks!==nn?`You held ${nn} notes and the lyrics have ${toks} words; check for a missed or extra press. `:"");
+  bdFinish(res,"Recorded with backing and your presses.")}
+$("bdHoldRec").onclick=async()=>{if(BD.rec)return;const r=bdReady();if(!r)return;
+  if(!T.phones){bdSay("Put on headphones and tick the box, so the microphone doesn't hear the guitar.","warn");return}
+  const meter=+$("bdMeter").value,key=+$("bdKey").value;BD.bpm=Math.max(40,Math.min(220,+$("bdBpm").value||90));
+  const CH=chordObjs(r.chords),ev=guitarEvents({meter,pickup:0,notes:[{t:0,d:r.beats,m:60}],chords:r.chords,key},CH);
+  if($("bdHoldClick").checked)for(let b=0;b<r.beats;b++)ev.push({b,d:.1,k:"click",accent:b%meter===0});ev.sort((a,b)=>a.b-b.b);
+  const frames=[],presses=[],nc=Math.max(4,2*meter);let cur=null;
+  try{await micStart(f=>{if(E.on)frames.push({time:f.time,m:f.m,voiced:f.voiced,rms:f.rms})})}
+  catch(e){bdSay(e&&e.name==="NotAllowedError"?"Microphone access was blocked. Allow it for this site in your browser settings.":"The microphone isn't available here.","bad");return}
+  BD.rec=true;$("bdHPadBox").hidden=false;$("bdHoldRec").disabled=true;BD.holdLive={presses,frames,nc,meter,beats:r.beats,bars:r.bars};
+  ePlay({ev,from:0,to:r.beats+.5,countIn:true,countN:nc,leadTone:bdTonic(),levels:{gtr:.55,click:.45},bpm:BD.bpm,meter,tone:"ooh",onEnd:()=>bdHoldEnd()});
+  BD.holdLive.st=E.startTime;BD.holdLive.sb=E.startBeat;BD.holdLive.bps=E.bps;BD.holdLive.cur=()=>cur;BD.holdLive.setCur=v=>{cur=v};
+  bdHoldWords();bdHoldTick();$("bdHPadBox").scrollIntoView({behavior:"smooth",block:"center"})};
+function bdHoldWords(){const L=BD.holdLive;if(!L)return;const toks=lyricToks(),k=L.presses.filter(p=>!p.cal).length;
+  $("bdHWord").textContent=toks.length?(toks[k]||"(end of the words)"):(k?"Hold each note":"Hold while you sing each note");$("bdHNext").textContent=toks.length&&toks[k+1]?"then: "+toks.slice(k+1,k+4).join(" "):"";
+  $("bdHCount").textContent=k+(toks.length?" of "+toks.length:"")+" notes"}
+function bdHoldTick(){const L=BD.holdLive;if(!L||!BD.rec)return;const b=(AC.currentTime-L.st)*L.bps+L.sb,m=L.meter;let t;
+  if(b<-L.nc+m-1e-6)t=`Tap with the clicks: ${Math.floor(b+L.nc)+1}`;else if(b<0)t="Pickup notes go here · bar 1 next";
+  else{const bar=Math.floor(b/m),r=parseChart($("bdChart").value,m),ch=r.bars[bar];t=bar<L.bars.length?`Bar ${bar+1} of ${L.bars.length} · ${ch?ch[Math.min(m-1,Math.floor(b-bar*m))].replace(/#/g,"♯"):""} · beat ${Math.floor(b-bar*m)+1}`:"Done"}
+  $("bdHBar").textContent=t;requestAnimationFrame(bdHoldTick)}
+function bdHoldPress(e){e.preventDefault();const L=BD.holdLive;if(!L||!BD.rec||L.cur())return;try{$("bdHPad").setPointerCapture(e.pointerId)}catch(_){}
+  L.setCur({on:AC.currentTime});$("bdHPad").classList.add("hit");try{navigator.vibrate&&navigator.vibrate(8)}catch(_){}}
+function bdHoldRelease(e){const L=BD.holdLive;if(!L||!L.cur())return;const p=L.cur();L.setCur(null);p.off=AC.currentTime;$("bdHPad").classList.remove("hit");
+  const b=(p.on-L.st)*L.bps+L.sb;p.cal=b<-L.nc+L.meter-.35&&p.off-p.on<.35;   // a quick tap during the first bar of clicks = delay measurement
+  L.presses.push(p);bdHoldWords()}
+["pointerdown"].forEach(ev=>$("bdHPad").addEventListener(ev,bdHoldPress));["pointerup","pointercancel"].forEach(ev=>$("bdHPad").addEventListener(ev,bdHoldRelease));
+$("bdHPad").addEventListener("contextmenu",e=>e.preventDefault());
+$("bdHoldStop").onclick=()=>{if(BD.rec){eStop();bdHoldEnd()}};
+function bdHoldEnd(){const L=BD.holdLive;if(!L||!BD.rec)return;if(L.cur()){const p=L.cur();p.off=AC.currentTime;L.presses.push(p);L.setCur(null)}
+  micStop();BD.rec=false;$("bdHPadBox").hidden=true;$("bdHoldRec").disabled=!MIC_OK;$("bdHoldRec").textContent="● Start again";$("bdHPad").classList.remove("hit");
+  // headphone delay from the count-in taps: how late you tapped each click
+  const cal=L.presses.filter(p=>p.cal).map(p=>{const b=(p.on-L.st)*L.bps+L.sb,k=Math.round(b);return(b-k)/L.bps}).filter(x=>x>-.15&&x<.5);
+  let outLat=cal.length?median(cal):(T.tapLat!=null?T.tapLat/1000:.1);if(cal.length){T.tapLat=Math.round(outLat*1000);saveT()}
+  BD.holdData={frames:L.frames,presses:L.presses,st:L.st,sb:L.sb,bps:L.bps,outLat,calN:cal.length};BD.holdLive=null;
+  if(L.presses.filter(p=>!p.cal).length<2){bdSay("I need a press for each note. Hold the pad down while you sing each one, then try again.","warn");return}
+  bdSay("Working out the notes…");setTimeout(bdHoldFit,30)}
+/* sing and tap: sing freely, tap as each word starts */
 function lyricToks(){const toks=[];$("bdLyrics").value.replace(/\s+/g," ").trim().split(" ").filter(Boolean).forEach(w=>{if(w==="_"){toks.push("(hold)");return}
   const parts=w.split("-");parts.forEach((p,i)=>{if(p)toks.push(p+(i<parts.length-1?"-":""))})});return toks}
 function bdTapWords(){const toks=lyricToks(),k=BD.taps.length,live=BD.recMode==="tap";
@@ -1484,7 +1658,7 @@ function bdPlay(withParts){const s=fixPickupChords(bdSong()),pref=defPref(),H=ha
   const lv=withParts?{tenor:.8,lead:.8,bari:.8,gtr:.35,click:0}:{lead:.9,gtr:.35,click:0};
   ePlay({ev:buildEvents(s,H,pref),from:withParts?0:BD.notes[BD.sel].t,to:songLen(s),countIn:false,levels:lv,bpm:s.bpm,meter:s.meter,tone:"ooh"})}
 $("bdPlaySel").onclick=()=>{if(E.on)eStop();else bdPlay(false)};$("bdPlayParts").onclick=()=>{if(E.on)eStop();else bdPlay(true)};
-function bdGridPick(v){BD.grid=+v;chipGroup("bdGrid",String(v),bdGridPick);if(BD.mode==="tap"&&BD.tapFrames)bdFit(BD.tapFrames,BD.tapTaps,"Fitted again with the new rhythm detail.");else if(BD.frames&&BD.mode!=="tap")bdDoTranscribe(BD.mode)}
+function bdGridPick(v){BD.grid=+v;chipGroup("bdGrid",String(v),bdGridPick);if(BD.mode==="hold"&&BD.holdData){bdHoldFit();return}if(BD.mode==="tap"&&BD.tapFrames)bdFit(BD.tapFrames,BD.tapTaps,"Fitted again with the new rhythm detail.");else if(BD.frames&&BD.mode!=="tap")bdDoTranscribe(BD.mode)}
 $("bdLyrics").oninput=()=>{applyLyrics(BD.notes,$("bdLyrics").value);if(BD.notes.length)bdDraw()};
 $("bdSave").onclick=()=>{if(!BD.notes.length)return;const r=bdReady();if(!r)return;applyLyrics(BD.notes,$("bdLyrics").value);
   const s=fixPickupChords(bdSong());s.notes=BD.notes.map(n=>({t:n.t,d:n.d,m:n.m,ly:n.ly||""}));
