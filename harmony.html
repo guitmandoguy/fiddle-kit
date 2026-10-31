@@ -187,12 +187,19 @@ ul.cues{margin:0;padding-left:1.1em;display:flex;flex-direction:column;gap:5px}
       </div>
       <div class="stage">
         <h3>2 · Record the melody</h3>
-        <div class="chips" id="bdRecMode"><button class="chip" data-v="backing">Sing with backing (best)</button><button class="chip" data-v="load">Load a recording</button></div>
+        <div class="chips" id="bdRecMode"><button class="chip" data-v="backing">Sing with backing</button><button class="chip" data-v="visual">On-screen beat (no audio)</button><button class="chip" data-v="load">Load a recording</button></div>
+        <label class="field"><span class="label">Microphone</span><select id="bdMic" aria-label="Microphone"></select></label>
         <div class="col" id="bdBacking" style="gap:10px">
-          <p class="hint">The app plays boom-chuck guitar from your chart after a one-bar count-in. Sing the melody over it with headphones on, so the microphone only hears you. If the song starts with pickup notes, sing them during the end of the count-in.</p>
+          <p class="hint">The app plays 4 count-in clicks with the key note under them, then boom-chuck guitar from your chart. Sing the melody over it with headphones on, so the microphone only hears you. If the song starts with pickup notes, sing them during the end of the count-in.</p>
           <label class="toggle"><input type="checkbox" id="bdClick" checked> Add a click</label>
           <label class="toggle"><input type="checkbox" id="bdPhones"> I'm wearing headphones</label>
+          <div class="row" style="align-items:center"><button class="btn" id="bdLatBtn">Measure headphone delay</button><span class="hint" id="bdLatOut"></span></div>
           <div class="row"><button class="btn primary grow" id="bdRec">● Record</button></div>
+        </div>
+        <div class="col" id="bdVisual" style="gap:10px" hidden>
+          <p class="hint">Nothing plays while you record, so this works with any headphones or none. Tap Hear the key to get your starting pitch, then Record. You get 4 clicks with the key note under them (if your headphones keep playing), plus big numbers to count along with. Start singing on bar 1; pickup notes go at the end of the count-in.</p>
+          <div class="row"><button class="btn grow" id="bdKeyBtn">Hear the key</button><button class="btn primary grow" id="bdRecV">● Record</button></div>
+          <div id="bdBeatBox" hidden style="text-align:center;padding:10px 0"><div id="bdBeatBig" style="font:700 5rem/1 var(--f-display);transition:color .08s">1</div><div class="hint" id="bdBeatSmall"></div></div>
         </div>
         <div class="col" id="bdLoad" style="gap:10px" hidden>
           <p class="hint">Load a recording of you singing, with or without guitar. Voice Memos: Share → Save to Files, then choose it here. Then play it back and tap along on every beat, starting on the first strong beat of the first full bar.</p>
@@ -334,10 +341,13 @@ ul.cues{margin:0;padding-left:1.1em;display:flex;flex-direction:column;gap:5px}
         <div class="chips" id="tShow"><button class="chip" data-v="progress">Progress</button><button class="chip" data-v="grades">Letter grades</button></div>
       </div>
       <label class="toggle"><input type="checkbox" id="tPhones"> I'm wearing headphones (needed for steps 3–5, wired is best)</label>
+      <label class="field"><span class="label">Microphone</span><select id="tMic" aria-label="Microphone"></select>
+        <span class="hint">With Bluetooth headphones or a Bluetooth DAC that has its own mic, choose iPhone Microphone. The phone may then keep the headphones in full quality.</span></label>
       <div class="field">
         <span class="label">Headphone delay <span class="mono" id="tLatOut">0 ms</span></span>
         <input type="range" id="tLat" min="0" max="400" step="10" value="0" aria-label="Headphone delay">
-        <p class="hint">Bluetooth headphones play late, so your voice lands late too. If good singing keeps showing as late, raise this. Wired headphones are usually 0–50 ms.</p>
+        <div class="row" style="align-items:center"><button class="btn" id="tLatBtn">Measure it</button><span class="hint" id="tLatMsg"></span></div>
+        <p class="hint">Bluetooth plays late, so your voice lands late too. Measure it once per pair of headphones: the app plays clicks and you sing "taa" on each one. Wired headphones are usually 0–50 ms, Bluetooth 150–250 ms.</p>
       </div>
       <p class="hint">Keep sessions to 15–20 minutes. Stop if your throat feels scratchy or tight. This is practice between lessons, not a replacement for a voice teacher, who can fix breath, tension and tone.</p>
     </section>
@@ -477,7 +487,8 @@ function unlockAudio(){
     unlockEl=new Audio(URL.createObjectURL(new Blob([buf],{type:"audio/wav"})));unlockEl.loop=true;unlockEl.setAttribute("playsinline","")}
   try{const p=unlockEl.play();if(p&&p.catch)p.catch(()=>{})}catch(e){}
 }
-function ac(){unlockAudio();if(!AC)AC=new (window.AudioContext||window.webkitAudioContext)();if(AC.state==="suspended")AC.resume();return AC}
+function ac(){unlockAudio();if(!AC)AC=new (window.AudioContext||window.webkitAudioContext)();if(AC.state!=="running")try{AC.resume()}catch(e){}return AC}
+const countBeats=meter=>meter===3?6:4;   // count-in: 4 clicks (two bars of 3 in a waltz)
 const freqOf=(m,c)=>440*Math.pow(2,(m-69)/12+(c||0)/1200);
 
 const WAVES=new WeakMap();
@@ -534,7 +545,9 @@ function ePlay(o){
   eStop();const a=ac();E.ch=makeChain(a);for(const k of CH_KEYS)E.ch.partGain[k].gain.value=o.levels[k]==null?0:o.levels[k];
   Object.assign(E,{on:true,ev:o.ev,bps:o.bpm/60,seg:[o.from,o.to],loop:!!o.loop,tone:o.tone,onEnd:o.onEnd||null,endTimer:null});
   let t0=a.currentTime+.15;const spb=1/E.bps;
-  if(o.countIn){for(let i=0;i<o.meter;i++)click(a,E.ch.partIn.click,t0+i*spb,i===0);E.ch.partGain.click.gain.value=.6;t0+=o.meter*spb}
+  if(o.countIn){const n=countBeats(o.meter);for(let i=0;i<n;i++)click(a,E.ch.partIn.click,t0+i*spb,i===0);E.ch.partGain.click.gain.value=Math.max(.45,E.ch.partGain.click.gain.value);
+    if(o.leadTone!=null){const lt=a.createGain();lt.gain.value=1;lt.connect(E.ch.master);playNote(a,lt,freqOf(o.leadTone),t0,n*spb-.05,"ooh",.2)}   // reference tone under the count-in
+    t0+=n*spb}
   E.startTime=t0;E.startBeat=o.from;E.ei=E.ev.findIndex(e=>e.b>=o.from-1e-6);if(E.ei<0)E.ei=E.ev.length;
   E.timer=setInterval(eTick,25);eTick();
 }
@@ -619,8 +632,11 @@ const MIC={on:false};
 async function micStart(cb){
   if(!navigator.mediaDevices||!navigator.mediaDevices.getUserMedia)throw new Error("nomic");
   try{if(navigator.audioSession)navigator.audioSession.type="play-and-record"}catch(e){}
-  const stream=await navigator.mediaDevices.getUserMedia({audio:{echoCancellation:false,noiseSuppression:false,autoGainControl:false,channelCount:1}});
-  const a=ac();try{await a.resume()}catch(e){}
+  const base={echoCancellation:false,noiseSuppression:false,autoGainControl:false,channelCount:1},id=(typeof T!=="undefined"&&T.micId)||"";let stream;
+  try{stream=await navigator.mediaDevices.getUserMedia({audio:id?{...base,deviceId:{exact:id}}:base})}
+  catch(e){if(!id||e.name==="NotAllowedError")throw e;stream=await navigator.mediaDevices.getUserMedia({audio:base})}
+  const a=ac();for(let k=0;k<5&&a.state!=="running";k++){try{await a.resume()}catch(e){}await new Promise(r=>setTimeout(r,80))}   // iOS can pause audio when the mic opens
+  refreshMics();
   const src=a.createMediaStreamSource(stream),sp=a.createScriptProcessor(1024,1,1),mute=a.createGain();mute.gain.value=0;
   const ring=new Float32Array(2048);
   sp.onaudioprocess=ev=>{if(!MIC.on)return;const d=ev.inputBuffer.getChannelData(0);ring.copyWithin(0,d.length);ring.set(d,ring.length-d.length);
@@ -628,6 +644,22 @@ async function micStart(cb){
   src.connect(sp);sp.connect(mute);mute.connect(a.destination);
   Object.assign(MIC,{on:true,stream,src,sp,mute,t0:Date.now()});
 }
+async function refreshMics(){try{const ds=(await navigator.mediaDevices.enumerateDevices()).filter(d=>d.kind==="audioinput");
+  for(const sid of ["tMic","bdMic"]){const sel=document.getElementById(sid);if(!sel)continue;const cur=(typeof T!=="undefined"&&T.micId)||"";sel.innerHTML="";
+    sel.add(new Option("Automatic (phone decides)",""));ds.forEach((d,i)=>{if(d.deviceId&&d.deviceId!=="default")sel.add(new Option(d.label||"Microphone "+(i+1),d.deviceId))});
+    sel.value=[...sel.options].some(o=>o.value===cur)?cur:""}}catch(e){}}
+// one-time delay check: clicks play, you sing "taa" on each; the gap between click and voice is the round-trip delay
+async function measureDelay(say){const a=ac(),bps=100/60,lead=4,count=8,frames=[];
+  try{await micStart(f=>frames.push(f))}catch(e){say(e&&e.name==="NotAllowedError"?"Microphone access was blocked.":"The microphone isn't available here.","bad");return null}
+  const t0=a.currentTime+.4,clicks=[];
+  for(let i=0;i<lead+count;i++){const t=t0+i/bps,len=Math.floor(a.sampleRate*.03),buf=a.createBuffer(1,len,a.sampleRate),d=buf.getChannelData(0);
+    for(let j=0;j<len;j++)d[j]=(Math.random()*2-1)*Math.exp(-j/(len/5))*(i<lead?.5:.8);const s=a.createBufferSource();s.buffer=buf;s.connect(a.destination);s.start(t);if(i>=lead)clicks.push(t)}
+  say(`Listen to ${lead} clicks, then sing "taa" on each of the next ${count}.`);
+  await new Promise(r=>setTimeout(r,((lead+count)/bps+1)*1000));micStop();
+  const on=[];for(let i=3;i<frames.length;i++){if(frames[i].voiced&&!frames[i-1].voiced&&!frames[i-2].voiced&&!frames[i-3].voiced)on.push(frames[i].time)}
+  const d=[];for(const c of clicks){const o=on.find(t=>t>c-.12&&t<c+.5);if(o!=null)d.push(o-c)}
+  if(d.length<4){say("I didn't catch enough of your \"taa\"s. If you couldn't hear the clicks, your headphones go quiet when the mic is on: try iPhone Microphone above, wired headphones, or the on-screen beat mode.","warn");return null}
+  const ms=Math.max(0,Math.min(500,Math.round(median(d)*1000/10)*10));T.lat=ms;saveT();say(`Delay measured: ${ms} ms. Saved for these headphones.`,"good");return ms}
 function micStop(){if(!MIC.on)return;MIC.on=false;try{MIC.sp.disconnect();MIC.src.disconnect();MIC.mute.disconnect()}catch(e){}
   try{MIC.stream.getTracks().forEach(t=>t.stop())}catch(e){}
   const used=(Date.now()-MIC.t0)/1000,day=new Date().toDateString(),u=store.get("hc.micUse",{day,s:0});if(u.day!==day){u.day=day;u.s=0}u.s+=used;store.set("hc.micUse",u);
@@ -861,6 +893,9 @@ function renderTrainer(){
   $("tPhones").checked=!!T.phones;$("tPhones").onchange=e=>{T.phones=e.target.checked;saveT()};
   const lat=T.lat==null?autoLat():T.lat;$("tLat").value=lat;$("tLatOut").textContent=lat+" ms"+(T.lat==null?" (auto)":"");
   $("tLat").oninput=e=>{T.lat=+e.target.value;$("tLatOut").textContent=T.lat+" ms";saveT()};
+  refreshMics();$("tMic").onchange=e=>{T.micId=e.target.value;saveT()};
+  $("tLatBtn").onclick=async()=>{if(TR.running)return;$("tLatBtn").disabled=true;await measureDelay((t,c)=>{$("tLatMsg").textContent=t;$("tLatMsg").className="hint"+(c?" status "+c:"")});$("tLatBtn").disabled=false;
+    $("tLat").value=T.lat||0;$("tLatOut").textContent=(T.lat||0)+" ms"};
   const needMic=T.step!=="listen";
   $("micNotice").hidden=MIC_OK;$("micNotice").textContent="Singing into the app needs the standalone version (your GitHub link), where the microphone works. Here you can use Listen and the player.";
   $("tGo").disabled=needMic&&!MIC_OK&&!TR.running;
@@ -906,11 +941,11 @@ async function trainerStart(){
     $("tGo").textContent="Start";$("tGo").classList.remove("live");renderTrainer();showResults(g,mode,s,H,key)};
   if(step==="echo"){setCue("Listen to the phrase…");
     ePlay({...common,ev,countIn:true,levels:{...levelsSolo(T.part,1)},onEnd:()=>{if(!TR.running)return;setCue("Your turn after the count.");
-      ePlay({...common,ev:evClick,countIn:true,levels:{...levelsSolo(T.part,0),click:.35},onEnd:()=>finish("solo")})}});anim();return}
+      ePlay({...common,ev:evClick,countIn:true,leadTone:notes[0]&&notes[0].m,levels:{...levelsSolo(T.part,0),click:.35},onEnd:()=>finish("solo")})}});anim();return}
   const lv={tenor:0,lead:0,bari:0,hbari:0,bass:0,gtr:.4,click:0};
   if(step==="guide"){const gl=T.guide[key]??1;lv[T.part]=gl;if(T.part!=="lead")lv.lead=.35;othersFor(T.part).forEach(k=>{if(k!=="lead")lv[k]=.22});setCue("Sing along.")}
   else{othersFor(T.part).forEach(k=>lv[k]=.85);lv.gtr=.45;setCue(step==="perform"?"No screen help. Just sing.":"Hold your part.")}
-  ePlay({...common,ev,countIn:true,levels:lv,onEnd:()=>finish("band")});anim();
+  ePlay({...common,ev,countIn:true,leadTone:notes[0]&&notes[0].m,levels:lv,onEnd:()=>finish("band")});anim();
 }
 function showResults(g,mode,s,H,key){
   const hk=key+"|"+T.step+"|"+(T.step==="perform"?"all":T.phrase),h=HIST[hk]||{};const prevBest=h.best;
@@ -1118,7 +1153,8 @@ function transcribe(frames,o){ // o:{meter,key,chords(beats from bar 1),grid,anc
   // pickup: notes before bar 1 (sung during the count-in)
   const first=notes.length?notes[0].t:0,pickup=first<0?Math.min(o.meter,Math.ceil(-first-1e-6)):0;
   const out=notes.filter(n=>n.t>=-pickup-1e-6).map(n=>({...n,t:+(n.t+pickup).toFixed(4)}));
-  return{notes:out,pickup,shift,offCents}}
+  const attErr=joined.length?joined.reduce((a,x)=>{const q=x.att/g;return a+Math.abs(q-Math.round(q))},0)/joined.length:1;
+  return{notes:out,pickup,shift,offCents,attErr}}
 let FLAG_METER=4;const meterOf=()=>FLAG_METER;
 function flagNotes(notes,chords,pickup,key,meter){FLAG_METER=meter||+(document.getElementById&&document.getElementById("bdMeter")?document.getElementById("bdMeter").value:4)||4;const CH=chordObjs(chords,pickup),chAt=b=>{let r=CH[0];for(const c of CH)if(c.t<=b+1e-6)r=c;return r};
   notes.forEach((n,i)=>{n.flag="";const ch=chAt(n.t),tri=triadOf(ch);if(ch.seventh)tri.push(mod(ch.root+10,12));
@@ -1146,9 +1182,9 @@ function openBuilder(song){eStop();BD.editId=song?song.id:null;$("songsHome").hi
   Object.assign(BD,{frames:null,notes:song?song.notes.map(n=>({...n})):[],pickup:song?song.pickup||0:0,bpm:song?song.bpm:90,grid:song?song.grid||.5:.5,sel:0,taps:[],audio:null});
   $("bdEdit").hidden=!BD.notes.length;$("bdSave").disabled=!BD.notes.length;$("bdDelete").hidden=!(song&&userSongs().some(x=>x.id===song.id));$("bdDelConfirm").hidden=true;
   $("bdRecStatus").textContent="";$("bdStatus").textContent="";$("bdSummary").textContent=song?"Edit the notes, chords or lyrics, or record it again.":"";
-  $("bdPhones").checked=!!T.phones;bdMode(BD.recMode);chipGroup("bdGrid",String(BD.grid),bdGridPick);chartPreview();if(BD.notes.length){bdReflag();bdDraw()}window.scrollTo(0,0)}
-function bdMode(v){BD.recMode=v;chipGroup("bdRecMode",v,bdMode);$("bdBacking").hidden=v!=="backing";$("bdLoad").hidden=v!=="load";
-  $("bdRec").disabled=!MIC_OK;if(v==="backing"&&!MIC_OK)$("bdRecStatus").textContent="Recording needs the standalone version (your GitHub link). You can still load a recording here.";else if(v==="load")$("bdRecStatus").textContent=""}
+  $("bdPhones").checked=!!T.phones;refreshMics();$("bdMic").onchange=e=>{T.micId=e.target.value;saveT()};bdMode(BD.recMode);chipGroup("bdGrid",String(BD.grid),bdGridPick);chartPreview();if(BD.notes.length){bdReflag();bdDraw()}window.scrollTo(0,0)}
+function bdMode(v){BD.recMode=v;chipGroup("bdRecMode",v,bdMode);$("bdBacking").hidden=v!=="backing";$("bdLoad").hidden=v!=="load";$("bdVisual").hidden=v!=="visual";
+  $("bdRec").disabled=!MIC_OK;$("bdRecV").disabled=!MIC_OK;$("bdLatOut").textContent=T.lat!=null?"Now "+T.lat+" ms":"";if(v!=="load"&&!MIC_OK)$("bdRecStatus").textContent="Recording needs the standalone version (your GitHub link). You can still load a recording here.";else if(v==="load")$("bdRecStatus").textContent=""}
 $("bdChart").oninput=chartPreview;$("bdMeter").onchange=chartPreview;$("bdKey").onchange=()=>{chartPreview();if(BD.notes.length){bdReflag();bdDraw()}};
 $("bdBpm").onchange=e=>{BD.bpm=Math.max(40,Math.min(220,+e.target.value||90))};
 $("bdBack").onclick=()=>{eStop();micStop();$("builder").hidden=true;$("songsHome").hidden=false;renderSets()};
@@ -1158,7 +1194,7 @@ function bdSay(t,cls){$("bdRecStatus").textContent=t;$("bdRecStatus").className=
 function bdFinish(res,how){if(res.err){bdSay(res.err,"bad");return}
   BD.notes=res.notes;BD.pickup=res.pickup;BD.sel=0;$("bdEdit").hidden=false;$("bdSave").disabled=false;bdReflag();
   const fl=BD.notes.filter(n=>n.flag).length,sh=res.shift?` You sang it ${Math.abs(res.shift)} half step${Math.abs(res.shift)>1?"s":""} ${res.shift>0?"lower":"higher"} than ${keyName(+$("bdKey").value)}, so I moved it into the chart's key.`:"";
-  $("bdSummary").textContent=(BD.mode==="load"&&BD.tapNote?BD.tapNote:"")+`Found ${BD.notes.length} notes${BD.pickup?` (${BD.pickup}-beat pickup)`:""}.${sh} ${fl?`${fl} flagged to check; tap Next flag.`:"Nothing looks off, but play it back to check."} Fix anything that sounds wrong, then Save.`;
+  $("bdSummary").textContent=(BD.mode==="load"&&BD.tapNote?BD.tapNote:"")+(BD.latNote||"")+`Found ${BD.notes.length} notes${BD.pickup?` (${BD.pickup}-beat pickup)`:""}.${sh} ${fl?`${fl} flagged to check; tap Next flag.`:"Nothing looks off, but play it back to check."} Fix anything that sounds wrong, then Save.`;
   bdSay(how,"good");bdDraw();$("bdEdit").scrollIntoView({behavior:"smooth",block:"start"})}
 /* record with backing */
 $("bdRec").onclick=async()=>{
@@ -1167,14 +1203,42 @@ $("bdRec").onclick=async()=>{
   const meter=+$("bdMeter").value,key=+$("bdKey").value;BD.bpm=Math.max(40,Math.min(220,+$("bdBpm").value||90));BD.meter=meter;BD.key=key;BD.chords=r.chords;BD.mode="backing";
   const tmp={meter,pickup:0,notes:[],chords:r.chords,key},CH=chordObjs(r.chords),ev=guitarEvents({...tmp,notes:[{t:0,d:r.beats,m:60}]},CH);
   if($("bdClick").checked)for(let b=0;b<r.beats;b++)ev.push({b,d:.1,k:"click",accent:b%meter===0});ev.sort((a,b)=>a.b-b.b);
-  const frames=[],lat=(T.lat==null?autoLat():T.lat)/1000;BD.frames=frames;
-  try{await micStart(f=>{if(!E.on)return;frames.push({b:eBeatAt(f.time-lat),m:f.m,voiced:f.voiced,rms:f.rms})})}
+  const frames=[],lat=(T.lat==null?autoLat():T.lat)/1000;BD.frames=frames;BD.lat=lat;
+  try{await micStart(f=>{if(!E.on)return;frames.push({time:f.time,b:eBeatAt(f.time-lat),m:f.m,voiced:f.voiced,rms:f.rms})})}
   catch(e){bdSay(e&&e.name==="NotAllowedError"?"Microphone access was blocked. Allow it for this site in your browser settings.":"The microphone isn't available here.","bad");return}
   BD.rec=true;$("bdRec").textContent="■ Stop";$("bdRec").classList.add("live");bdSay("Count-in, then sing. It stops at the end of the chart, or tap Stop.");
-  ePlay({ev,from:0,to:r.beats+.5,countIn:true,levels:{gtr:.55,click:.45},bpm:BD.bpm,meter,tone:"ooh",onEnd:()=>{micStop();BD.rec=false;$("bdRec").textContent="● Record";$("bdRec").classList.remove("live");bdDoTranscribe("backing")}})};
+  ePlay({ev,from:0,to:r.beats+.5,countIn:true,leadTone:bdTonic(),levels:{gtr:.55,click:.45},bpm:BD.bpm,meter,tone:"ooh",onEnd:()=>{micStop();BD.rec=false;$("bdRec").textContent="● Record";$("bdRec").classList.remove("live");bdDoTranscribe("backing")}});
+  BD.map={st:E.startTime,sb:E.startBeat,bps:E.bps}};
+$("bdLatBtn").onclick=async()=>{$("bdLatBtn").disabled=true;await measureDelay(bdSay);$("bdLatBtn").disabled=false;$("bdLatOut").textContent=T.lat!=null?"Now "+T.lat+" ms":""};
+function bdTonic(){const key=+$("bdKey").value;let lo=55;if(typeof BS!=="undefined"&&BS.lo!=null&&BS.hi!=null)lo=Math.round((BS.lo+BS.hi)/2)-6;return lo+mod(key-lo,12)}
+/* on-screen beat: nothing plays while recording, so any headphones (or none) work */
+$("bdKeyBtn").onclick=()=>{const r=bdReady();if(!r)return;const a=ac(),key=+$("bdKey").value,c0=parseChord(r.chords[0].c),t=a.currentTime+.05;
+  const tones=triadOf(c0),v=[];for(let m=52;m<=64;m++)if(tones.includes(mod(m,12)))v.push(m);v.forEach((m,i)=>pluck(a,a.destination,m,t+i*.03,1.6,.3));
+  let tonic=55+mod(key-55,12);playNote(a,a.destination,freqOf(tonic),t+.2,1.6,"ooh",.22);bdSay("That's the key note ("+pcName(key,key)+") over the first chord.")};
+$("bdRecV").onclick=async()=>{
+  if(BD.rec){BD.vStop&&BD.vStop(true);return}
+  const r=bdReady();if(!r)return;const meter=+$("bdMeter").value;BD.bpm=Math.max(40,Math.min(220,+$("bdBpm").value||90));BD.meter=meter;BD.key=+$("bdKey").value;BD.chords=r.chords;BD.mode="visual";
+  const frames=[],lat=.04;BD.frames=frames;BD.map=null;let st=null;const bps=BD.bpm/60;
+  try{await micStart(f=>{if(st==null)return;frames.push({time:f.time,b:(f.time-lat-st)*bps,m:f.m,voiced:f.voiced,rms:f.rms})})}
+  catch(e){bdSay(e&&e.name==="NotAllowedError"?"Microphone access was blocked. Allow it for this site in your browser settings.":"The microphone isn't available here.","bad");return}
+  const nc=countBeats(meter);st=AC.currentTime+.6+nc/bps;BD.vst=st;
+  {const a=AC;for(let i=0;i<nc;i++)click(a,a.destination,st-(nc-i)/bps,i===0);playNote(a,a.destination,freqOf(bdTonic()),st-nc/bps,nc/bps-.05,"ooh",.2)}BD.rec=true;$("bdRecV").textContent="■ Stop";$("bdRecV").classList.add("live");$("bdBeatBox").hidden=false;bdSay("Count along, then sing from bar 1.");
+  const total=r.beats,big=$("bdBeatBig"),small=$("bdBeatSmall");let raf=0,lastB=null;
+  const tick=()=>{const b=(AC.currentTime-st)*bps;
+    if(b<-nc-.001){big.textContent="";small.textContent="Get ready…"}
+    else if(b<0){const n=Math.floor(b+nc)+1;if(n!==lastB){big.textContent=n;big.style.color=cssv("--muted");lastB=n}small.textContent="Count-in"}
+    else{const bi=Math.floor(b),n=bi%meter+1;if(bi!==lastB){big.textContent=n;big.style.color=n===1?cssv("--accent"):cssv("--ink");lastB=bi}small.textContent="Bar "+(Math.floor(bi/meter)+1)+" of "+(total/meter)}
+    if(b>=total+.25){BD.vStop(true);return}raf=requestAnimationFrame(tick)};
+  BD.vStop=done=>{cancelAnimationFrame(raf);micStop();BD.rec=false;BD.vStop=null;$("bdRecV").textContent="● Record";$("bdRecV").classList.remove("live");$("bdBeatBox").hidden=true;if(done)bdDoTranscribe("visual")};
+  raf=requestAnimationFrame(tick)};
 function bdDoTranscribe(mode){const r=bdReady();if(!r||!BD.frames)return;BD.mode=mode;BD.meter=+$("bdMeter").value;BD.key=+$("bdKey").value;BD.chords=r.chords;
-  const res=transcribe(BD.frames,{meter:BD.meter,key:BD.key,chords:r.chords,grid:BD.grid,anchored:mode==="backing",bpm:BD.bpm});
-  bdFinish(res,mode==="backing"?"Recorded and transcribed.":"Transcribed from your recording and taps.")}
+  const opt={meter:BD.meter,key:BD.key,chords:r.chords,grid:BD.grid,anchored:mode==="backing",bpm:BD.bpm};let res=transcribe(BD.frames,opt);BD.latNote="";
+  // headphone delay: fine-tune it from where your notes start against the beat (within a quarter beat of the setting)
+  if(mode==="backing"&&BD.map&&BD.frames.length&&BD.frames[0].time!=null){const m=BD.map,span=Math.min(.25/m.bps,.15);let best={err:res.attErr,lat:BD.lat,res};
+    for(let d=-span;d<=span+1e-9;d+=.02){const lat=Math.max(0,BD.lat+d);if(Math.abs(lat-BD.lat)<1e-6)continue;
+      const fr=BD.frames.map(f=>({...f,b:m.sb+(f.time-lat-m.st)*m.bps})),rr=transcribe(fr,opt);if(!rr.err&&rr.attErr<best.err-.01)best={err:rr.attErr,lat,res:rr,fr}}
+    if(best.fr){res=best.res;BD.frames=best.fr;BD.lat=best.lat;const ms=Math.round(best.lat*1000/10)*10;BD.latNote=`Adjusted for about ${ms} ms of headphone delay. `;if(Math.abs(ms-(T.lat||0))>=30){T.lat=ms;saveT()}}}
+  bdFinish(res,mode==="backing"?"Recorded and transcribed.":mode==="visual"?"Recorded with the on-screen beat and transcribed.":"Transcribed from your recording and taps.")}
 /* load a recording, then tap the beat */
 $("bdFile").onchange=async e=>{const file=e.target.files[0];if(!file)return;e.target.value="";bdSay("Reading the recording…");
   try{const ab=await file.arrayBuffer(),OAC=window.OfflineAudioContext||window.webkitOfflineAudioContext,oc=new OAC(1,44100,44100);
