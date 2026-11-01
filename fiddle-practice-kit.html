@@ -51,14 +51,14 @@ h2{font:700 1.1rem/1.2 var(--f-display);margin:0}
 .ivstats b{font-weight:500}.ivstats .g{color:var(--good)}.ivstats .b{color:var(--bad)}
 .mini{display:flex;gap:6px;flex-wrap:wrap}
 .mini button{appearance:none;border:0;background:none;color:var(--accent);font:600 .85rem var(--f-body);padding:2px 4px;cursor:pointer;text-decoration:underline;text-underline-offset:3px}
-.seg{display:grid;grid-template-columns:1fr 1fr;gap:4px;background:var(--chip);border:1px solid var(--line);border-radius:10px;padding:3px}
+.seg{display:grid;grid-auto-flow:column;grid-auto-columns:1fr;gap:4px;background:var(--chip);border:1px solid var(--line);border-radius:10px;padding:3px}
 .seg button{appearance:none;border:0;background:none;color:var(--ink);font:600 .9rem var(--f-body);padding:7px 6px;border-radius:7px;cursor:pointer}
 .seg button[aria-selected="true"]{background:var(--surface);box-shadow:0 1px 2px rgba(0,0,0,.12)}
 .sub-view{display:flex;flex-direction:column;gap:20px}
 .big-play{font-size:1.05rem;padding:14px 16px}
 .big-play.live{background:var(--ink);border-color:var(--ink);color:var(--bg)}
-.tabs{display:grid;grid-template-columns:1fr 1fr 1fr;background:var(--chip);border:1px solid var(--line);border-radius:12px;padding:4px;gap:4px;margin-top:14px}
-.tabs a{text-align:center;padding:9px 6px;border-radius:9px;color:var(--ink);text-decoration:none;font-weight:600;font-size:.95rem}
+.tabs{display:grid;grid-template-columns:repeat(4,1fr);background:var(--chip);border:1px solid var(--line);border-radius:12px;padding:4px;gap:4px;margin-top:14px}
+.tabs a{text-align:center;padding:9px 2px;min-width:0;border-radius:9px;color:var(--ink);text-decoration:none;font-weight:600;font-size:.95rem}
 .tabs a[aria-selected="true"]{background:var(--surface);box-shadow:0 1px 2px rgba(0,0,0,.12)}
 
 .stage{background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:18px;display:flex;flex-direction:column;gap:14px}
@@ -130,6 +130,25 @@ ul.report{margin:0;padding-left:1.1em;display:flex;flex-direction:column;gap:6px
 ul.report li{padding-left:2px}
 ul.report b{font-weight:600}
 @media (prefers-reduced-motion: reduce){*{transition:none!important}}
+.drmeter{display:flex;flex-direction:column;gap:8px;align-items:stretch}
+.drnote{font:700 3rem/1 var(--f-display,inherit);text-align:center;font-variant-numeric:tabular-nums}
+.drdeg{text-align:center;color:var(--muted);font-size:.95rem;min-height:1.3em}
+.drbar{position:relative;height:34px;border-radius:9px;background:var(--chip);border:1px solid var(--line);overflow:hidden}
+.drband{position:absolute;top:0;bottom:0;background:var(--band);border-left:1px solid var(--good);border-right:1px solid var(--good)}
+.drzero{position:absolute;top:0;bottom:0;left:50%;width:2px;margin-left:-1px;background:var(--good)}
+.drneedle{position:absolute;top:3px;bottom:3px;width:8px;margin-left:-4px;border-radius:4px;background:var(--muted);left:50%;transition:left .08s linear,background .1s;opacity:.25}
+.drneedle.ok{background:var(--good);opacity:1}.drneedle.off{background:var(--bad);opacity:1}
+.drscale{display:flex;justify-content:space-between;font:500 .72rem var(--f-mono,monospace);color:var(--muted)}
+#drTrace{width:100%;height:110px;border-radius:9px;background:var(--chip)}
+.drlv{display:grid;grid-template-columns:auto 1fr;gap:6px 12px;align-items:center;font-size:.9rem}
+.drlv input{accent-color:var(--accent);min-width:0}
+#drPlay.live{background:var(--ink);border-color:var(--ink);color:var(--bg)}
+.tnread{display:flex;align-items:baseline;gap:12px;justify-content:center}
+.tnread b{font:700 2.2rem/1 var(--f-mono);font-variant-numeric:tabular-nums}
+.tnread span{color:var(--muted)}
+.tq3{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+.tq3 .ansb{padding:18px 6px;font-size:1.05rem}
+.seg2{margin-top:-4px}
 </style>
 </head>
 <body>
@@ -142,6 +161,7 @@ ul.report b{font-weight:600}
       <a href="#trainer" id="tabTrainer" role="tab" aria-selected="true">Cents</a>
       <a href="#intervals" id="tabIntervals" role="tab" aria-selected="false">Intervals</a>
       <a href="#grader" id="tabGrader" role="tab" aria-selected="false">Grader</a>
+      <a href="#drones" id="tabDrones" role="tab" aria-selected="false">Drones</a>
     </nav>
   </header>
 
@@ -286,7 +306,7 @@ ul.report b{font-weight:600}
 
   <!-- ================= INTERVAL TRAINER ================= -->
   <div class="view" id="viewIntervals" hidden>
-    <div class="seg" role="tablist" aria-label="Intervals mode"><button id="iSegQuiz" role="tab" aria-selected="true">Quiz</button><button id="iSegTrain" role="tab" aria-selected="false">Train</button></div>
+    <div class="seg" role="tablist" aria-label="Intervals mode"><button id="iSegQuiz" role="tab" aria-selected="true">Quiz</button><button id="iSegTrain" role="tab" aria-selected="false">Train</button><button id="iSegTune" role="tab" aria-selected="false">Tuning</button></div>
     <div class="sub-view" id="iQuiz">
     <p class="sub">Hear the base note and a second note, then name the interval.</p>
     <div class="stage" aria-live="polite">
@@ -331,6 +351,7 @@ ul.report b{font-weight:600}
           <button class="chip" id="ivUp" aria-pressed="true">Higher</button>
           <button class="chip" id="ivDown" aria-pressed="false">Lower</button>
         </div>
+        <div class="chips belowChips"><span class="hint" style="align-self:center">Below means:</span><button class="chip" data-v="deg">Scale degree</button><button class="chip" data-v="int">Interval counted down</button></div>
       </div>
       <div class="field">
         <span class="label">How it plays</span>
@@ -388,6 +409,7 @@ ul.report b{font-weight:600}
             <button class="chip" id="itUp" aria-pressed="true">Above</button>
             <button class="chip" id="itDown" aria-pressed="false">Below</button>
           </div>
+        <div class="chips belowChips"><span class="hint" style="align-self:center">Below means:</span><button class="chip" data-v="deg">Scale degree</button><button class="chip" data-v="int">Interval counted down</button></div>
         </div>
         <div class="field">
           <span class="label">Tuning</span>
@@ -412,6 +434,57 @@ ul.report b{font-weight:600}
             <button class="chip" id="itFid" aria-pressed="true">Fiddle-like</button>
           </div>
         </div>
+      </section>
+    </div>
+    <div class="sub-view" id="iTune" hidden>
+      <div class="seg seg2" role="tablist" aria-label="Tuning mode"><button id="tnSegTrain" role="tab" aria-selected="true">Train</button><button id="tnSegQuiz" role="tab" aria-selected="false">Quiz</button></div>
+      <div id="tnTrain">
+      <p class="sub">Hold a main note and tune a scale-degree note against it, as a double stop or one after the other. Slide the cents and listen to the beats slow down and vanish as it comes into tune.</p>
+      <div class="stage" aria-live="polite">
+        <div class="trial-head"><div class="trial-note" id="tnName">E over A<small id="tnSub">a 5th</small></div></div>
+        <div class="tnread"><b id="tnCentsOut">0¢</b><span id="tnRel">in tune (pure)</span></div>
+        <div class="cents-row"><input type="range" id="tnCents" min="-50" max="50" step="1" aria-label="Cents flat or sharp"><input type="number" id="tnCentsNum" min="-50" max="50" step="1" aria-label="Cents" style="width:70px"></div>
+        <div class="info" id="tnBeat"></div>
+        <div class="row"><button class="btn primary big-play" id="tnPlay">▶ Play</button></div>
+        <div class="row"><button class="btn" id="tnSnap">Snap in tune</button><button class="btn" id="tnAB">A/B: hear in tune</button><button class="btn" id="tnSweep">Sweep</button></div>
+      </div>
+      </div>
+      <div id="tnQuiz" hidden>
+      <p class="sub">Is the scale-degree note flat, in tune, or sharp?</p>
+      <div class="stage" aria-live="polite">
+        <div class="trial-head"><div class="trial-note" id="tqName">–<small id="tqSub">Tap Play</small></div><div class="label" id="tqJudge"></div></div>
+        <div class="tq3"><button class="ansb" id="tqFlat" disabled>Flat ♭</button><button class="ansb" id="tqIn" disabled>In tune</button><button class="ansb" id="tqSharp" disabled>Sharp ♯</button></div>
+        <div class="status" id="tqStatus">Tap Play for the first one.</div>
+        <div class="row"><button class="btn primary" id="tqPlay">Play</button><button class="btn" id="tqReplay" disabled>Replay</button><button class="btn" id="tqTrue" disabled>Hear in tune</button></div>
+        <hr>
+        <div class="score"><div><span class="label">Correct</span><b id="tqCorrect">0/0</b></div><div><span class="label">Accuracy</span><b id="tqAcc">–</b></div><div><span class="label">Streak</span><b id="tqStreak">0</b></div></div>
+        <div class="ivstats" id="tqStats" aria-label="By degree"></div>
+        <div class="row"><button class="btn" id="tqReset">Reset score</button></div>
+      </div>
+      </div>
+      <section class="settings">
+        <div class="field"><span class="label">Main note</span>
+          <div class="chips" id="tnStringChips"></div>
+          <div class="row" style="flex-wrap:nowrap"><select id="tnNote" aria-label="Main note name" style="flex:1"></select><select id="tnOct" aria-label="Main note octave" style="flex:1"></select>
+            <label class="toggle tqOnly" style="flex:1.4"><input type="checkbox" id="tqRand"> Random main note</label></div></div>
+        <div class="field"><span class="label" id="tnDegLabel">Scale degree</span><div class="chips" id="tnDegChips"></div>
+          <div class="mini tqOnly"><button id="tqDegAll">All</button><button id="tqDegCommon">Fiddle basics</button></div></div>
+        <div class="field"><span class="label">Degree note goes</span>
+          <div class="chips" id="tnDirChips"><button class="chip" data-v="up">Above the main note</button><button class="chip" data-v="down">Below it</button><button class="chip tqOnly" data-v="mix">Mix</button></div>
+          <div class="chips belowChips"><span class="hint" style="align-self:center">Below means:</span><button class="chip" data-v="deg">Scale degree</button><button class="chip" data-v="int">Interval counted down</button></div></div>
+        <div class="field"><span class="label">How it plays</span>
+          <div class="chips" id="tnStyleChips"><button class="chip" data-v="har">Double stop</button><button class="chip" data-v="mel">One after the other</button><button class="chip" data-v="both">Both</button><button class="chip tqOnly" data-v="mix">Mix</button></div>
+          <label class="toggle"><input type="checkbox" id="tnLead"> Double stop: main note first, then the degree note joins</label></div>
+        <div class="field"><span class="label">In tune means</span>
+          <div class="chips" id="tnRefChips"><button class="chip" data-v="just">Pure (no beats)</button><button class="chip" data-v="et">Equal temperament</button></div></div>
+        <div class="field tqOnly"><span class="label">How far off</span>
+          <div class="chips" id="tqModeChips"><button class="chip" data-v="adapt">Adjust as I go</button><button class="chip" data-v="fixed">Stay put</button></div>
+          <div class="cents-row" id="tqFixedRow"><input type="range" id="tqCents" min="1" max="50" step="1"><b id="tqCentsOut" style="min-width:48px;text-align:right">8¢</b></div>
+          <label class="field"><span class="label">How often it's in tune</span><select id="tqInShare"><option value="0.2">Sometimes (1 in 5)</option><option value="0.33">A third of the time</option><option value="0.5">Half the time</option></select></label></div>
+        <div class="field tnOnly"><span class="label">Slider moves</span>
+          <div class="chips" id="tnDetChips"><button class="chip" data-v="deg">The degree note</button><button class="chip" data-v="main">The main note</button></div></div>
+        <div class="two"><label class="field"><span class="label">Note length</span><select id="tnLen"><option value="1.2">Short</option><option value="2">Medium</option><option value="3.5">Long</option></select></label>
+          <div class="field"><span class="label">Tone</span><div class="chips" id="tnToneChips"><button class="chip" data-v="sine">Pure sine</button><button class="chip" data-v="fiddle">Fiddle-like</button></div></div></div>
       </section>
     </div>
   </div>
@@ -503,6 +576,58 @@ ul.report b{font-weight:600}
       <p class="hint">A note counts as in tune if it is within 10¢ of equal temperament or of the just interval in the key. If it hits neither, it still counts when you place it the same way every time; it is flagged when it strays from your usual spot. Notes shorter than 0.15 s aren't graded. This measures pitch and timing only, not tone or feel. Double stops are read as both notes plus the interval between them; octave double stops read as one note. Band mixes aren't reliable. Send me the recording if you want the full write-up with drills.</p>
     </section>
   </div>
+
+  <!-- ================= DRONES ================= -->
+  <div class="view" id="viewDrones" hidden>
+    <p class="sub">A steady drone to play against. Fifths and octaves are tuned pure, so they lock with your open strings. On iPhone it keeps playing with the screen locked (from your GitHub link).</p>
+    <div class="stage">
+      <div class="trial-head">
+        <div class="trial-note" id="drName">A<small id="drHz">220.0 Hz · A + E</small></div>
+      </div>
+      <div class="chips" id="drKeys" aria-label="Drone key"></div>
+      <div class="row"><button class="btn primary" id="drPlay" style="padding:16px;font-size:1.1rem">▶ Play drone</button></div>
+      <div class="field"><span class="label">Recent</span><div class="chips" id="drRecent"></div></div>
+      <div class="status" id="drStatus"></div>
+    </div>
+
+    <div class="stage">
+      <h3 style="margin:0">Am I in tune?</h3>
+      <p class="hint" style="margin:0">Play against the drone and see each note in cents. A note counts as in tune if it hits equal temperament <i>or</i> the pure interval against the drone. Headphones work best; through the speaker it ignores the drone itself and only reads you when you're playing.</p>
+      <div class="drmeter" id="drMeterBox">
+        <div class="drnote" id="drMNote">–</div>
+        <div class="drdeg" id="drMDeg">Tap Start meter, then play</div>
+        <div class="drbar"><div class="drband" id="drBand"></div><div class="drzero"></div><div class="drneedle" id="drNeedle"></div></div>
+        <div class="drscale"><span>−50¢ flat</span><span>0</span><span>+50¢ sharp</span></div>
+        <canvas id="drTrace" aria-label="Your pitch over the last few seconds"></canvas>
+      </div>
+      <div class="row"><button class="btn primary" id="drMeterBtn">🎤 Start meter</button></div>
+      <div class="status" id="drMStatus"></div>
+    </div>
+
+    <section class="settings">
+      <div class="field"><span class="label">What sounds</span>
+        <div class="chips" id="drVoicing"><button class="chip" data-v="1">Root</button><button class="chip" data-v="15">Root + 5th</button><button class="chip" data-v="158">Root + 5th + octave</button><button class="chip" data-v="18">Root + octave</button></div></div>
+      <div class="field"><span class="label">Add a 3rd</span>
+        <div class="chips" id="drThird"><button class="chip" data-v="0">No</button><button class="chip" data-v="M">Major</button><button class="chip" data-v="m">Minor</button></div>
+        <div class="chips" id="drThirdT"><button class="chip" data-v="just">Pure 3rd</button><button class="chip" data-v="et">Equal-tempered 3rd</button></div></div>
+      <div class="field"><span class="label">Sound</span>
+        <div class="chips" id="drTimbre"><button class="chip" data-v="bowed">Bowed</button><button class="chip" data-v="organ">Organ</button><button class="chip" data-v="tanpura">Tanpura</button><button class="chip" data-v="pure">Pure tone</button></div></div>
+      <div class="field"><span class="label">Octave</span>
+        <div class="chips" id="drOct"><button class="chip" data-v="-1">Low</button><button class="chip" data-v="0">Middle</button><button class="chip" data-v="1">High</button></div></div>
+      <div class="field"><span class="label">Layer volumes</span>
+        <div class="drlv"><span>Root</span><input type="range" id="drVRoot" min="0" max="100"><span>5th</span><input type="range" id="drV5" min="0" max="100"><span>Octave</span><input type="range" id="drV8" min="0" max="100"><span>3rd</span><input type="range" id="drV3" min="0" max="100"><span>Overall</span><input type="range" id="drVAll" min="5" max="100"></div></div>
+      <div class="two">
+        <label class="field"><span class="label">A = <b id="drRefOut">440</b> Hz</span><input type="range" id="drRef" min="436" max="446" step="1"></label>
+        <label class="field"><span class="label">Timer</span><select id="drTimer"><option value="0">Off</option><option value="5">5 min</option><option value="10">10 min</option><option value="15">15 min</option><option value="20">20 min</option><option value="30">30 min</option></select></label>
+      </div>
+      <div class="field"><span class="label">Meter</span>
+        <div class="chips" id="drTol"><button class="chip" data-v="5">±5¢</button><button class="chip" data-v="10">±10¢</button><button class="chip" data-v="15">±15¢</button><button class="chip" data-v="25">±25¢</button></div>
+        <label class="field"><span class="label">Microphone</span><select id="drMic"></select></label>
+        <label class="toggle"><input type="checkbox" id="drEcho"> Echo cancellation (try this only if the meter jumps around with the drone on the speaker)</label></div>
+    </section>
+  </div>
+
+  <footer class="hint" style="text-align:center;padding:24px 0 8px">© 2026 Matt O'Neil. All rights reserved.</footer>
 </div>
 
 <script>
@@ -512,11 +637,11 @@ const $=id=>document.getElementById(id);
 
 /* ================= tabs ================= */
 function showView(){
-  const g=location.hash==="#grader",iv=location.hash==="#intervals";
-  $("viewTrainer").hidden=g||iv;$("viewGrader").hidden=!g;$("viewIntervals").hidden=!iv;
-  $("tabTrainer").setAttribute("aria-selected",!g&&!iv);$("tabGrader").setAttribute("aria-selected",g);$("tabIntervals").setAttribute("aria-selected",iv);
+  const g=location.hash==="#grader",iv=location.hash==="#intervals",dr=location.hash==="#drones";
+  $("viewTrainer").hidden=g||iv||dr;$("viewGrader").hidden=!g;$("viewIntervals").hidden=!iv;$("viewDrones").hidden=!dr;
+  $("tabTrainer").setAttribute("aria-selected",!g&&!iv&&!dr);$("tabGrader").setAttribute("aria-selected",g);$("tabIntervals").setAttribute("aria-selected",iv);$("tabDrones").setAttribute("aria-selected",dr);
   if(g){if(!G.buf&&!G.loading)loadExample();else drawAll()}
-  if(window.ctStop)ctStop();if(window.itStop)itStop();
+  if(window.ctStop)ctStop();if(window.itStop)itStop();if(window.tnStop)tnStop();
 }
 window.addEventListener("hashchange",showView);
 
@@ -561,7 +686,7 @@ const HARM=(()=>{const n=16,im=new Float32Array(n+1);for(let h=1;h<=n;h++)im[h]=
 let fiddleWave=null,unlockEl=null;
 // iOS: route web audio as "playback" so the ringer/silent switch doesn't mute it
 function unlockAudio(){
-  try{if(navigator.audioSession)navigator.audioSession.type="playback"}catch(e){}
+  try{if(navigator.audioSession&&!(typeof DRX!=="undefined"&&DRX.mic))navigator.audioSession.type="playback"}catch(e){}
   if(!unlockEl){
     const sr=8000,n=sr/2,buf=new ArrayBuffer(44+n*2),v=new DataView(buf);
     const w=(o,s)=>{for(let i=0;i<s.length;i++)v.setUint8(o+i,s.charCodeAt(i))};
@@ -646,7 +771,7 @@ $("playBtn").onclick=newTrial;
 $("replayBtn").onclick=()=>{if(trial){if(!trial.done)setPads(false);playPair()}};
 $("pad0").onclick=()=>answer(0);$("pad1").onclick=()=>answer(1);
 $("resetBtn").onclick=()=>{score={c:0,n:0,streak:0,run:0,hist:[]};renderScore()};
-document.addEventListener("keydown",e=>{if(location.hash==="#grader"||location.hash==="#intervals"||!$("cTrain").hidden)return;
+document.addEventListener("keydown",e=>{if(location.hash==="#grader"||location.hash==="#intervals"||location.hash==="#drones"||!$("cTrain").hidden)return;
   if(e.target.tagName==="INPUT"||e.target.tagName==="SELECT")return;
   if(e.key==="1")answer(0);else if(e.key==="2")answer(1);else if(e.key===" "){e.preventDefault();newTrial()}else if(e.key==="r")$("replayBtn").click()});
 sync();renderScore();
@@ -695,7 +820,8 @@ function ivSync(){
     .forEach(([id,on])=>$(id).setAttribute("aria-pressed",on));
   if(!ivTrial){const m=(IS.oct+1)*12+IS.note;
     $("ivBase").firstChild.nodeValue=IS.rand?"Random":mName(m);$("ivHz").textContent=IS.rand?"":(S.refA*2**((m-69)/12)).toFixed(1)+" Hz";
-    $("ivMode").textContent=[IS.mel&&"melodic",IS.har&&"together"].filter(Boolean).join(" / ")+" · "+[IS.up&&"higher",IS.down&&"lower"].filter(Boolean).join(" / ")}
+    $("ivMode").textContent=[IS.mel&&"melodic",IS.har&&"together"].filter(Boolean).join(" / ")+" · "+[IS.up&&"higher",IS.down&&((IS.below||"deg")==="deg"?"lower (scale degree)":"lower")].filter(Boolean).join(" / ")}
+  document.querySelectorAll("#iQuiz .belowChips").forEach(b=>b.hidden=!IS.down);document.querySelectorAll(".belowChips .chip").forEach(b=>b.setAttribute("aria-pressed",b.dataset.v===(IS.below||"deg")));
   ivRenderAns();
 }
 function ivRenderAns(){
@@ -715,9 +841,10 @@ function ivNew(){
   const dirs=[IS.up&&"up",IS.down&&"down"].filter(Boolean),dir=dirs[Math.floor(Math.random()*dirs.length)];
   const sts=[IS.mel&&"mel",IS.har&&"har"].filter(Boolean),style=sts[Math.floor(Math.random()*sts.length)];
   const f0=S.refA*2**((midi-69)/12),ratio=IS.just?v[3]:2**(v[2]/12);
-  ivTrial={midi,v,dir,style,f0,f1:dir==="up"?f0*ratio:f0/ratio,just:IS.just,done:false,ready:false};
+  const sd=dir==="down"&&(IS.below||"deg")==="deg";   // scale degree below: the degree's note of this key, placed underneath
+  ivTrial={midi,v,dir,style,f0,sd,f1:dir==="up"?f0*ratio:sd?(v[2]===12?f0/2:f0*ratio/2):f0/ratio,just:IS.just,done:false,ready:false};
   $("ivBase").firstChild.nodeValue=mName(midi);$("ivHz").textContent=f0.toFixed(1)+" Hz";
-  $("ivMode").textContent=(style==="har"?"Together":"Melodic")+" · other note "+(dir==="up"?"higher":"lower");
+  $("ivMode").textContent=(style==="har"?"Together":"Melodic")+" · other note "+(dir==="up"?"higher":sd?"lower (scale degree)":"lower");
   ivRenderAns();
   $("ivStatus").className="status";$("ivStatus").textContent="Listening… name the interval.";
   $("ivReplay").disabled=false;$("ivPlay").textContent="Next";
@@ -740,9 +867,9 @@ function ivAnswer(k){
   ivScore.n++;p.n++;if(ok){ivScore.c++;p.c++;ivScore.streak++}else ivScore.streak=0;
   document.querySelectorAll("#ivAns .ansb").forEach(b=>{b.disabled=true;
     if(b.dataset.k===tr.v[0])b.classList.add("right");else if(b.dataset.k===k)b.classList.add("wrong")});
-  const second=tr.midi+(tr.dir==="up"?1:-1)*tr.v[2];
+  const second=tr.dir==="up"?tr.midi+tr.v[2]:tr.sd?(tr.v[2]===12?tr.midi-12:tr.midi+tr.v[2]-12):tr.midi-tr.v[2],apart=Math.abs(tr.midi-second)%12||(tr.midi===second?0:12);
   $("ivStatus").className="status "+(ok?"good":"bad");
-  $("ivStatus").textContent=(ok?"Correct. ":"Not quite. ")+"It was a "+tr.v[1].toLowerCase()+" "+(tr.dir==="up"?"up":"down")+", "+mName(tr.midi)+" to "+mName(second)+(tr.just?" (just)":"")+". Tap Replay to hear it again.";
+  $("ivStatus").textContent=(ok?"Correct. ":"Not quite. ")+(tr.sd?"It was the "+tr.v[1].toLowerCase()+" of "+NAMES[tr.midi%12]+" below: "+mName(second)+" under "+mName(tr.midi)+", "+SOUNDN[apart]+" apart":"It was a "+tr.v[1].toLowerCase()+" "+(tr.dir==="up"?"up":"down")+", "+mName(tr.midi)+" to "+mName(second))+(tr.just?" (just)":"")+". Tap Replay to hear it again.";
   ivRenderScore();
 }
 function ivRenderScore(){
@@ -760,11 +887,11 @@ ivSync();ivRenderScore();
 const SUB={c:"quiz",i:"quiz"};
 try{Object.assign(SUB,JSON.parse(localStorage.getItem("subViews")||"{}"))}catch(e){}
 function setSub(k,v){SUB[k]=v;try{localStorage.setItem("subViews",JSON.stringify(SUB))}catch(e){}
-  $(k+"Quiz").hidden=v!=="quiz";$(k+"Train").hidden=v!=="train";
+  $(k+"Quiz").hidden=v!=="quiz";$(k+"Train").hidden=v!=="train";if($(k+"Tune")){$(k+"Tune").hidden=v!=="tune";$(k+"SegTune").setAttribute("aria-selected",v==="tune")}
   $(k+"SegQuiz").setAttribute("aria-selected",v==="quiz");$(k+"SegTrain").setAttribute("aria-selected",v==="train");
-  ctStop();itStop();}
+  ctStop();itStop();if(window.tnStop)tnStop();}
 $("cSegQuiz").onclick=()=>setSub("c","quiz");$("cSegTrain").onclick=()=>setSub("c","train");
-$("iSegQuiz").onclick=()=>setSub("i","quiz");$("iSegTrain").onclick=()=>setSub("i","train");
+$("iSegQuiz").onclick=()=>setSub("i","quiz");$("iSegTrain").onclick=()=>setSub("i","train");$("iSegTune").onclick=()=>setSub("i","tune");
 function voice(f,type){const o=ctx.createOscillator();if(type==="fiddle")o.setPeriodicWave(fiddleWave);else o.type="sine";o.frequency.value=f;
   let n=o;if(type==="fiddle"){const lp=ctx.createBiquadFilter();lp.type="lowpass";lp.frequency.value=4500;o.connect(lp);n=lp}return{o,n}}
 const peakOf=t=>t==="fiddle"?.16:.32;
@@ -865,9 +992,12 @@ function itSync(){
   document.querySelectorAll("#itTuneChips .chip").forEach(b=>b.setAttribute("aria-pressed",b.dataset.tune===IT.tune));
   $("itUp").setAttribute("aria-pressed",IT.up);$("itDown").setAttribute("aria-pressed",!IT.up);
   $("itSine").setAttribute("aria-pressed",IT.tone==="sine");$("itFid").setAttribute("aria-pressed",IT.tone==="fiddle");$("itLoop").checked=IT.loop;
-  const m=(IT.oct+1)*12+IT.note,m2=m+(IT.up?1:-1)*v[2];
+  const sd=!IT.up&&(IS.below||"deg")==="deg",m=(IT.oct+1)*12+IT.note,m2=IT.up?m+v[2]:sd?(v[2]===12?m-12:m+v[2]-12):m-v[2];
+  document.querySelectorAll("#iTrain .belowChips").forEach(b=>b.hidden=IT.up);
   $("itName").firstChild.nodeValue=v[1];$("itNotes").textContent=mName(m)+(IT.up?" → ":" ↓ ")+mName(m2);
   const jc=1200*Math.log2(v[3])-v[2]*100;
+  if(sd&&v[2]%12){const ss=12-v[2],jc2=1200*Math.log2(SRF[ss][0]/SRF[ss][1])-ss*100;
+    $("itInfo").textContent="The "+v[1].toLowerCase()+" of "+NAMES[m%12]+", placed below: they sound "+SOUNDN[ss]+" apart ("+ss+" half step"+(ss>1?"s":"")+"). Just is "+Math.abs(jc2).toFixed(1)+"¢ "+(jc2>0?"wider":"narrower")+" than equal temperament.";return}
   $("itInfo").textContent=v[2]+" half step"+(v[2]>1?"s":"")+". "+(v[2]===12?"Equal and just octaves are the same.":
     "Just is "+Math.abs(jc).toFixed(1)+"¢ "+(jc>0?"wider":"narrower")+" than equal temperament.");
 }
@@ -875,7 +1005,7 @@ function itSeq(){   // [{t, fs:[...]}] relative times
   const v=IV.find(x=>x[0]===IT.k)||IV[6],m=(IT.oct+1)*12+IT.note,f0=S.refA*2**((m-69)/12),seq=[];let t=0;
   const tunings=IT.tune==="cmp"?[false,true]:[IT.tune==="just"];
   tunings.forEach((just,ti)=>{
-    const r=just?v[3]:2**(v[2]/12),f1=IT.up?f0*r:f0/r;
+    const r=just?v[3]:2**(v[2]/12),sd=!IT.up&&(IS.below||"deg")==="deg",f1=IT.up?f0*r:sd?(v[2]===12?f0/2:f0*r/2):f0/r;
     if(IT.style!=="har"){seq.push({t,d:.85,fs:[f0]});seq.push({t:t+1,d:.85,fs:[f1]});t+=2.1}
     if(IT.style!=="mel"){seq.push({t,d:2,fs:[f0,f1]});t+=2.3}
     if(ti<tunings.length-1)t+=.5;
@@ -905,6 +1035,117 @@ $("itSine").onclick=()=>{IT.tone="sine";itChanged()};$("itFid").onclick=()=>{IT.
 $("itLoop").onchange=e=>{IT.loop=e.target.checked;itChanged()};
 $("itPlay").onclick=()=>{itLive?itStop():itRun()};
 itSync();
+
+/* ================= TUNING (double stops and melodic, flat / in tune / sharp) ================= */
+const SRF=[[1,1],[16,15],[9,8],[6,5],[5,4],[4,3],[45,32],[3,2],[8,5],[5,3],[16,9],[15,8],[2,1]];   // pure ratio by sounding half steps
+const SOUNDN=["a unison","a minor 2nd","a major 2nd","a minor 3rd","a major 3rd","a 4th","a tritone","a 5th","a minor 6th","a major 6th","a minor 7th","a major 7th","an octave"];
+const TDEG=[["1","Unison",0],["b2","♭2",1],["2","2nd",2],["b3","♭3",3],["3","3rd",4],["4","4th",5],["#4","♯4",6],["5","5th",7],["b6","♭6",8],["6","6th",9],["b7","♭7",10],["7","7th",11],["8","Octave",12]];
+const TDEG_COMMON=["1","3","4","5","6","8"];
+const TN={note:9,oct:4,deg:"5",dir:"up",style:"har",lead:false,ref:"just",cents:0,det:"deg",len:2,tone:"fiddle",
+  q:{rand:false,degs:TDEG_COMMON.slice(),dir:"up",style:"har",mode:"adapt",cents:8,inShare:.33}};
+try{const s=JSON.parse(localStorage.getItem("tuneTrain")||"{}");Object.assign(TN,s);TN.q=Object.assign({rand:false,degs:TDEG_COMMON.slice(),dir:"up",style:"har",mode:"adapt",cents:8,inShare:.33},s.q||{})}catch(e){}
+const saveTN=()=>{try{localStorage.setItem("tuneTrain",JSON.stringify(TN))}catch(e){}};
+let tnSub="train",tnLive=null,tqTrial=null,tqScore={c:0,n:0,streak:0,per:{}},tqLevel={},tqTimers=[];
+try{tnSub=localStorage.getItem("tuneSub")||"train";tqLevel=JSON.parse(localStorage.getItem("tuneLevels")||"{}")}catch(e){}
+const belowMode=()=>IS.below||"deg";
+// where the degree note lands and how far apart the two notes sound
+function tnGeom(main,degKey,dir){const d=TDEG.find(x=>x[0]===degKey)||TDEG[7],s=d[2];let ss,dm;
+  if(dir==="up"){ss=s;dm=main+s}else if(belowMode()==="int"){ss=s;dm=main-s}else{ss=s===0?0:s===12?12:12-s;dm=main-ss}
+  return{d,ss,dm,up:dir==="up"}}
+function tnFreqs(main,g,ref,cents,det){const f0=S.refA*2**((main-69)/12),r=ref==="just"?SRF[g.ss][0]/SRF[g.ss][1]:2**(g.ss/12);
+  let fm=f0,fd=g.up?f0*r:f0/r;if(det==="main")fm*=2**(cents/1200);else fd*=2**(cents/1200);return{fm,fd}}
+function tnBeats(fm,fd,g){const[p,q]=SRF[g.ss],hi=g.up?fd:fm,lo=g.up?fm:fd;return Math.abs(q*hi-p*lo)}
+function tnDesc(main,g){const dn=mName(g.dm),mn=mName(main),deg=g.d[1];
+  if(g.ss===0)return[`${dn} with ${mn}`,"unison"];
+  return g.up?[`${dn} over ${mn}`,`${deg} of ${NAMES[((main%12)+12)%12]} above · ${SOUNDN[g.ss]}`]:[`${dn} under ${mn}`,(belowMode()==="deg"?`${deg} of ${NAMES[((main%12)+12)%12]} below`:`${deg} below`)+` · ${SOUNDN[g.ss]} apart`]}
+const tnMain=()=>(TN.oct+1)*12+TN.note;
+/* ---- train ---- */
+function tnSync(){syncPicker("tn",TN);const quiz=tnSub==="quiz";
+  document.querySelectorAll("#iTune .tqOnly").forEach(e=>e.hidden=!quiz);document.querySelectorAll("#iTune .tnOnly").forEach(e=>e.hidden=quiz);
+  $("tnTrain").hidden=quiz;$("tnQuiz").hidden=!quiz;$("tnSegTrain").setAttribute("aria-selected",!quiz);$("tnSegQuiz").setAttribute("aria-selected",quiz);
+  const Q=TN.q,set=(id,val,multi)=>document.querySelectorAll("#"+id+" .chip").forEach(b=>b.setAttribute("aria-pressed",multi?val.includes(b.dataset.v):b.dataset.v===String(val)));
+  set("tnDegChips",quiz?Q.degs:[TN.deg],true);set("tnDirChips",quiz?Q.dir:TN.dir);set("tnStyleChips",quiz?Q.style:TN.style);set("tnRefChips",TN.ref);set("tnDetChips",TN.det);set("tnToneChips",TN.tone);set("tqModeChips",Q.mode);
+  $("tnDegLabel").textContent=quiz?"Scale degrees to ask":"Scale degree";$("tqRand").checked=Q.rand;$("tnLead").checked=TN.lead;$("tnLen").value=TN.len;
+  $("tqFixedRow").hidden=Q.mode!=="fixed";$("tqCents").value=Q.cents;$("tqCentsOut").textContent=Q.cents+"¢";$("tqInShare").value=String(Q.inShare);
+  document.querySelectorAll(".belowChips").forEach(box=>box.querySelectorAll(".chip").forEach(b=>b.setAttribute("aria-pressed",b.dataset.v===belowMode())));
+  document.querySelectorAll("#iTune .belowChips").forEach(b=>b.hidden=(quiz?Q.dir:TN.dir)==="up");
+  // train readout
+  const m=tnMain(),g=tnGeom(m,TN.deg,TN.dir),[a,b]=tnDesc(m,g),{fm,fd}=tnFreqs(m,g,TN.ref,TN.cents,TN.det);
+  $("tnName").firstChild.nodeValue=a;$("tnSub").textContent=b;$("tnCents").value=TN.cents;$("tnCentsNum").value=TN.cents;
+  const c=TN.cents,who=TN.det==="main"?"main note":"degree note";$("tnCentsOut").textContent=(c>0?"+":c<0?"−":"")+Math.abs(c)+"¢";
+  $("tnRel").textContent=c===0?`in tune (${TN.ref==="just"?"pure":"equal"})`:`${who} ${c>0?"sharp":"flat"} of ${TN.ref==="just"?"pure":"equal"}`;
+  const pure=tnFreqs(m,g,"just",0,"deg"),et=tnFreqs(m,g,"et",0,"deg"),gap=1200*Math.log2(et.fd/pure.fd),bt=tnBeats(fm,fd,g);
+  $("tnBeat").textContent=(g.ss===6?"":bt<.05?"No beats: locked in. ":`Beating about ${bt<10?bt.toFixed(1):Math.round(bt)} times a second. `)+
+    (Math.abs(gap)>=1?`Equal temperament is ${Math.abs(gap).toFixed(1)}¢ ${(g.up?gap>0:gap<0)?"wider":"narrower"} than pure for this one.`:"Pure and equal are the same here (within 2¢).")}
+function tnChanged(){saveTN();tnSync();if(tnLive)tnUpdate()}
+function tnStart(){getCtx();if(ctx.state!=="running")ctx.resume();tnHalt();const c=ctx,t=c.currentTime,out=c.createGain();out.gain.setValueAtTime(0,t);out.gain.linearRampToValueAtTime(1,t+.05);out.connect(c.destination);
+  const m=tnMain(),g=tnGeom(m,TN.deg,TN.dir),{fm,fd}=tnFreqs(m,g,TN.ref,TN.cents,TN.det),pk=peakOf(TN.tone)*.7;
+  const a=voice(fm,TN.tone),b=voice(fd,TN.tone),ga=c.createGain(),gb=c.createGain();a.n.connect(ga).connect(out);b.n.connect(gb).connect(out);a.o.start(t);b.o.start(t);
+  const L={out,a,b,ga,gb,style:TN.style,tone:TN.tone,t0:t+.05,next:t+.05,step:0,pk};tnLive=L;
+  // double stop rings continuously; the other styles loop a little pattern
+  const sched=()=>{if(tnLive!==L)return;const st=L.style;
+    if(st==="har"){if(L.step===0){const lead=TN.lead?.7:0;ga.gain.setValueAtTime(0,L.next);ga.gain.linearRampToValueAtTime(pk,L.next+.04);gb.gain.setValueAtTime(0,L.next+lead);gb.gain.linearRampToValueAtTime(pk,L.next+lead+.04);L.step=1}return}
+    const d=+TN.len*.5;while(L.next<c.currentTime+.3){const s=L.step%(st==="mel"?2:3),T=L.next;
+      if(s===0){env(ga,T,d,pk*1.3);L.next+=d+.15}else if(s===1){env(gb,T,d,pk*1.3);L.next+=d+(st==="mel"?.6:.25)}else{env(ga,T,+TN.len,pk);env(gb,T,+TN.len,pk);L.next+=+TN.len+.6}L.step++}};
+  const env=(g,T,d,p)=>{g.gain.setValueAtTime(0,T);g.gain.linearRampToValueAtTime(p,T+.03);g.gain.setValueAtTime(p,T+d-.06);g.gain.linearRampToValueAtTime(0,T+d)};
+  sched();L.timer=setInterval(sched,40);$("tnPlay").textContent="■ Stop";$("tnPlay").classList.add("live")}
+function tnUpdate(){const L=tnLive;if(!L)return;if(L.style!==TN.style||L.tone!==undefined&&L.tone!==TN.tone){tnStart();return}
+  const m=tnMain(),g=tnGeom(m,TN.deg,TN.dir),{fm,fd}=tnFreqs(m,g,TN.ref,L.ab?0:TN.cents,TN.det),t=ctx.currentTime;L.a.o.frequency.setTargetAtTime(fm,t,.008);L.b.o.frequency.setTargetAtTime(fd,t,.008)}
+function tnHalt(){const L=tnLive;if(!L)return;tnLive=null;clearInterval(L.timer);clearInterval(L.sw);try{const t=ctx.currentTime;L.out.gain.cancelScheduledValues(t);L.out.gain.setValueAtTime(L.out.gain.value,t);L.out.gain.linearRampToValueAtTime(0,t+.05);
+  L.a.o.stop(t+.08);L.b.o.stop(t+.08)}catch(e){}$("tnPlay").textContent="▶ Play";$("tnPlay").classList.remove("live");$("tnAB").textContent="A/B: hear in tune";$("tnSweep").textContent="Sweep"}
+window.tnStop=()=>{tnHalt();tqTimers.forEach(clearTimeout)};
+$("tnPlay").onclick=()=>{tnLive?tnHalt():tnStart()};
+$("tnCents").oninput=e=>{TN.cents=+e.target.value;tnChanged()};$("tnCentsNum").onchange=e=>{TN.cents=Math.max(-50,Math.min(50,Math.round(+e.target.value||0)));tnChanged()};
+$("tnSnap").onclick=()=>{TN.cents=0;tnChanged()};
+$("tnAB").onclick=()=>{if(!tnLive)tnStart();const L=tnLive;L.ab=!L.ab;$("tnAB").textContent=L.ab?"A/B: back to "+(TN.cents>0?"+":"")+TN.cents+"¢":"A/B: hear in tune";tnUpdate()};
+$("tnSweep").onclick=()=>{if(tnLive&&tnLive.sw){clearInterval(tnLive.sw);tnLive.sw=null;$("tnSweep").textContent="Sweep";return}
+  if(!tnLive||tnLive.style!=="har"){TN.style="har";saveTN();tnSync();tnStart()}const L=tnLive,t0=performance.now();$("tnSweep").textContent="■ Stop sweep";
+  L.sw=setInterval(()=>{const ph=((performance.now()-t0)/12000)%1,c=Math.round(-30+60*(ph<.5?ph*2:2-ph*2));TN.cents=c;tnSync();tnUpdate()},60)};   // −30¢ to +30¢ and back, 12 s a round
+/* ---- quiz ---- */
+function tqPick(){const Q=TN.q,pool=TDEG.filter(d=>Q.degs.includes(d[0]));if(!pool.length)return null;const d=pool[Math.floor(Math.random()*pool.length)];
+  const main=Q.rand?55+Math.floor(Math.random()*19):tnMain(),dir=Q.dir==="mix"?(Math.random()<.5?"up":"down"):Q.dir,style=Q.style==="mix"?["har","mel","both"][Math.floor(Math.random()*3)]:Q.style;
+  const lvl=Q.mode==="fixed"?Q.cents:(tqLevel[d[0]]||20),r=Math.random(),ans=r<Q.inShare?"in":r<Q.inShare+(1-Q.inShare)/2?"flat":"sharp";
+  const cents=ans==="in"?0:(ans==="flat"?-1:1)*Math.max(1,Math.round(lvl));return{main,g:tnGeom(main,d[0],dir),d,dir,style,cents,ans,lvl,done:false,ready:false}}
+async function tqPlay(useTrue){getCtx();tqTimers.forEach(clearTimeout);tqTimers=[];try{if(ctx.state!=="running")await ctx.resume()}catch(e){}
+  const tr=tqTrial;if(!tr)return;tnHalt();const{fm,fd}=tnFreqs(tr.main,tr.g,TN.ref,useTrue?0:tr.cents,"deg"),t0=ctx.currentTime+.08,L=+TN.len,bus=ctx.createGain();bus.connect(ctx.destination);
+  if(tqTrial.bus)try{tqTrial.bus.disconnect()}catch(e){}tqTrial.bus=bus;let end=0;
+  if(tr.style!=="har"){tone(fm,t0,L*.5,TN.tone,1,bus);tone(fd,t0+L*.5+.15,L*.5,TN.tone,1,bus);end=L+.15}
+  if(tr.style!=="mel"){const s=t0+(end?end+.35:0),lead=TN.lead?.8:0;tone(fm,s,L+lead,TN.tone,.7,bus);tone(fd,s+lead,L,TN.tone,.7,bus);end=(end?end+.35:0)+L+lead}
+  tqTimers.push(setTimeout(()=>{tr.ready=true;if(!tr.done&&tr===tqTrial)tqSet(true)},80+end*1000))}
+function tqSet(on){["tqFlat","tqIn","tqSharp"].forEach(id=>$(id).disabled=!on)}
+function tqNew(){const tr=tqPick();if(!tr){$("tqStatus").className="status bad";$("tqStatus").textContent="Pick at least one scale degree below.";return}
+  tqTrial=tr;const[a,b]=tnDesc(tr.main,tr.g);$("tqName").firstChild.nodeValue=a;$("tqSub").textContent=b+" · "+(tr.style==="har"?"double stop":tr.style==="mel"?"one after the other":"both");
+  $("tqJudge").textContent=tr.g.ss===0?"Judge the second note":"Judge the "+(tr.g.up?"higher":"lower")+" note ("+mName(tr.g.dm)+")";
+  ["tqFlat","tqIn","tqSharp"].forEach(id=>$(id).classList.remove("right","wrong"));tqSet(false);$("tqReplay").disabled=false;$("tqTrue").disabled=true;$("tqPlay").textContent="Next";
+  $("tqStatus").className="status";$("tqStatus").textContent="Listen… flat, in tune, or sharp?";tqPlay()}
+function tqAnswer(a){const tr=tqTrial;if(!tr||tr.done||!tr.ready)return;tr.done=true;const ok=a===tr.ans,k=tr.d[0],p=tqScore.per[k]=tqScore.per[k]||{c:0,n:0};
+  tqScore.n++;p.n++;if(ok){tqScore.c++;p.c++;tqScore.streak++}else tqScore.streak=0;
+  if(TN.q.mode==="adapt"){const L=tqLevel[k]||20;tr.hits=(tqLevel["_"+k]||0);if(ok){tqLevel["_"+k]=tr.hits+1;if(tr.hits+1>=2){tqLevel[k]=Math.max(2,L*.8);tqLevel["_"+k]=0}}else{tqLevel[k]=Math.min(45,L*1.3);tqLevel["_"+k]=0}
+    try{localStorage.setItem("tuneLevels",JSON.stringify(tqLevel))}catch(e){}}
+  const id={flat:"tqFlat",in:"tqIn",sharp:"tqSharp"};$(id[tr.ans]).classList.add("right");if(!ok)$(id[a]).classList.add("wrong");tqSet(false);$("tqTrue").disabled=false;
+  const what=tr.ans==="in"?"in tune":`${Math.abs(tr.cents)}¢ ${tr.ans}`;$("tqStatus").className="status "+(ok?"good":"bad");
+  $("tqStatus").textContent=(ok?"Right: ":"Not quite: ")+mName(tr.g.dm)+" was "+what+(tr.ans==="in"?"":` of ${TN.ref==="just"?"pure":"equal"}`)+". Replay it, or tap Hear in tune to compare.";tqRender()}
+function tqRender(){$("tqCorrect").textContent=tqScore.c+"/"+tqScore.n;$("tqAcc").textContent=tqScore.n?Math.round(100*tqScore.c/tqScore.n)+"%":"–";$("tqStreak").textContent=tqScore.streak;
+  $("tqStats").innerHTML=TDEG.filter(d=>tqScore.per[d[0]]||(TN.q.mode==="adapt"&&tqLevel[d[0]])).map(d=>{const p=tqScore.per[d[0]],lv=tqLevel[d[0]];
+    return "<span>"+d[1]+(p?' <b class="'+(p.c/p.n>=.8?"g":"b")+'">'+p.c+"/"+p.n+"</b>":"")+(TN.q.mode==="adapt"&&lv?` · hearing ~${Math.round(lv)}¢`:"")+"</span>"}).join("")}
+$("tqPlay").onclick=tqNew;$("tqReplay").onclick=()=>{if(tqTrial){if(!tqTrial.done)tqSet(false);tqPlay()}};$("tqTrue").onclick=()=>tqPlay(true);
+$("tqFlat").onclick=()=>tqAnswer("flat");$("tqIn").onclick=()=>tqAnswer("in");$("tqSharp").onclick=()=>tqAnswer("sharp");
+$("tqReset").onclick=()=>{tqScore={c:0,n:0,streak:0,per:{}};tqLevel={};try{localStorage.setItem("tuneLevels","{}")}catch(e){}tqRender()};
+/* ---- shared settings ---- */
+notePicker("tn",TN,()=>{TN.q.rand=false;tnChanged()});
+TDEG.forEach(d=>{const b=document.createElement("button");b.className="chip";b.textContent=d[1];b.dataset.v=d[0];
+  b.onclick=()=>{if(tnSub==="quiz"){const Q=TN.q;Q.degs=Q.degs.includes(d[0])?(Q.degs.length>1?Q.degs.filter(x=>x!==d[0]):Q.degs):TDEG.map(x=>x[0]).filter(k=>k===d[0]||Q.degs.includes(k))}else TN.deg=d[0];tnChanged()};$("tnDegChips").append(b)});
+$("tqDegAll").onclick=()=>{TN.q.degs=TDEG.map(d=>d[0]);tnChanged()};$("tqDegCommon").onclick=()=>{TN.q.degs=TDEG_COMMON.slice();tnChanged()};
+const tnPick=(id,fn)=>document.querySelectorAll("#"+id+" .chip").forEach(b=>b.onclick=()=>{fn(b.dataset.v);tnChanged()});
+tnPick("tnDirChips",v=>{if(tnSub==="quiz")TN.q.dir=v;else if(v!=="mix")TN.dir=v});tnPick("tnStyleChips",v=>{if(tnSub==="quiz")TN.q.style=v;else if(v!=="mix")TN.style=v});
+tnPick("tnRefChips",v=>TN.ref=v);tnPick("tnDetChips",v=>TN.det=v);tnPick("tnToneChips",v=>{TN.tone=v;if(tnLive){tnStart()}});tnPick("tqModeChips",v=>TN.q.mode=v);
+$("tqRand").onchange=e=>{TN.q.rand=e.target.checked;tnChanged()};$("tnLead").onchange=e=>{TN.lead=e.target.checked;tnChanged();if(tnLive&&TN.style==="har")tnStart()};
+$("tnLen").onchange=e=>{TN.len=+e.target.value;tnChanged()};$("tqCents").oninput=e=>{TN.q.cents=+e.target.value;tnChanged()};$("tqInShare").onchange=e=>{TN.q.inShare=+e.target.value;tnChanged()};
+function tnSetSub(v){tnSub=v;try{localStorage.setItem("tuneSub",v)}catch(e){}tnHalt();tnSync()}
+$("tnSegTrain").onclick=()=>tnSetSub("train");$("tnSegQuiz").onclick=()=>tnSetSub("quiz");
+document.querySelectorAll(".belowChips .chip").forEach(b=>b.onclick=()=>{IS.below=b.dataset.v;saveI();tnChanged();ivSync();itSync()});
+tnSync();tqRender();
+
 setSub("c",SUB.c);setSub("i",SUB.i);
 
 /* ================= RECORDING GRADER ================= */
@@ -1418,6 +1659,7 @@ function keepAwake(on){AWAKE.on=on;
   else{try{AWAKE.lock&&AWAKE.lock.release()}catch(e){}AWAKE.lock=null;try{AWAKE.video&&AWAKE.video.pause()}catch(e){}}}
 document.addEventListener("visibilitychange",()=>{if(AWAKE.on&&document.visibilityState==="visible")keepAwake(true)});
 async function startRec(){
+  if(window.claude&&window.claude.use){recMsg("Recording doesn't work inside the Claude app. Open the GitHub version in Safari or Chrome: guitmandoguy.github.io/fiddle-kit/fiddle-practice-kit.html",true);return}
   keepAwake(true);
   if(!navigator.mediaDevices||!navigator.mediaDevices.getUserMedia){keepAwake(false);recMsg("This browser can't record here. Use Choose recording instead.",true);return}
   try{if(navigator.audioSession)navigator.audioSession.type="play-and-record"}catch(e){}
@@ -1501,6 +1743,153 @@ matchMedia("(prefers-color-scheme: dark)").addEventListener("change",drawAll);
 new MutationObserver(drawAll).observe(document.documentElement,{attributes:true,attributeFilter:["data-theme"]});
 
 showView();
+
+/* ================= DRONES ================= */
+const DRK=[0,7,2,9,4,11,6,1,8,3,10,5];   // circle of fifths from C: C G D A E B F♯ D♭ A♭ E♭ B♭ F
+const DR=Object.assign({key:9,oct:0,voicing:"15",third:"0",thirdT:"just",timbre:"bowed",v:{root:80,f5:60,o8:45,t3:50,all:70},ref:440,timer:0,tol:10,mic:"",echo:false,recent:[]},
+  (()=>{try{return JSON.parse(localStorage.getItem("drones")||"{}")}catch(e){return{}}})());
+const drSave=()=>{try{localStorage.setItem("drones",JSON.stringify(DR))}catch(e){}};
+const DRX={el:null,url:null,wa:null,playing:false,timerId:null,mic:null};
+const drRootMidi=()=>48+((DR.key-7+12)%12)+7+12*DR.oct;   // middle: G3..F♯4
+const drHz=m=>DR.ref*Math.pow(2,(m-69)/12);
+const JUSTC=[0,11.73,3.91,15.64,-13.69,-1.96,-9.78,1.96,13.69,-15.64,-3.91,-11.73];   // pure interval minus equal, in cents, by half steps above the root
+const DEGN=["root","♭2","2nd","♭3","3rd","4th","♯4","5th","♭6","6th","♭7","7th"];
+function drLabel(){const n=NAMES[DR.key],v=DR.voicing,parts=[n];if(v.includes("5"))parts.push(NAMES[(DR.key+7)%12]);
+  if(DR.third!=="0")parts.push(NAMES[(DR.key+(DR.third==="M"?4:3))%12]);return parts.join(" + ")+(v.includes("8")?" + octave":"")}
+/* render one seamless loop. Every pitch is a whole number of cycles over the loop, so it repeats with no click;
+   root, 5th, octave and pure 3rds are exact multiples of one base frequency, so they stay perfectly pure. */
+function drRender(sr){sr=sr||44100;const f=drHz(drRootMidi()),u=f/20;   // root 20u, 5th 30u, octave 40u, major 3rd 25u, minor 3rd 24u
+  let N=0,best=1;for(let n=Math.round(9*sr);n<=Math.round(13*sr);n++){const x=u*n/sr,fr=Math.abs(x-Math.round(x));if(fr<best){best=fr;N=n;if(fr<1e-6)break}}
+  const C=Math.round(u*N/sr),out=new Float32Array(N),V=DR.v,lv=x=>Math.pow(x/100,1.5);
+  const layers=[{k:20,g:lv(V.root),on:true},{k:30,g:lv(V.f5),on:DR.voicing.includes("5")},{k:40,g:lv(V.o8),on:DR.voicing.includes("8")}];
+  if(DR.third!=="0"){const semi=DR.third==="M"?4:3;if(DR.thirdT==="just")layers.push({k:semi===4?25:24,g:lv(V.t3),on:true});
+    else layers.push({cyc:Math.round(f*Math.pow(2,semi/12)*N/sr),g:lv(V.t3),on:true})}
+  const HARM={bowed:h=>h>14?0:(1/Math.pow(h,1.1))*(h>=3&&h<=6?1.25:1),organ:h=>({1:1,2:.55,3:.3,4:.28,6:.14,8:.1})[h]||0,pure:h=>h===1?1:h===2?.04:0,tanpura:h=>0};
+  if(DR.timbre==="tanpura")drTanpura(out,N,sr,f,layers);
+  else{const T=4096,tab=new Float32Array(T+1),H=HARM[DR.timbre];
+    layers.forEach((L,li)=>{if(!L.on||L.g<=0)return;const cyc=L.cyc||L.k*C,fz=cyc*sr/N;tab.fill(0);
+      for(let h=1;h<=16;h++){const a=H(h);if(!a||fz*h>11000)continue;for(let j=0;j<=T;j++)tab[j]+=a*Math.sin(2*Math.PI*h*j/T)}
+      const sh=DR.timbre==="pure"?0:.07,m1=Math.max(1,Math.round((.23+.07*li)*N/sr)),m2=Math.max(1,Math.round((.11+.05*li)*N/sr));   // a slow, gentle swell (whole cycles too)
+      for(let i=0;i<N;i++){const ph=((i*cyc)%N)/N*T,j=ph|0,fr=ph-j,s=tab[j]+(tab[j+1]-tab[j])*fr;
+        const env=1+sh*Math.sin(2*Math.PI*m1*i/N)+sh*.6*Math.sin(2*Math.PI*m2*i/N+li);out[i]+=L.g*s*env}})}
+  let pk=0;for(let i=0;i<N;i++)pk=Math.max(pk,Math.abs(out[i]));const g=pk>0?.9*lv(V.all)/pk:0;for(let i=0;i<N;i++)out[i]*=g;
+  return{data:out,sr,secs:N/sr,f:C*20*sr/N}}
+function drTanpura(out,N,sr,f,layers){const per=Math.round(N/12),buf=new Float32Array(2*N);   // pa-sa-sa-sa (low), 3 rounds per loop
+  const has5=layers[1].on,str=[has5?f*.75:f*2,f*2,f*2,f],gains=[has5?layers[1].g:layers[0].g,layers[0].g,layers[0].g,layers[0].g];
+  for(let p=0;p<12;p++){const s0=p*per,fz=str[p%4],gg=gains[p%4]*(p%4===3?1.1:.8),len=Math.min(N,Math.round(4.5*sr));
+    for(let h=1;h<=24;h++){if(fz*h>10000)break;const a0=gg/Math.pow(h,.8),dec=Math.exp(-(.9+.15*h)*.6/sr),w=2*Math.PI*fz*h/sr,cr=Math.cos(w),ci=Math.sin(w);
+      let re=1,im=0,amp=a0,bz=1;   // rotating phasor and multiplicative decay: no sin/exp per sample
+      for(let i=0;i<len;i++){if((i&63)===0){const t=i/sr;bz=1+.8*Math.exp(-Math.pow((t*6-h*.35)%4-1,2))}
+        buf[s0+i]+=amp*bz*im*(i<40?i/40:1);const nr=re*cr-im*ci;im=re*ci+im*cr;re=nr;amp*=dec;if((i&4095)===0){const k=1/Math.hypot(re,im);re*=k;im*=k}}}}
+  for(let i=0;i<N;i++)out[i]=buf[i]+buf[i+N]}   // fold the tail back to the start so the loop has no seam
+function drWav(r){const n=r.data.length,b=new ArrayBuffer(44+n*2),v=new DataView(b),w=(o,s)=>{for(let i=0;i<s.length;i++)v.setUint8(o+i,s.charCodeAt(i))};
+  w(0,"RIFF");v.setUint32(4,36+n*2,true);w(8,"WAVE");w(12,"fmt ");v.setUint32(16,16,true);v.setUint16(20,1,true);v.setUint16(22,1,true);v.setUint32(24,r.sr,true);v.setUint32(28,r.sr*2,true);v.setUint16(32,2,true);v.setUint16(34,16,true);
+  w(36,"data");v.setUint32(40,n*2,true);for(let i=0;i<n;i++)v.setInt16(44+i*2,Math.max(-1,Math.min(1,r.data[i]))*32767,true);return new Blob([b],{type:"audio/wav"})}
+function drMsg(t,bad){$("drStatus").className="status"+(bad?" bad":"");$("drStatus").textContent=t}
+/* The drone loops inside the audio engine (sample-exact, no gap), and that sound is fed to a live audio stream on a media element,
+   which is what lets an iPhone keep it going with the screen locked. A watchdog restarts anything iOS pauses. */
+function drBus(){const c=getCtx();if(DRX.bus&&DRX.bus.c===c)return DRX.bus;const g=c.createGain();g.gain.value=1;let el=null,direct=false;
+  try{if(!c.createMediaStreamDestination)throw 0;const d=c.createMediaStreamDestination();g.connect(d);el=document.createElement("audio");el.setAttribute("playsinline","");el.autoplay=true;el.srcObject=d.stream;document.body.append(el)}
+  catch(e){g.connect(c.destination);direct=true}
+  DRX.bus={c,g,el,direct};return DRX.bus}
+async function drStart(){const r=drRender();DRX.last=r;
+  try{if(navigator.audioSession&&!DRX.mic)navigator.audioSession.type="playback"}catch(e){}
+  const c=getCtx(),B=drBus(),buf=c.createBuffer(1,r.data.length,r.sr);buf.getChannelData(0).set(r.data);
+  const s=c.createBufferSource(),g=c.createGain();s.buffer=buf;s.loop=true;s.connect(g);g.connect(B.g);const t=c.currentTime+.02;
+  g.gain.setValueAtTime(0,t);g.gain.linearRampToValueAtTime(1,t+.35);s.start(t);
+  const old=DRX.wa;if(old){try{old.g.gain.cancelScheduledValues(t);old.g.gain.setValueAtTime(old.g.gain.value,t);old.g.gain.linearRampToValueAtTime(0,t+.35);old.s.stop(t+.4)}catch(e){}}   // crossfade when you change keys
+  DRX.wa={s,g};
+  if(B.el){try{await B.el.play()}catch(e){// the stream route won't play here: send it straight out instead
+      try{B.g.disconnect()}catch(_){}B.g.connect(c.destination);B.el.remove();B.el=null;B.direct=true}}
+  DRX.playing=true;drUI();drMedia();drWatch();
+  if(DR.timer){clearTimeout(DRX.timerId);if(!DRX.timerEnd)DRX.timerEnd=Date.now()+DR.timer*60000;DRX.timerId=setTimeout(()=>{drStop();drMsg("Timer done.")},Math.max(0,DRX.timerEnd-Date.now()))}}
+function drWatch(){clearInterval(DRX.dog);DRX.dog=setInterval(()=>{if(!DRX.playing){clearInterval(DRX.dog);return}const c=ctx;
+  if(c&&c.state!=="running"){try{c.resume()}catch(e){}}if(DRX.bus&&DRX.bus.el&&DRX.bus.el.paused){const p=DRX.bus.el.play();if(p&&p.catch)p.catch(()=>{})}},1000)}
+function drWaStop(){const w=DRX.wa;if(!w)return;DRX.wa=null;try{const t=ctx.currentTime;w.g.gain.cancelScheduledValues(t);w.g.gain.setValueAtTime(w.g.gain.value,t);w.g.gain.linearRampToValueAtTime(0,t+.15);w.s.stop(t+.2)}catch(e){}}
+function drStop(){drWaStop();DRX.playing=false;clearInterval(DRX.dog);setTimeout(()=>{if(!DRX.playing&&DRX.bus&&DRX.bus.el)try{DRX.bus.el.pause()}catch(e){}},250);
+  clearTimeout(DRX.timerId);DRX.timerEnd=null;drUI();try{navigator.mediaSession&&(navigator.mediaSession.playbackState="paused")}catch(e){}}
+document.addEventListener("visibilitychange",()=>{if(DRX.playing&&document.visibilityState==="visible"){try{ctx&&ctx.resume()}catch(e){}if(DRX.bus&&DRX.bus.el&&DRX.bus.el.paused)DRX.bus.el.play().catch(()=>{})}});
+function drMedia(){try{if(!("mediaSession" in navigator))return;navigator.mediaSession.metadata=new MediaMetadata({title:"Drone: "+drLabel(),artist:"Fiddle Practice Kit"});navigator.mediaSession.playbackState="playing";
+  navigator.mediaSession.setActionHandler("play",()=>drStart());navigator.mediaSession.setActionHandler("pause",()=>drStop());navigator.mediaSession.setActionHandler("stop",()=>drStop())}catch(e){}}
+let drDeb=null;function drChanged(now){drSave();drUI();if(!DRX.playing)return;clearTimeout(drDeb);drDeb=setTimeout(()=>drStart(),now?0:250)}
+function drRemember(){const it={key:DR.key,voicing:DR.voicing,third:DR.third};DR.recent=[it,...DR.recent.filter(x=>!(x.key===it.key&&x.voicing===it.voicing&&x.third===it.third))].slice(0,5);drSave()}
+function drChips(id,val,fn){document.querySelectorAll("#"+id+" .chip").forEach(b=>{b.setAttribute("aria-pressed",String(b.dataset.v)===String(val));b.onclick=()=>fn(b.dataset.v)})}
+function drUI(){const m=drRootMidi();$("drName").firstChild.nodeValue=NAMES[DR.key];$("drHz").textContent=drHz(m).toFixed(1)+" Hz · "+drLabel();
+  const kc=$("drKeys");if(!kc.children.length)DRK.forEach(k=>{const b=document.createElement("button");b.className="chip";b.dataset.v=k;b.textContent=NAMES[k];kc.append(b)});
+  drChips("drKeys",DR.key,v=>{DR.key=+v;drRemember();drChanged(true)});
+  drChips("drVoicing",DR.voicing,v=>{DR.voicing=v;drChanged()});drChips("drThird",DR.third,v=>{DR.third=v;drChanged()});drChips("drThirdT",DR.thirdT,v=>{DR.thirdT=v;drChanged()});
+  $("drThirdT").hidden=DR.third==="0";drChips("drTimbre",DR.timbre,v=>{DR.timbre=v;drChanged()});drChips("drOct",DR.oct,v=>{DR.oct=+v;drChanged()});drChips("drTol",DR.tol,v=>{DR.tol=+v;drSave();drUI()});
+  $("drPlay").textContent=DRX.playing?"■ Stop drone":"▶ Play drone";$("drPlay").classList.toggle("live",DRX.playing);
+  const rc=$("drRecent");rc.innerHTML="";DR.recent.forEach(it=>{const b=document.createElement("button");b.className="chip";const sv=DR.key;
+    b.textContent=NAMES[it.key]+(it.voicing==="1"?"":it.voicing==="15"?" + 5th":it.voicing==="158"?" + 5th + 8ve":" + 8ve")+(it.third==="M"?" + 3rd":it.third==="m"?" + ♭3":"");
+    b.onclick=()=>{Object.assign(DR,{key:it.key,voicing:it.voicing,third:it.third});drRemember();drChanged(true);if(!DRX.playing)drStart()};rc.append(b)});
+  $("drRecent").parentElement.hidden=!DR.recent.length;
+  $("drBand").style.left=(50-DR.tol)+"%";$("drBand").style.width=(2*DR.tol)+"%";$("drRefOut").textContent=DR.ref}
+$("drPlay").onclick=()=>{if(DRX.playing)drStop();else{drRemember();drStart()}};
+[["drVRoot","root"],["drV5","f5"],["drV8","o8"],["drV3","t3"],["drVAll","all"]].forEach(([id,k])=>{const el=$(id);el.value=DR.v[k];el.oninput=()=>{DR.v[k]=+el.value;drChanged()}});
+$("drRef").value=DR.ref;$("drRef").oninput=e=>{DR.ref=+e.target.value;drChanged()};
+$("drTimer").value=DR.timer;$("drTimer").onchange=e=>{DR.timer=+e.target.value;drSave();DRX.timerEnd=null;if(DRX.playing)drStart()};
+$("drEcho").checked=DR.echo;$("drEcho").onchange=e=>{DR.echo=e.target.checked;drSave();if(DRX.mic){drMeterStop();drMeterStart()}};
+$("drMic").onchange=e=>{DR.mic=e.target.value;drSave();if(DRX.mic){drMeterStop();drMeterStart()}};
+
+/* ---- in-tune meter ---- */
+function drFFT(n){const rev=new Uint32Array(n),lg=Math.log2(n);for(let i=0;i<n;i++){let r=0,x=i;for(let b=0;b<lg;b++){r=(r<<1)|(x&1);x>>=1}rev[i]=r}
+  const cs=new Float64Array(n/2),sn=new Float64Array(n/2);for(let i=0;i<n/2;i++){cs[i]=Math.cos(2*Math.PI*i/n);sn[i]=-Math.sin(2*Math.PI*i/n)}
+  return(re,im)=>{for(let i=0;i<n;i++){const j=rev[i];if(j>i){let t=re[i];re[i]=re[j];re[j]=t;t=im[i];im[i]=im[j];im[j]=t}}
+    for(let size=2;size<=n;size<<=1){const half=size>>1,step=n/size;for(let i=0;i<n;i+=size)for(let j=0,k=0;j<half;j++,k+=step){
+      const a=i+j,b=a+half,tr=re[b]*cs[k]-im[b]*sn[k],ti=re[b]*sn[k]+im[b]*cs[k];re[b]=re[a]-tr;im[b]=im[a]-ti;re[a]+=tr;im[a]+=ti}}}}
+let DRMP=null;
+function drMpm(buf,sr){const W=buf.length,N=2*W;if(!DRMP||DRMP.sr!==sr||DRMP.W!==W)DRMP={sr,W,fft:drFFT(N),re:new Float64Array(N),im:new Float64Array(N),ns:new Float64Array(W)};
+  let e=0;for(let i=0;i<W;i++)e+=buf[i]*buf[i];const rms=Math.sqrt(e/W);if(rms<.002)return{f:0,clar:0,rms};
+  const{re,im,ns,fft}=DRMP;for(let i=0;i<W;i++)re[i]=buf[i];re.fill(0,W);im.fill(0);fft(re,im);for(let i=0;i<N;i++){re[i]=re[i]*re[i]+im[i]*im[i];im[i]=0}fft(re,im);
+  const TM=Math.min(Math.ceil(sr/150),W-2),tauMin=Math.floor(sr/3000);let m=2*e;ns[0]=1;   // fiddle: G3 (196 Hz) up to about 3 kHz
+  for(let t=1;t<=TM+1;t++){const a=buf[t-1],b=buf[W-t];m-=a*a+b*b;ns[t]=m>1e-12?2*(re[t]/N)/m:0}
+  let t=1;while(t<TM&&ns[t]>0)t++;const pk=[];let inL=false,bi=0,bv=-1;
+  for(;t<TM;t++){if(ns[t]>0){if(!inL){inL=true;bv=-1}if(ns[t]>bv){bv=ns[t];bi=t}}else if(inL){inL=false;pk.push([bi,bv])}}
+  const ok=pk.filter(p=>p[0]>=tauMin);if(!ok.length)return{f:0,clar:0,rms};
+  const mx=Math.max(...ok.map(p=>p[1])),[p]=ok.find(q=>q[1]>=.9*mx),a=ns[p-1],b=ns[p],c2=ns[p+1],den=a-2*b+c2,tau=p+(den?.5*(a-c2)/den:0);
+  return{f:sr/tau,clar:b,rms}}
+async function drRefreshMics(){try{const ds=(await navigator.mediaDevices.enumerateDevices()).filter(d=>d.kind==="audioinput"),s=$("drMic");s.innerHTML="";
+  s.add(new Option("Automatic (phone decides)",""));ds.forEach((d,i)=>s.add(new Option(d.label||("Microphone "+(i+1)),d.deviceId)));s.value=ds.some(d=>d.deviceId===DR.mic)?DR.mic:""}catch(e){}}
+function drJudge(m){const root=drRootMidi(),d=m-root,n=Math.round(d),pc=((n%12)+12)%12,et=(d-n)*100,ju=et-JUSTC[pc],useJ=Math.abs(ju)<Math.abs(et)&&JUSTC[pc]!==0;
+  return{name:NAMES[(DR.key+pc)%12]+(Math.floor((root+n)/12)-1),deg:DEGN[pc],et,ju,err:useJ?ju:et,useJ,pc}}
+async function drMeterStart(){
+  if(window.claude&&window.claude.use){$("drMStatus").textContent="The meter needs the microphone, which works in the GitHub version.";$("drMStatus").className="status bad";return}
+  if(!navigator.mediaDevices||!navigator.mediaDevices.getUserMedia){$("drMStatus").textContent="This browser can't use the microphone here.";return}
+  const base={echoCancellation:!!DR.echo,noiseSuppression:false,autoGainControl:false,channelCount:1};let stream;
+  try{if(navigator.audioSession)navigator.audioSession.type="play-and-record"}catch(e){}
+  try{try{stream=await navigator.mediaDevices.getUserMedia({audio:DR.mic?{...base,deviceId:{exact:DR.mic}}:base})}catch(e){if(!DR.mic||e.name==="NotAllowedError")throw e;stream=await navigator.mediaDevices.getUserMedia({audio:base})}}
+  catch(e){$("drMStatus").textContent=e&&e.name==="NotAllowedError"?"Microphone access was blocked. Allow it for this site in your browser settings.":"The microphone isn't available.";$("drMStatus").className="status bad";return}
+  drRefreshMics();keepAwake(true);
+  const C=new (window.AudioContext||window.webkitAudioContext)();for(let k=0;k<5&&C.state!=="running";k++){try{await C.resume()}catch(e){}await new Promise(r=>setTimeout(r,60))}
+  const src=C.createMediaStreamSource(stream),sp=C.createScriptProcessor(1024,1,1),mute=C.createGain();mute.gain.value=0;src.connect(sp);sp.connect(mute);mute.connect(C.destination);
+  const ring=new Float32Array(2048),M={C,stream,sp,src,hist:[],trace:[],floor:[],floorLv:0,t0:C.currentTime,sm:[]};DRX.mic=M;
+  if(DRX.playing){try{await ctx.resume()}catch(e){}if(DRX.bus&&DRX.bus.el&&DRX.bus.el.paused)DRX.bus.el.play().catch(()=>{})}   // iPhone can pause the drone when the mic opens
+  sp.onaudioprocess=ev=>{const d=ev.inputBuffer.getChannelData(0);ring.copyWithin(0,d.length);ring.set(d,ring.length-d.length);
+    const r=drMpm(ring,C.sampleRate),t=C.currentTime;
+    // the first second: learn how loud the drone (or the room) is at the mic, so we only read you when you play over it
+    if(t-M.t0<1){M.floor.push(r.rms);return}if(!M.floorLv){M.floorLv=(M.floor.length?M.floor.sort((a,b)=>a-b)[Math.floor(M.floor.length*.8)]:0)||1e-9;$("drMStatus").textContent="Listening. Play a note."}
+    let m=r.f?69+12*Math.log2(r.f/DR.ref):null;const loud=r.rms>Math.max(.006,2.2*M.floorLv),clear=r.clar>=.88;
+    if(m!=null&&DRX.playing&&r.rms<4*M.floorLv){const pcs=[0,7,12,DR.third==="M"?4:DR.third==="m"?3:null].filter(x=>x!=null);const j=drJudge(m);if(pcs.includes(j.pc)&&Math.abs(j.err)<4)m=null}   // that's the drone, not you
+    if(!(m!=null&&loud&&clear)){M.sm=[];M.trace.push({t,e:null});drShow(null);return}
+    M.sm.push(m);if(M.sm.length>5)M.sm.shift();const ms=[...M.sm].sort((a,b)=>a-b),mm=ms[ms.length>>1],j=drJudge(mm);M.trace.push({t,e:j.err});drShow(j)};
+  DRX.raf=requestAnimationFrame(drTraceDraw);$("drMeterBtn").textContent="■ Stop meter";$("drMStatus").textContent=DRX.playing?"Listening. Give it a second to learn the drone, then play.":"Listening. Play a note.";$("drMStatus").className="status"}
+function drMeterStop(){const M=DRX.mic;if(!M)return;DRX.mic=null;try{M.sp.disconnect();M.src.disconnect();M.stream.getTracks().forEach(t=>t.stop());M.C.close()}catch(e){}
+  cancelAnimationFrame(DRX.raf);keepAwake(false);try{if(navigator.audioSession)navigator.audioSession.type="playback"}catch(e){}
+  $("drMeterBtn").textContent="🎤 Start meter";$("drMStatus").textContent="";drShow(null,true)}
+$("drMeterBtn").onclick=()=>{if(DRX.mic)drMeterStop();else drMeterStart()};
+function drShow(j,reset){const nd=$("drNeedle");if(!j){nd.className="drneedle";if(reset){$("drMNote").textContent="–";$("drMDeg").textContent="Tap Start meter, then play"}return}
+  const ok=Math.abs(j.err)<=DR.tol;nd.style.left=(50+Math.max(-50,Math.min(50,j.err)))+"%";nd.className="drneedle "+(ok?"ok":"off");
+  $("drMNote").textContent=j.name.replace(/(\d)/,"$1");$("drMNote").style.color=ok?"var(--good)":"var(--bad)";
+  const s=x=>(x>0?"+":"")+Math.round(x);$("drMDeg").textContent=`${j.deg} of ${NAMES[DR.key]} · ${s(j.err)}¢ from ${j.useJ?"pure":"equal"}`+(JUSTC[j.pc]?` (${j.useJ?"equal "+s(j.et):"pure "+s(j.ju)}¢)`:"")}
+function drTraceDraw(){const M=DRX.mic;if(!M)return;const cv=$("drTrace"),w=cv.clientWidth||320,h=110;setup(cv,w,h);const c=cv.getContext("2d"),now=M.C.currentTime,span=6;
+  const Y=e=>h/2-e/50*(h/2-6),X=t=>w-(now-t)/span*w,css=v=>getComputedStyle(document.documentElement).getPropertyValue(v);
+  c.fillStyle=css("--band");c.fillRect(0,Y(DR.tol),w,Y(-DR.tol)-Y(DR.tol));c.strokeStyle=css("--good");c.lineWidth=1;c.beginPath();c.moveTo(0,h/2);c.lineTo(w,h/2);c.stroke();
+  while(M.trace.length&&now-M.trace[0].t>span)M.trace.shift();c.lineWidth=3;c.lineJoin="round";let pen=false;
+  for(let i=0;i<M.trace.length;i++){const p=M.trace[i];if(p.e==null){pen=false;continue}const e=Math.max(-50,Math.min(50,p.e)),x=X(p.t),y=Y(e);
+    c.strokeStyle=Math.abs(p.e)<=DR.tol?css("--good"):css("--bad");if(!pen){c.beginPath();c.moveTo(x,y);pen=true}else{c.lineTo(x,y);c.stroke();c.beginPath();c.moveTo(x,y)}}
+  DRX.raf=requestAnimationFrame(drTraceDraw)}
+drUI();drRefreshMics();
 </script>
 
 </body>
