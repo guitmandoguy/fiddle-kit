@@ -1,0 +1,31 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Music Kit">
+<title>Music Practice Apps</title>
+<style>
+:root{--bg:#f2f3ef;--surface:#fbfbf8;--ink:#1c221f;--muted:#5e6862;--line:#d9ddd5;color-scheme:light dark}
+@media (prefers-color-scheme:dark){:root{--bg:#151a17;--surface:#1d231f;--ink:#e8ebe5;--muted:#9aa49d;--line:#2f3732}}
+body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.45 system-ui,-apple-system,sans-serif}
+.wrap{max-width:520px;margin:0 auto;padding:28px 16px calc(28px + env(safe-area-inset-bottom))}
+h1{font-size:1.6rem;margin:0 0 4px}p.sub{color:var(--muted);margin:0 0 22px}
+a.app{display:flex;gap:14px;align-items:center;text-decoration:none;color:inherit;background:var(--surface);border:1px solid var(--line);border-left:6px solid var(--c);border-radius:14px;padding:16px;margin-bottom:12px}
+a.app:active{transform:scale(.99)}a.app b{display:block;font-size:1.1rem}a.app span{color:var(--muted);font-size:.92rem}
+.ic{font-size:1.8rem;flex:none;width:44px;text-align:center}
+footer{color:var(--muted);font-size:.8rem;text-align:center;margin-top:26px}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>Music Practice Apps</h1>
+  <p class="sub">Tap one to open it. On iPhone: Share → Add to Home Screen to keep it like an app.</p>
+  <a class="app" href="fiddle-practice-kit.html" style="--c:#8f531a"><div class="ic">🎻</div><div><b>Fiddle Practice Kit</b><span>Cents and interval ear training, double-stop tuning, drones, recording grader</span></div></a>
+  <a class="app" href="harmony.html" style="--c:#1f5f8b"><div class="ic">🎶</div><div><b>Harmony Coach</b><span>Bluegrass tenor and baritone parts, setlists, sing-along trainer</span></div></a>
+  <a class="app" href="singing.html" style="--c:#8c3a5e"><div class="ic">🎤</div><div><b>Singing Practice Kit</b><span>Technique lessons, warm-ups, support, high notes, pitch</span></div></a>
+  <footer>© 2026 Matt O'Neil. All rights reserved.</footer>
+</div>
+</body>
+</html>
