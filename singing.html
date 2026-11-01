@@ -230,6 +230,7 @@ details.lesson.done .lnum{background:var(--good);color:var(--bg)}details.lesson.
 
   <section class="settings">
     <label class="field"><span class="label">Microphone</span><select id="tMic" aria-label="Microphone"></select></label>
+    <p class="hint" style="margin:0">If it has trouble hearing you: hold or stand the phone 1–2 feet from your mouth with the bottom edge (where the mic is) facing you, make sure a case isn't covering the mic, and avoid Bluetooth earbud mics. The bar at the top right of the picture shows whether it's hearing you.</p>
     <label class="toggle"><input type="checkbox" id="xDrone" checked> Keep the target tone playing quietly while I sing</label>
   </section>
   <footer class="hint" style="text-align:center;padding:24px 0 8px">© 2026 Matt O'Neil. All rights reserved.</footer>
@@ -476,10 +477,10 @@ function makeFFT(n){const rev=new Uint32Array(n),lg=Math.log2(n);for(let i=0;i<n
     for(let size=2;size<=n;size<<=1){const half=size>>1,step=n/size;for(let i=0;i<n;i+=size)for(let j=0,k=0;j<half;j++,k+=step){
       const a=i+j,b=a+half,tr=re[b]*cs[k]-im[b]*sn[k],ti=re[b]*sn[k]+im[b]*cs[k];re[b]=re[a]-tr;im[b]=im[a]-ti;re[a]+=tr;im[a]+=ti}}}}
 let MP=null;
-function mpm(buf,sr){const W=buf.length,N=2*W;if(!MP||MP.sr!==sr||MP.W!==W)MP={sr,W,fft:makeFFT(N),re:new Float64Array(N),im:new Float64Array(N),ns:new Float64Array(W)};
-  let e=0;for(let i=0;i<W;i++)e+=buf[i]*buf[i];const rms=Math.sqrt(e/W);if(rms<.003)return{f:0,clar:0,rms};
+function mpm(buf,sr,o){o=o||{};const W=buf.length,N=2*W;if(!MP||MP.sr!==sr||MP.W!==W)MP={sr,W,fft:makeFFT(N),re:new Float64Array(N),im:new Float64Array(N),ns:new Float64Array(W)};
+  let e=0;for(let i=0;i<W;i++)e+=buf[i]*buf[i];const rms=Math.sqrt(e/W);if(rms<(o.rmsMin??.003))return{f:0,clar:0,rms};
   const{re,im,ns,fft}=MP;for(let i=0;i<W;i++)re[i]=buf[i];re.fill(0,W);im.fill(0);fft(re,im);for(let i=0;i<N;i++){re[i]=re[i]*re[i]+im[i]*im[i];im[i]=0}fft(re,im);
-  const TM=Math.min(Math.ceil(sr/65),W-2),tauMin=Math.floor(sr/1100);let m=2*e;ns[0]=1;
+  const TM=Math.min(Math.ceil(sr/(o.fmin||65)),W-2),tauMin=Math.floor(sr/1100);let m=2*e;ns[0]=1;
   for(let t=1;t<=TM+1;t++){const a=buf[t-1],b=buf[W-t];m-=a*a+b*b;ns[t]=m>1e-12?2*(re[t]/N)/m:0}
   let t=1;while(t<TM&&ns[t]>0)t++;const pk=[];let inL=false,bi=0,bv=-1;
   for(;t<TM;t++){if(ns[t]>0){if(!inL){inL=true;bv=-1}if(ns[t]>bv){bv=ns[t];bi=t}}else if(inL){inL=false;pk.push([bi,bv])}}
@@ -506,9 +507,11 @@ async function micStart(cb){
   const a=ac();for(let k=0;k<5&&a.state!=="running";k++){try{await a.resume()}catch(e){}await new Promise(r=>setTimeout(r,80))}   // iOS can pause audio when the mic opens
   refreshMics();
   const src=a.createMediaStreamSource(stream),sp=a.createScriptProcessor(1024,1,1),mute=a.createGain();mute.gain.value=0;
-  const ring=new Float32Array(2048);
+  // a longer listening window catches low voices; the loudness gate follows the room's noise level instead of a fixed line, so normal singing a few feet away still counts
+  const ring=new Float32Array(4096);let floor=.002;
   sp.onaudioprocess=ev=>{if(!MIC.on)return;const d=ev.inputBuffer.getChannelData(0);ring.copyWithin(0,d.length);ring.set(d,ring.length-d.length);
-    const r=mpm(ring,a.sampleRate);r.time=a.currentTime-ring.length/a.sampleRate/2;r.m=r.f?69+12*Math.log2(r.f/440):null;r.voiced=!!r.f&&r.clar>=.8&&r.rms>=.008;cb(r)};
+    const r=mpm(ring,a.sampleRate,{fmin:55,rmsMin:.0008});if(r.rms<floor*1.6)floor=floor*.97+r.rms*.03;else floor*=1.0008;
+    r.time=a.currentTime-2048/a.sampleRate/2;r.m=r.f?69+12*Math.log2(r.f/440):null;r.voiced=!!r.f&&r.rms>=Math.max(.001,2*floor)&&r.clar>=(r.rms>4*floor?.6:.72);r.floor=floor;MIC.lv=r.rms/Math.max(floor,1e-4);MIC.heard=r.voiced;cb(r)};
   src.connect(sp);sp.connect(mute);mute.connect(a.destination);
   Object.assign(MIC,{on:true,stream,src,sp,mute,t0:Date.now()});
 }
@@ -585,6 +588,8 @@ function drawMeter(){const cv=$("xCv"),w=cv.parentElement.clientWidth||320,h=210
     for(const p of BX.trace){if(now-p.t>span)continue;let m=p.m;if(ref!=null)m=ref+octErr(m,ref)/100;const x=X(p.t),y=Y(m);
       if(!pen||p.t-lt>.12){c.moveTo(x,y);pen=true}else c.lineTo(x,y);lt=p.t}c.stroke();
     const last=BX.trace[BX.trace.length-1];if(now-last.t<.15){let m=last.m;if(ref!=null)m=ref+octErr(m,ref)/100;c.fillStyle=cssv("--accent");c.beginPath();c.arc(X(last.t),Y(m),6,0,7);c.fill()}}
+  if(BX.on&&MIC.on){const lv=Math.max(0,Math.min(1,Math.log10(Math.max(1,MIC.lv||1))/2)),bw=60,bx=w-bw-8;c.fillStyle=cssv("--chip");c.fillRect(bx,6,bw,8);c.fillStyle=MIC.heard?cssv("--good"):lv>.35?cssv("--warn"):cssv("--muted");c.fillRect(bx,6,bw*lv,8);
+    c.fillStyle=muted;c.textAlign="right";c.fillText(MIC.heard?"hearing you":lv>.35?"sound, no clear pitch":"mic",bx-6,10);c.textAlign="left"}
   if(vh){c.fillStyle=cssv("--chip");c.fillRect(40,ph+2,w-40,vh-4);c.fillStyle=muted;c.fillText("loud",4,ph+10);c.fillText("soft",4,h-8);
     c.strokeStyle=cssv("--accent");c.lineWidth=2;c.beginPath();let pen=false;for(const p of BX.vol){if(now-p.t>span)continue;const y=h-3-Math.max(0,Math.min(1,(p.db+50)/44))*(vh-6),x=X(p.t);if(!pen){c.moveTo(x,y);pen=true}else c.lineTo(x,y)}c.stroke()}}
 function xAnim(){drawMeter();BX.raf=requestAnimationFrame(xAnim)}
@@ -799,7 +804,7 @@ function exLong(){BX.showVol=true;let tgt=noteFrom(S.set.ltNote);BX.target=tgt;x
     const g=grade(sc);S.hist.lt.push({g,sc:Math.round(sc),d:Date.now()});S.hist.lt=S.hist.lt.slice(-40);saveS();renderProg();
     const s=x=>(x>0?"+":"")+Math.round(x)+"¢",dbr=Math.max(...a.dbs)-Math.min(...a.dbs);
     xReport([["Landed in",a.settle==null?"never settled":a.settle<.25?"right away":a.settle.toFixed(1)+" s",a.settle!=null&&a.settle<.6?"g":"b"],["Average",s(a.avg)+(Math.abs(a.avg)<=tol?" (in tune)":a.avg<0?" flat":" sharp"),Math.abs(a.avg)<=tol?"g":"b"],
-      ["Steadiness",a.wob<6?"Very steady":a.wob<12?"Mostly steady":"Wandering",a.wob<12?"g":"b"],["Drift start → end",s(a.drift),Math.abs(a.drift)<=12?"g":"b"],["Vibrato",a.vib>12?"Yes (fine; not counted against you)":"Little or none"],["Volume",dbr<6?"Even":dbr<12?"Some swells":"Uneven"],...(a.clar!=null?[["Tone",a.clar>=.93?"Clear":a.clar>=.88?"A little airy":"Airy",a.clar>=.88?"g":"b"]]:[])],g);
+      ["Steadiness",a.wob<6?"Very steady":a.wob<12?"Mostly steady":"Wandering",a.wob<12?"g":"b"],["Drift start → end",s(a.drift),Math.abs(a.drift)<=12?"g":"b"],["Vibrato",a.vib>7?"Yes (fine; not counted against you)":"Little or none"],["Volume",dbr<6?"Even":dbr<12?"Some swells":"Uneven"],...(a.clar!=null?[["Tone",a.clar>=.93?"Clear":a.clar>=.88?"A little airy":"Airy",a.clar>=.88?"g":"b"]]:[])],g);
     xBig(g,sc>=80?"good":"");xTip(a.settle!=null&&a.settle>.6?TIP.scoop:a.drift<-12?TIP.sagEnd:a.drift>12?TIP.creep:a.wob>=12?TIP.wobble:a.avg<-tol?TIP.flatHigh:a.avg>tol?TIP.sharp:a.clar!=null&&a.clar<.88?TIP.breathy:TIP.good);xMsg("Rest, then go again.")}}
 
 /* ---- vowels on one shape ---- */
