@@ -43,7 +43,7 @@ p{margin:0}
 .label{font-size:.72rem;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);font-weight:600}
 .mono{font-family:var(--f-mono);font-variant-numeric:tabular-nums}
 .view,.col{display:flex;flex-direction:column;gap:18px}
-.tabs{display:grid;grid-template-columns:repeat(3,1fr);background:var(--chip);border:1px solid var(--line);border-radius:12px;padding:4px;gap:4px;margin-top:12px}
+.tabs{display:grid;grid-auto-flow:column;grid-auto-columns:1fr;background:var(--chip);border:1px solid var(--line);border-radius:12px;padding:4px;gap:4px;margin-top:12px}
 .tabs a{text-align:center;padding:9px 4px;border-radius:9px;color:var(--ink);text-decoration:none;font-weight:600;font-size:.93rem}
 .tabs a[aria-selected="true"]{background:var(--surface);box-shadow:0 1px 2px rgba(0,0,0,.12)}
 .stage{background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:16px;display:flex;flex-direction:column;gap:12px}
@@ -141,6 +141,14 @@ details.coach ul{margin:0;padding-left:20px;display:flex;flex-direction:column;g
 details.tech p{line-height:1.5;font-size:.95rem}
 @media (max-width:420px){.report{flex-direction:column;align-items:stretch}.report .grade{text-align:left}}
 details.stage{display:block}details.stage[open]>*+*{margin-top:12px}details.stage .row{flex-wrap:wrap}
+details.lesson{border:1px solid var(--line);border-radius:12px;padding:10px 12px;background:var(--bg)}
+details.lesson summary{cursor:pointer;display:flex;align-items:center;gap:10px;font:600 1rem var(--f-display);list-style:none}
+details.lesson summary::-webkit-details-marker{display:none}
+.lnum{width:26px;height:26px;border-radius:50%;display:inline-flex;align-items:center;justify-content:center;background:var(--chip);font:600 .85rem var(--f-mono);flex:none}
+details.lesson.done .lnum{background:var(--good);color:var(--bg)}details.lesson.next{border-color:var(--accent);border-width:2px}
+.lt{flex:1}.ltag{font:600 .72rem var(--f-mono);text-transform:uppercase;letter-spacing:.06em;color:var(--accent)}
+.lwhy{margin:0;line-height:1.5}.lhow{margin:0;padding-left:20px;display:flex;flex-direction:column;gap:5px;line-height:1.45}
+.lchev{font-size:1.3rem;color:var(--muted);transition:transform .15s;margin-left:2px}details.lesson[open] .lchev{transform:rotate(90deg)}
 </style>
 </head>
 <body>
@@ -149,15 +157,39 @@ details.stage{display:block}details.stage[open]>*+*{margin-top:12px}details.stag
   <header>
     <h1>Singing Practice Kit</h1>
     <nav class="tabs" role="tablist">
-      <a href="#routine" id="tabRoutine" role="tab" aria-selected="true">Routine</a>
+      <a href="#learn" id="tabLearn" role="tab" aria-selected="true">Learn</a>
+      <a href="#routine" id="tabRoutine" role="tab" aria-selected="false">Routine</a>
       <a href="#exercises" id="tabEx" role="tab" aria-selected="false">Exercises</a>
       <a href="#technique" id="tabTech" role="tab" aria-selected="false">Technique</a>
     </nav>
   </header>
   <div class="notice" id="micNotice" hidden></div>
 
+  <!-- ================= LEARN ================= -->
+  <div class="view" id="vLearn">
+    <div class="stage" id="ciBox">
+      <h3 style="margin:0">Quick check-in</h3>
+      <p class="hint" style="margin:0">Five questions so the app knows where to start you. No wrong answers.</p>
+      <div id="ciQs" class="col" style="gap:14px"></div>
+      <div class="row"><button class="btn primary grow" id="ciGo">See my plan</button></div>
+      <div class="row"><button class="linkbtn" id="ciSkip">Skip the check-in</button></div>
+    </div>
+    <div class="stage" id="planBox" hidden>
+      <h3 style="margin:0">Your plan</h3>
+      <div id="planText" class="col" style="gap:8px"></div>
+      <div class="row"><button class="linkbtn" id="ciRedo">Redo the check-in</button></div>
+    </div>
+    <div class="stage" id="lessonBox">
+      <h3 style="margin:0">Foundations</h3>
+      <p class="hint" style="margin:0">The technique everything else is built on, one idea at a time. Every lesson is open: tap any one to expand it. If you're new, go in order. Your progress is saved on this phone.</p>
+      <div id="lessons" class="col" style="gap:8px"></div>
+      <div class="row" style="flex-wrap:wrap;gap:12px"><button class="linkbtn" id="lsAll">I've done these before: mark all complete</button><button class="linkbtn" id="lsNone" hidden>Clear lesson progress</button></div>
+      <p class="hint" style="margin:0">Everything in the app is open anytime: the Routine, Exercises and Technique tabs work whether or not you've done the lessons.</p>
+    </div>
+  </div>
+
   <!-- ================= ROUTINE ================= -->
-  <div class="view" id="vRoutine">
+  <div class="view" id="vRoutine" hidden>
     <p class="sub">A guided session that warms you up, works support and space, then stretches toward the top of your range. Each step opens the exercise with the right settings; tap Next step when you're done with it.</p>
     <div class="stage">
       <h3 style="margin:0">Pick a session</h3>
@@ -508,7 +540,7 @@ const median=a=>{if(!a.length)return NaN;const s=[...a].sort((x,y)=>x-y),h=s.len
 const mean=a=>a.reduce((x,y)=>x+y,0)/(a.length||1),sd=a=>{const m=mean(a);return Math.sqrt(mean(a.map(x=>(x-m)*(x-m))))};
 const SET_DEF={rangeMode:"mine",cLo:50,cHi:62,key:-1,adapt:true,tol:25,tone:"ooh",noteLen:.75,auto:"right",hold:1,jump:4,len:3,maxStep:2,ivs:[1,2,3,4,5,7],dir:"both",
   scale:"major",span:"oct",sdir:"updown",arp:"maj",apat:"135",hiv:"M3a",hrand:false,
-  ltNote:"mid",ltSecs:8,swSecs:8,swNote:"mid",lad:"five",ladDir:"updown",ladStretch:1,syl:"lip",hiIv:"oct",hiFrom:"auto"};
+  ltNote:"mid",ltSecs:8,vwNote:"mid",vwSet:"uoaei",vwSecs:2,swSecs:8,swNote:"mid",lad:"five",ladDir:"updown",ladStretch:1,syl:"lip",hiIv:"oct",hiFrom:"auto"};
 const S=Object.assign({ex:"range",lo:null,hi:null,flo:null,fhi:null,days:[],stats:{},hist:{lt:[],hiss:[],high:[]},hiTop:null},store.get("sk.state",{}));
 S.set=Object.assign({},SET_DEF,S.set||{});S.stats=S.stats||{};S.hist=Object.assign({lt:[],hiss:[],high:[]},S.hist||{});
 const saveS=()=>store.set("sk.state",S);
@@ -576,7 +608,9 @@ function alignSeq(pat,segs){const n=pat.length,m=segs.length;if(m<n)return null;
 
 /* ---- coaching: what to try when something specific goes wrong ---- */
 const TIP={
-  flatHigh:"High notes landing flat usually means the space closed or the air dropped off, not that you need to push harder. Open the back of your mouth like the start of a yawn, keep your ribs wide, and let steady air carry the note up.",
+  flatHigh:"High notes landing flat usually means the space closed or the air dropped off, not that you need to push harder. Go back to the feeling of your easiest siren (\"oo\" or \"oh\"), keep that shape open behind everything, keep your ribs wide, and let the vowel lean toward that shape as you go up.",
+  breathy:"The tone sounds a little airy, meaning more air is escaping than the note needs. Think of the candle test: a flame in front of your mouth should barely move. Let the whole body-to-head system do the work so the sound goes up, not out.",
+  vowelShift:"",
   sharp:"Going sharp often means too much pressure. Back off the volume a little and let the air do the work instead of squeezing from the throat.",
   scoop:"You're sliding up into the note. Hear it in your head first, open the space before you start, and aim to land on it from above, like stepping down onto it.",
   wobble:"The pitch is wandering. That's usually breath, not ear: breathe low, keep the ribs from collapsing as you sing, and send a slow, steady stream of air.",
@@ -601,18 +635,20 @@ const HIV={M3a:[4,-13.7,"major 3rd above"],m3a:[3,15.6,"minor 3rd above"],P5a:[7
   M3b:[-4,13.7,"major 3rd below"],m3b:[-3,-15.6,"minor 3rd below"],P4b:[-5,2,"4th below"],P5b:[-7,-2,"5th below"],oct:[12,0,"octave above"]};
 const LADS={five:[[0,2,4,5,7,5,4,2,0],"5-note scale (1 2 3 4 5 4 3 2 1)"],arp:[[0,4,7,12,7,4,0],"Arpeggio (1 3 5 8 5 3 1)"],tri:[[0,4,7,4,0],"1 3 5 3 1"],oct:[[0,12,0],"Octave slide (1 8 1)"],nine:[[0,4,7,12,14,12,7,4,0],"Arpeggio to the 9th (1 3 5 8 9 8 5 3 1)"]};
 const SYL={lip:"a lip trill (brrr)",hum:"a hum (mm)",ng:"\"ng\" (as in sing)",oo:"\"oo\"",nay:"\"nay\"",ah:"\"ah\" with the space open",goo:"\"goo\""};
-const GROUPS=[["Find your voice",["range","hiss"]],["Warm up",["siren","ladder"]],["Support and tone",["longtone","swell","high"]],["Pitch",["match","updown","steps","scale","arp","harm"]]];
+const GROUPS=[["Find your voice",["range","hiss"]],["Warm up",["siren","ladder"]],["Support and tone",["longtone","vowels","swell","high"]],["Pitch",["match","updown","steps","scale","arp","harm"]]];
 const EX={
   range:{t:"Find your range",how:"Sing or hum your lowest and highest comfortable notes, the ones you could sing all evening. Optionally also your absolute lowest and highest. The other exercises stay inside your comfortable range unless you choose otherwise.",
     tips:["Comfortable means easy and clear, not the most you can squeeze out.","Hum or sing \"ah\" with the jaw loose.","Your range grows with practice; redo this every few weeks."]},
   hiss:{t:"Breath: the hiss",how:"Breathe in low, then let the air out on a steady \"sss\" for as long as it stays even. This trains support: steady air without pushing. The app times you and checks how even the hiss is.",
     tips:["Breathe in through the nose or mouth so your belly, sides and back expand. Shoulders stay down.","As you hiss, keep the ribs wide like a barrel; let the belly move in slowly.","Stop before you're straining at the end. Even beats long."]},
   siren:{t:"Sirens",how:"Glide smoothly from low to high and back down on a lip trill, hum or \"oo\", like a siren. No set notes. The picture shows where your voice flipped or broke so you can smooth it out.",
-    tips:["Start in the middle of your range, go up to a comfortable high and back down. Then try a bigger sweep.","Lip trills and hums take pressure off the throat; they're the best way to start.","Keep the volume light, especially through the spot where your voice wants to flip."]},
+    tips:["Notice which sound is easiest to siren on (usually \"oo\" or \"oh\"). That feeling is your home shape; the other exercises ask you to keep it.","Start in the middle of your range, go up to a comfortable high and back down. Then try a bigger sweep.","Lip trills and hums take pressure off the throat; they're the best way to start.","Keep the volume light, especially through the spot where your voice wants to flip."]},
   ladder:{t:"Warm-up ladder",how:"A short pattern plays; sing it back. Then it moves up a half step and repeats, climbing to the top of your range and back down. The classic voice-teacher warm-up.",
     tips:["Use the syllable shown: lip trills and hums first, open vowels later.","As the pattern climbs, open more space at the back of the mouth instead of pushing more.","If the top gets strained, lower the stretch setting or stop a step early."]},
   longtone:{t:"Long tones",how:"A note plays. Sing it and hold it steady for the whole time. You'll see how quickly you landed, how steady you held it, and whether it drifted.",
     tips:["Breathe low before you start; keep the ribs wide as you hold.","Think of a steady stream of air flowing under the note.","Vibrato is fine; the app ignores it and looks at the center of your pitch."]},
+  vowels:{t:"Vowels on one shape",how:"Hold one note while the vowel changes: oo, oh, ah, eh, ee. Keep the feeling of your easiest siren sound behind every vowel, so the pitch, volume and tone stay the same while only the front of your mouth changes.",
+    tips:["Start on your home vowel (usually \"oo\" or \"oh\") and notice how it feels inside.","Change the vowel with the lips and tongue only; the space at the back stays put.","Up high, let the vowels lean toward your home shape (\"ee\" toward \"ih\", \"ah\" toward \"aw\"). That's vowel modification, and it's supposed to happen.","Keep air low and steady; the candle in front of you should barely flicker."]},
   swell:{t:"Swells (soft-loud-soft)",how:"Hold one note: start soft, grow louder to the middle, then back to soft. The pitch should stay put while the volume changes. This is one of the best support exercises there is.",
     tips:["Louder should come from more air and more space, never more throat squeeze.","Softer still needs support: keep the air moving.","Watch the orange loudness line along the bottom of the picture."]},
   high:{t:"High notes",how:"A low note plays, then a leap up to a high one. Sing both and hold the high note. It checks how cleanly you land and hold it, and moves the target up as you get them.",
@@ -647,6 +683,7 @@ function renderSettings(){const box=$("xSet"),s=S.set,ex=S.ex;box.innerHTML="<h3
   if(ex==="match")box.append(sRow(sSel("Biggest jump to the next note",[[0,"Same note every time"],[2,"Up to a whole step"],[4,"Up to a 3rd"],[7,"Up to a 5th"],[12,"Up to an octave"]],s.jump,v=>setB("jump",+v,false)),
     sSel("Hold for",[[.5,"½ second"],[1,"1 second"],[2,"2 seconds"],[3,"3 seconds"]],s.hold,v=>setB("hold",+v,false))));
   if(ex==="longtone")box.append(sRow(sSel("Note",NOTEOPT,s.ltNote,v=>setB("ltNote",v)),sSel("Hold for",[[4,"4 seconds"],[8,"8 seconds"],[12,"12 seconds"],[20,"20 seconds"]],s.ltSecs,v=>setB("ltSecs",+v))));
+  if(ex==="vowels")box.append(sRow(sSel("Note",NOTEOPT,s.vwNote,v=>setB("vwNote",v)),sSel("Vowels",[["uoaei","oo oh ah eh ee"],["ieaou","ee eh ah oh oo"],["uaua","oo ah oo ah"],["uiui","oo ee oo ee"]],s.vwSet,v=>setB("vwSet",v)),sSel("Each vowel",[[1.5,"1½ s"],[2,"2 s"],[3,"3 s"]],s.vwSecs,v=>setB("vwSecs",+v))));
   if(ex==="swell")box.append(sRow(sSel("Note",NOTEOPT,s.swNote,v=>setB("swNote",v)),sSel("Length",[[6,"6 seconds"],[8,"8 seconds"],[12,"12 seconds"]],s.swSecs,v=>setB("swSecs",+v))));
   if(ex==="ladder"){box.append(sSel("Pattern",Object.entries(LADS).map(([k,v])=>[k,v[1]]),s.lad,v=>setB("lad",v)));
     box.append(sChips("Direction",[["up","Up only"],["down","Down only"],["updown","Up, then back down"]],s.ladDir,v=>setB("ladDir",v)));
@@ -672,7 +709,7 @@ function renderGroups(){const g=$("xGroups");g.innerHTML="";GROUPS.forEach(([nam
 function renderEx(){xStopAll();Object.assign(BX,{trace:[],vol:[],target:null,targets:null,droneM:null,marks:[],showVol:false,fit:false,span:5});
   renderGroups();const E=EX[S.ex];$("xTitle").textContent=E.t;$("xHow").textContent=E.how;$("xBtns").innerHTML="";xMsg("");xCue("");xBig("");xTip("");xReport(null);
   $("xCoachList").innerHTML=(E.tips||[]).map(t=>`<li>${t}</li>`).join("");
-  ({range:exRange,hiss:exHiss,siren:exSiren,ladder:exLadder,longtone:exLong,swell:exSwell,high:exHigh,match:exMatch,harm:exHarm,updown:()=>exPattern("updown"),steps:()=>exPattern("steps"),scale:()=>exPattern("scale"),arp:()=>exPattern("arp")})[S.ex]();
+  ({vowels:exVowels,range:exRange,hiss:exHiss,siren:exSiren,ladder:exLadder,longtone:exLong,swell:exSwell,high:exHigh,match:exMatch,harm:exHarm,updown:()=>exPattern("updown"),steps:()=>exPattern("steps"),scale:()=>exPattern("scale"),arp:()=>exPattern("arp")})[S.ex]();
   renderSettings();renderProg();drawMeter()}
 function renderProg(){const p=$("xProg"),f=k=>{const o=st(k);return o.n?`${o.ok} of ${o.n} right`:"not tried"},wk=S.days.filter(d=>Date.now()-new Date(d)<7*864e5).length;
   const last=a=>a.length?a[a.length-1]:null,lt=last(S.hist.lt),hs=S.hist.hiss.length?Math.max(...S.hist.hiss):null;
@@ -747,11 +784,11 @@ function analyzeHold(fr,target,t0){   // fr: {t,m,rms}, voiced only
   const smooth=body.map((x,i)=>median(body.filter(y=>Math.abs(y.t-x.t)<=.2).map(y=>y.c)));   // the center line, with vibrato smoothed out
   const wob=sd(smooth),avg=median(smooth),dur=body[body.length-1].t-body[0].t,first=smooth.filter((x,i)=>body[i].t<body[0].t+Math.min(1,dur/3)),last=smooth.filter((x,i)=>body[i].t>body[body.length-1].t-Math.min(1,dur/3));
   const drift=median(last)-median(first),vibx=sd(body.map((x,i)=>x.c-smooth[i])),dbs=body.map(x=>x.db);
-  return{settle,wob,avg,drift,vib:vibx,dur,dbs,body,smooth,span:c[c.length-1].t-c[0].t}}
+  const cl=V.filter(f=>f.clar!=null).map(f=>f.clar);return{settle,wob,avg,drift,vib:vibx,dur,dbs,body,smooth,span:c[c.length-1].t-c[0].t,clar:cl.length?median(cl):null}}
 function exLong(){BX.showVol=true;let tgt=noteFrom(S.set.ltNote);BX.target=tgt;xCue(`Hold ${nn(tgt)} for ${S.set.ltSecs} seconds.`);
   xBtn("Hear it",()=>{playTone(tgt,1.4);drawMeter()});
   const go=xBtn("Hear it, then hold it",async()=>{if(BX.busy)return;BX.busy=true;BX.trace=[];BX.vol=[];xReport(null);xTip("");playTone(tgt,1.2);xMsg("Listen…");const fr=[];let start=null;
-    BX.timer=setTimeout(async()=>{xMsg("Now hold it…");if(!await xMic((f,t)=>{if(!f.voiced)return;fr.push({t,m:f.m,rms:f.rms});if(start==null&&Math.abs(octErr(f.m,tgt))<150)start=t;
+    BX.timer=setTimeout(async()=>{xMsg("Now hold it…");if(!await xMic((f,t)=>{if(!f.voiced)return;fr.push({t,m:f.m,rms:f.rms});if(start==null&&Math.abs(octErr(f.m,tgt))<150)start=t;fr[fr.length-1].clar=f.clar;
         if(start!=null){const left=S.set.ltSecs-(t-start);xBig(left>0?Math.ceil(left)+"":"✓");if(left<=0&&!BX.fin){BX.fin=true;setTimeout(()=>finish(fr,start),150)}}})){BX.busy=false;return}
       droneOn(tgt);BX.fin=false;BX.iv=setTimeout(()=>{if(!BX.fin){BX.fin=true;finish(fr,start)}},(S.set.ltSecs+6)*1000)},1300)},true);
   xBtn("New note",()=>{tgt=noteFrom(S.set.ltNote==="mid"?"rand":S.set.ltNote);BX.target=tgt;xCue(`Hold ${nn(tgt)} for ${S.set.ltSecs} seconds.`);xReport(null);xBig("");drawMeter()});
@@ -761,8 +798,31 @@ function exLong(){BX.showVol=true;let tgt=noteFrom(S.set.ltNote);BX.target=tgt;x
     const g=grade(sc);S.hist.lt.push({g,sc:Math.round(sc),d:Date.now()});S.hist.lt=S.hist.lt.slice(-40);saveS();renderProg();
     const s=x=>(x>0?"+":"")+Math.round(x)+"¢",dbr=Math.max(...a.dbs)-Math.min(...a.dbs);
     xReport([["Landed in",a.settle==null?"never settled":a.settle<.25?"right away":a.settle.toFixed(1)+" s",a.settle!=null&&a.settle<.6?"g":"b"],["Average",s(a.avg)+(Math.abs(a.avg)<=tol?" (in tune)":a.avg<0?" flat":" sharp"),Math.abs(a.avg)<=tol?"g":"b"],
-      ["Steadiness",a.wob<6?"Very steady":a.wob<12?"Mostly steady":"Wandering",a.wob<12?"g":"b"],["Drift start → end",s(a.drift),Math.abs(a.drift)<=12?"g":"b"],["Vibrato",a.vib>12?"Yes (fine; not counted against you)":"Little or none"],["Volume",dbr<6?"Even":dbr<12?"Some swells":"Uneven"]],g);
-    xBig(g,sc>=80?"good":"");xTip(a.settle!=null&&a.settle>.6?TIP.scoop:a.drift<-12?TIP.sagEnd:a.drift>12?TIP.creep:a.wob>=12?TIP.wobble:a.avg<-tol?TIP.flatHigh:a.avg>tol?TIP.sharp:TIP.good);xMsg("Rest, then go again.")}}
+      ["Steadiness",a.wob<6?"Very steady":a.wob<12?"Mostly steady":"Wandering",a.wob<12?"g":"b"],["Drift start → end",s(a.drift),Math.abs(a.drift)<=12?"g":"b"],["Vibrato",a.vib>12?"Yes (fine; not counted against you)":"Little or none"],["Volume",dbr<6?"Even":dbr<12?"Some swells":"Uneven"],...(a.clar!=null?[["Tone",a.clar>=.93?"Clear":a.clar>=.88?"A little airy":"Airy",a.clar>=.88?"g":"b"]]:[])],g);
+    xBig(g,sc>=80?"good":"");xTip(a.settle!=null&&a.settle>.6?TIP.scoop:a.drift<-12?TIP.sagEnd:a.drift>12?TIP.creep:a.wob>=12?TIP.wobble:a.avg<-tol?TIP.flatHigh:a.avg>tol?TIP.sharp:a.clar!=null&&a.clar<.88?TIP.breathy:TIP.good);xMsg("Rest, then go again.")}}
+
+/* ---- vowels on one shape ---- */
+const VW={u:"oo",o:"oh",a:"ah",e:"eh",i:"ee"},VWFIX={i:"\"ee\" often pinches or goes sharp: keep the oo-space behind it and let it lean toward \"ih\".",e:"\"eh\" tends to spread: keep the back open and let it lean toward \"ah\".",a:"\"ah\" tends to spread and fall flat: keep it tall, leaning toward \"aw\" or \"uh\", with the home shape behind it.",o:"\"oh\" should be close to home; keep it round and tall.",u:"\"oo\" is usually the home vowel; if it drifted, check that the air stayed steady."};
+function exVowels(){BX.showVol=true;let tgt=noteFrom(S.set.vwNote);BX.target=tgt;const seq=()=>S.set.vwSet.split("");
+  const cue=()=>xCue(`${nn(tgt)}: ${seq().map(v=>VW[v]).join(" → ")}, ${S.set.vwSecs} seconds each.`);cue();
+  xBtn("Hear it",()=>{playTone(tgt,1.4);drawMeter()});
+  xBtn("Hear it, then sing",async()=>{if(BX.busy)return;BX.busy=true;BX.trace=[];BX.vol=[];xReport(null);xTip("");playTone(tgt,1.2);xMsg("Listen…");const fr=[];let start=null;const L=seq(),D=S.set.vwSecs;
+    BX.timer=setTimeout(async()=>{xMsg("Start on \""+VW[L[0]]+"\"…");if(!await xMic((f,t)=>{if(!f.voiced)return;if(start==null&&Math.abs(octErr(f.m,tgt))<150)start=t;
+        if(start==null)return;const k=Math.floor((t-start)/D);fr.push({t,m:f.m,rms:f.rms,clar:f.clar,k});
+        if(k<L.length){xBig(VW[L[k]]+(L[k+1]?"  → "+VW[L[k+1]]:""))}else if(!BX.fin){BX.fin=true;xBig("✓");setTimeout(()=>finish(fr,L),150)}})){BX.busy=false;return}
+      droneOn(tgt);BX.fin=false;BX.iv=setTimeout(()=>{if(!BX.fin){BX.fin=true;finish(fr,L)}},(L.length*D+6)*1000)},1300)},true);
+  xBtn("New note",()=>{tgt=noteFrom(S.set.vwNote==="mid"?"rand":S.set.vwNote);BX.target=tgt;cue();xReport(null);xBig("");drawMeter()});
+  function finish(fr,L){xStopAll();if(!fr.length){xMsg("I didn't hear you near that note. Try again.","warn");xBig("");return}const D=S.set.vwSecs,t0=fr[0].t;
+    const seg=L.map((v,k)=>{const w=fr.filter(f=>f.k===k&&f.t-t0-k*D>=.35);if(w.length<6)return null;const c=w.map(f=>octErr(f.m,tgt));return{v,c:median(c),db:median(w.map(f=>20*Math.log10(Math.max(1e-5,f.rms)))),cl:median(w.map(f=>f.clar)),sd:sd(c)}});
+    const ok=seg.filter(Boolean);if(ok.length<2){xMsg("That was too short to judge. Sing through all the vowels.","warn");return}
+    const ref=ok[0],cs=ok.map(x=>x.c),dbs=ok.map(x=>x.db),cSpread=Math.max(...cs)-Math.min(...cs),dSpread=Math.max(...dbs)-Math.min(...dbs),clMin=Math.min(...ok.map(x=>x.cl));
+    const sc=Math.max(0,100-Math.max(0,cSpread-8)*1.6-Math.max(0,dSpread-4)*3-Math.max(0,Math.abs(median(cs))-tolB()*.5)*1-(clMin<.88?10:0)-(ok.length<L.length?15:0));
+    const s=x=>(x>0?"+":"")+Math.round(x),rows=seg.map((x,k)=>x?[VW[x.v],`${s(x.c)}¢ · ${s(x.db-ref.db)} dB`+(x.cl<.88?" · airy":""),Math.abs(x.c-median(cs))<=10&&Math.abs(x.db-median(dbs))<=4?"g":"b"]:[VW[L[k]],"not heard","b"]);
+    rows.push(["Pitch spread",Math.round(cSpread)+"¢",cSpread<=15?"g":"b"]);rows.push(["Volume spread",Math.round(dSpread)+" dB",dSpread<=6?"g":"b"]);xReport(rows,grade(sc));
+    const worst=ok.reduce((a,b)=>Math.abs(b.c-median(cs))>Math.abs(a.c-median(cs))?b:a),loudW=ok.reduce((a,b)=>Math.abs(b.db-median(dbs))>Math.abs(a.db-median(dbs))?b:a);
+    xTip(cSpread>15?`The pitch moved on "${VW[worst.v]}" (${s(worst.c-median(cs))}¢). ${VWFIX[worst.v]} The machine behind stays the same; only the front changes.`:
+      dSpread>6?`The volume jumped on "${VW[loudW.v]}". That usually means the space behind changed shape for that vowel. Go back to your home vowel's feeling and shape "${VW[loudW.v]}" in front of it.`:clMin<.88?TIP.breathy:"The vowels stayed on one shape. Try it on a higher note, where it really matters.");
+    xBig(grade(sc),sc>=80?"good":"");xMsg("Rest, then go again.")}}
 
 /* ---- 6. swells ---- */
 function exSwell(){BX.showVol=true;let tgt=noteFrom(S.set.swNote);BX.target=tgt;xCue(`${nn(tgt)}: soft → loud → soft over ${S.set.swSecs} seconds.`);
@@ -856,14 +916,23 @@ function exPattern(kind){let pat;const fresh=()=>{pat=makePattern(kind);BX.targe
 
 /* ================= technique ================= */
 const TECH=[
+  {h:"One instrument: sound goes up, not out",p:["Think of everything from your belly to the back of your head (up behind the back teeth) as one connected machine the sound travels through. The breath is the power at the bottom; the open space at the back of the mouth and up behind the soft palate is where it rings.",
+    "Good singing feels like the sound goes up and back, not out through your lips. That's a feeling, not physics, but it's a reliable one: when it's working, the sound seems to spin up behind the soft palate and into the head.",
+    "The candle test: hold a lit candle (or imagine one) a few inches from your mouth and sing. When the voice is working efficiently, the flame barely moves. Lots of air pouring out means wasted breath and usually a breathy, tiring sound. Strong support is not more air out; it's steady pressure underneath with very little leaking.",
+    "Whatever your lips, tongue and jaw do in front (vowels, consonants, words) happens in front of that machine. The machine behind keeps working the same way."],try:["longtone","vowels"]},
   {h:"Support: steady air, not pushing",p:["Support is how you manage the air under the sound. Breathe in low: your belly, sides and back expand, and your shoulders stay down.",
     "As you sing, try to keep the ribs wide, like a barrel that doesn't collapse, while the belly moves in slowly. That keeps the air steady instead of dumping it all at once.",
     "It should feel like balance and steady energy, never like squeezing. More support does not mean more pressure in the throat.",
     "Higher and louder notes need more air energy, but it comes from the body, not the neck."],try:["hiss","longtone"]},
-  {h:"Space in the back of the mouth",p:["Higher notes need more room. Make the space at the back of your mouth and throat taller: it's the feeling at the start of a yawn, or a surprised breath in (\"ah!\").",
-    "Your soft palate (the soft roof at the back) lifts, the back of the tongue relaxes down, and the jaw hangs loose. Drop the jaw; don't force it open.",
-    "Keep that space as you climb. Let vowels get a little taller and rounder up high: \"ee\" leans toward \"ih\", \"ah\" leans toward \"aw\". That's normal, and singers call it vowel modification.",
-    "Open the space before the high note, not during it. Set it on the breath in."],try:["ladder","high"]},
+  {h:"Space and your home shape",p:["Higher notes need more room. Make the space at the back of your mouth and throat taller: it's the feeling at the start of a yawn, or a surprised breath in (\"ah!\"). The soft palate lifts, the back of the tongue relaxes down, and the jaw hangs loose (dropped, not forced open).",
+    "Find your home shape: the vowel that's easiest for you on a siren when the sound is good, usually \"oo\" or \"oh\". Notice how that feels inside. That's the setup you want behind every note.",
+    "Keep that feeling behind everything you sing. Other vowels get shaped in front with the lips and tongue, but the space behind stays the same.",
+    "As you go higher, vowels have to change to keep that feeling: \"ee\" leans toward \"ih\", \"eh\" toward \"ah\", \"ah\" toward \"aw\" or \"uh\". Singers call this vowel modification. Near the top of your range, keeping the home shape matters more than pronouncing the vowel exactly. Words still read clearly to listeners.",
+    "Set the space on the breath in, before the note, not during it."],try:["vowels","ladder","high"]},
+  {h:"Keep it out of your nose",p:["For normal vowels the passage into your nose should be (mostly) closed: the soft palate lifts and seals it. Sound leaking through the nose makes the tone honky and takes ring away from the voice.",
+    "The nose passage only needs to open for the sounds that really are nasal: m, n, \"ng\", and nasal vowels.",
+    "Pinch test: sing a long \"ah\", then pinch your nose closed while you keep singing. If the sound barely changes, the nose passage is closed. If it changes a lot or gets muffled, sound was leaking through the nose; lift the soft palate (the start-of-a-yawn feeling) and try again.",
+    "Bright and nasal aren't the same thing. The bluegrass edge comes from brightness and focus in the voice, not from singing through your nose. Keep the brightness and keep the nose closed."],try:["vowels"]},
   {h:"High notes: air and space, not push",p:["Space and support work together. Space gives the note room; support gives it steady air.",
     "Common mistake: reaching up with the chin and squeezing the throat. Keep the chin level and think of high notes as over the top, not up a ladder.",
     "Go lighter as you go higher. Volume is not height. You can add power later, once the note is easy.",
@@ -886,32 +955,96 @@ function renderTech(){const L=$("techList");if(L.children.length)return;TECH.for
   s.p.forEach(t=>{const p=document.createElement("p");p.textContent=t;p.style.margin="0";d.querySelector(".col").append(p)});
   s.try.forEach(k=>{const b=document.createElement("button");b.className="btn";b.textContent="Try it: "+EX[k].t;b.onclick=()=>{S.ex=k;saveS();location.hash="#exercises"};d.querySelector(".row").append(b)});L.append(d)})}
 
+
+/* ================= learn: check-in and foundations ================= */
+const CIQ=[
+  ["exp","Have you had singing lessons or choir?",[["none","Never"],["some","A little"],["lots","Yes, a lot"]]],
+  ["loud","When you sing loud, what happens?",[["easy","Feels easy"],["tight","Throat gets tight or tired"],["yell","It feels like yelling"],["never","I don't sing loud"]]],
+  ["after","After a long practice or gig, your voice feels…",[["fine","Fine"],["tired","Tired"],["hoarse","Hoarse or scratchy"]]],
+  ["pitch","How's your pitch?",[["good","People say I'm on pitch"],["some","Sometimes off"],["often","Often off"],["dunno","No idea"]]],
+  ["high","High notes…",[["easy","Are pretty easy"],["strain","Strain or crack"],["avoid","I avoid them"]]]];
+const LESSONS=[
+  {id:"breath",t:"Breathe low",why:"Everything starts with the breath. Shallow, chest-and-shoulder breathing makes you run out of air and squeeze your throat to make up for it.",
+    how:["Put a hand on your belly and one on your side ribs.","Breathe in so both hands move out: belly, sides and back expand. Shoulders stay down.","Let the air out on a slow, even \"sss\". Keep the ribs wide like a barrel as long as you can."],ex:"hiss",set:{},check:"Can you hiss evenly for 15 seconds or more without your shoulders rising?"},
+  {id:"yell",t:"Sing, don't yell",why:"Yelling pushes a big blast of air and squeezes the throat to get loud. It feels powerful but it wrecks pitch and tone and tires (even damages) the voice. Singing gets its power from steady breath and open space, with very little air coming out.",
+    how:["Candle test: imagine a candle a few inches from your lips. Sing a comfortable note. The flame should barely move. If it would blow out, you're pushing air.","Start notes gently: think of a soft sigh on \"hm\" that turns into the note. No hard punch at the start.","For now, sing at about speaking volume. Get it easy and clear first; volume comes later, from space, not push.","If your throat tightens, stop, breathe low, and start again softer."],ex:"longtone",set:{ltNote:"low",ltSecs:4},check:"Can you hold a note at speaking volume, clear and in tune, without any throat squeeze?"},
+  {id:"home",t:"Find your home shape",why:"Your easiest siren sound shows you what a free, open voice feels like inside. That feeling is the setup you'll keep behind every note.",
+    how:["Do a gentle siren on \"oo\", then on \"oh\", then on a lip trill.","Pick the one that's easiest and sounds best. That's your home shape.","Notice the feeling: open at the back, sound riding up behind the soft palate, very little air out the front."],ex:"siren",set:{syl:"oo"},check:"Can you name your home sound and feel what it's like inside?"},
+  {id:"space",t:"Open the space",why:"The space at the back of your mouth is where the voice rings. More space means more tone without pushing, and it's what high notes need.",
+    how:["Start a yawn (don't finish it): the soft palate lifts, the back of the tongue drops, the jaw hangs loose.","Keep that feeling and hum a slide up and down.","Then do the ladder on \"ah\" and keep the yawn-space as it climbs. Sound goes up, not out."],ex:"ladder",set:{lad:"five",syl:"ah",ladDir:"up",ladStretch:0},check:"Can you climb the ladder on \"ah\" without the space closing or the throat tightening?"},
+  {id:"nose",t:"Keep it out of your nose",why:"For normal vowels the nose passage should be (mostly) closed. Sound leaking through the nose turns the tone honky and weak.",
+    how:["Sing a long \"ah\" on the note below.","While singing, pinch your nose closed. If the sound barely changes, the nose passage is closed.","If it changes a lot or goes muffled, lift the soft palate (the start-of-a-yawn feeling) and try again."],ex:"longtone",set:{ltNote:"mid",ltSecs:8},check:"Does pinching your nose barely change your \"ah\"?"},
+  {id:"pitch",t:"Match pitch",why:"Most pitch trouble isn't a bad ear; it's breath and space. With the first lessons in place, matching notes gets much easier.",
+    how:["Listen to the note and hear it in your head before you sing.","Hum or sing \"loo\" softly, then slide until the line turns green.","Keep the breath low and steady; flat often means the air dropped off."],ex:"match",set:{jump:2,hold:1,tol:50},check:"Can you match most notes within a few seconds?"},
+  {id:"hold",t:"Hold a steady note",why:"Holding a note steady is support in action: steady air underneath, open space above.",
+    how:["Breathe low, set your home shape, then sing.","Keep the ribs wide all the way to the end of the note.","Watch the line: it should be flat (a little vibrato wiggle is fine)."],ex:"longtone",set:{ltNote:"mid",ltSecs:8,tol:25},check:"Can you get a B or better on an 8-second long tone?"},
+  {id:"vowels",t:"Vowels on one shape",why:"Words change the front of your mouth; the machine behind shouldn't change. That's what keeps pitch and tone steady when you sing real songs.",
+    how:["Hold one note and move through oo, oh, ah, eh, ee.","Change only lips and tongue; keep your home-shape feeling behind.","Up high, let vowels lean toward the home shape (\"ee\" toward \"ih\", \"ah\" toward \"aw\")."],ex:"vowels",set:{vwNote:"mid",vwSet:"uoaei",vwSecs:2},check:"Do your vowels stay within about 15¢ and keep an even volume?"},
+  {id:"loud",t:"Loud the right way",why:"Volume should come from more breath energy and more space, not more air blasting out or a squeezed throat. That's the difference between singing loud and yelling.",
+    how:["Do a swell: start soft, grow louder, come back down.","As it grows, open more space (yawn feeling) and keep the air steady underneath. The candle should still barely move.","If the pitch goes sharp or your throat tightens when it gets loud, you're pushing. Back off and try again."],ex:"swell",set:{swNote:"mid",swSecs:8},check:"Can you get louder without the pitch moving or the throat tightening?"},
+  {id:"high",t:"High notes without pushing",why:"High notes need more space and steady air, plus vowels that lean toward the home shape. Pushing harder makes them go flat, crack, or hurt.",
+    how:["Set the space before you leave the low note.","Think of the high note as over the top, not up a ladder; keep your chin level.","Go lighter as you go higher. Ease first; power later."],ex:"high",set:{hiIv:"5",adapt:true},check:"Can you land and hold your high target cleanly?"},
+  {id:"routine",t:"Put it together",why:"Now practice it a little every day. Short sessions most days beat long ones once a week.",how:["Start the 10-minute routine.","Come back to any lesson whenever something feels off."],ex:null,set:{},check:null}];
+const P=Object.assign({ans:null,done:[],open:null},store.get("sk.learn",{}));const saveP=()=>store.set("sk.learn",P);
+function planFor(a){const out={start:"breath",focus:[],skip:false,notes:[]};if(!a)return out;
+  const yell=a.loud==="yell"||a.loud==="tight"||a.after==="hoarse";
+  if(yell){out.focus.push("yell","loud","breath");out.notes.push("Your answers point to pushing or yelling to get loud. That's the most common thing holding singers back, and it's very fixable. Start at the top and spend extra time on <b>Sing, don't yell</b> and <b>Loud the right way</b>. Keep it at speaking volume for the first week.")}
+  if(a.after==="hoarse")out.notes.push("Getting hoarse after singing is a sign the voice is being pushed. Ease off volume while you learn. If hoarseness lasts more than two weeks, see an ENT or voice therapist.");
+  if(a.pitch==="often"||a.pitch==="some"||a.pitch==="dunno"){out.focus.push("pitch","hold");out.notes.push("For pitch, do the first lessons before drilling notes. Most pitch trouble comes from breath and space, and gets better fast once those are in place.")}
+  if(a.high!=="easy"){out.focus.push("space","high","vowels");out.notes.push("For high notes, the keys are <b>Open the space</b> and <b>Vowels on one shape</b>: more room, steady air, no push.")}
+  if(a.exp==="lots"&&a.loud==="easy"&&a.after==="fine"&&a.pitch==="good"&&a.high==="easy"){out.skip=true;out.notes.push("You're in good shape. Foundations is there as a refresher; you can go straight to the <b>Routine</b> tab.")}
+  else if(!out.notes.length)out.notes.push("Work through Foundations in order: a lesson or two a day, then the daily routine.");
+  return out}
+function renderLearn(){const ci=!P.ans&&!P.skipped;$("ciBox").hidden=!ci;$("planBox").hidden=ci||!P.ans;$("lsAll").hidden=P.done.length===LESSONS.length;$("lsNone").hidden=!P.done.length;
+  if(ci){const box=$("ciQs");if(!box.children.length){const tmp={};CIQ.forEach(([k,q,opts])=>{const f=sChips(q,opts,"",()=>{},false);f.querySelectorAll(".chip").forEach((b,i)=>b.onclick=()=>{tmp[k]=opts[i][0];f.querySelectorAll(".chip").forEach((x,j)=>x.setAttribute("aria-pressed",i===j))});box.append(f)});
+      $("ciGo").onclick=()=>{const miss=CIQ.filter(q=>!tmp[q[0]]);if(miss.length){$("ciGo").textContent="Answer all five first";return}P.ans={...tmp};saveP();renderLearn();window.scrollTo(0,0)}}}
+  const pl=planFor(P.ans);if(!ci)$("planText").innerHTML=pl.notes.map(n=>`<p style="margin:0">${n}</p>`).join("")+(pl.skip?"":`<div class="row"><button class="btn primary grow" id="planGo">${P.done.length?"Continue Foundations":"Start lesson 1"}</button></div>`);
+  if($("planGo"))$("planGo").onclick=()=>{const nx=LESSONS.find(l=>!P.done.includes(l.id))||LESSONS[0];P.open=nx.id;saveP();renderLearn();document.getElementById("ls-"+nx.id).scrollIntoView({behavior:"smooth",block:"start"})};
+  const L=$("lessons");L.innerHTML="";const next=(LESSONS.find(l=>!P.done.includes(l.id))||{}).id;
+  LESSONS.forEach((l,i)=>{const d=document.createElement("details");d.className="lesson"+(P.done.includes(l.id)?" done":"")+(l.id===next?" next":"");d.id="ls-"+l.id;d.open=P.open===l.id;
+    const tag=P.done.includes(l.id)?"✓":l.id===next?"Next":pl.focus.includes(l.id)?"Focus":"";
+    d.innerHTML=`<summary><span class="lnum">${i+1}</span><span class="lt"></span>${tag?`<span class="ltag">${tag}</span>`:""}<span class="lchev">›</span></summary><div class="col" style="gap:8px;padding-top:8px"><p class="lwhy"></p><ol class="lhow"></ol><p class="hint lchk"></p><div class="row" style="flex-wrap:wrap"></div></div>`;
+    d.querySelector(".lt").textContent=l.t;d.querySelector(".lwhy").textContent=l.why;l.how.forEach(h=>{const li=document.createElement("li");li.textContent=h;d.querySelector(".lhow").append(li)});
+    d.querySelector(".lchk").textContent=l.check?"Check yourself: "+l.check:"";const row=d.querySelector(".row");
+    if(l.ex){const b=document.createElement("button");b.className="btn primary";b.textContent="Do it: "+EX[l.ex].t;b.onclick=()=>lessonGo(l.id);row.append(b)}
+    else{const b=document.createElement("button");b.className="btn primary";b.textContent="Open the routine";b.onclick=()=>{location.hash="#routine"};row.append(b)}
+    const g=document.createElement("button");g.className="btn";g.textContent=P.done.includes(l.id)?"Mark not done":"Got it ✓";g.onclick=()=>{if(P.done.includes(l.id))P.done=P.done.filter(x=>x!==l.id);else{P.done.push(l.id);const nx=LESSONS.find(x=>!P.done.includes(x.id));P.open=nx?nx.id:null}saveP();renderLearn()};row.append(g);
+    d.addEventListener("toggle",()=>{if(d.open){P.open=l.id;saveP()}});L.append(d)})}
+$("ciRedo").onclick=()=>{P.ans=null;P.skipped=false;saveP();$("ciQs").innerHTML="";renderLearn()};
+$("ciSkip").onclick=()=>{P.skipped=true;saveP();renderLearn()};
+$("lsAll").onclick=()=>{P.done=LESSONS.map(l=>l.id);P.open=null;saveP();renderLearn()};
+$("lsNone").onclick=()=>{P.done=[];P.open=LESSONS[0].id;saveP();renderLearn()};
+function lessonGo(id){const l=LESSONS.find(x=>x.id===id);B.mode="lesson";B.lesson=id;Object.assign(S.set,l.set);S.ex=l.ex;saveS();
+  $("rbTitle").textContent="Lesson: "+l.t;$("rbTip").textContent=l.how[0];$("rbNext").textContent="Got it ✓";$("rbEnd").textContent="‹ Lesson";$("rBanner").hidden=false;
+  if(location.hash!=="#exercises")location.hash="#exercises";else renderEx();window.scrollTo(0,0)}
 /* ================= routine ================= */
 const ROUTINES={
   10:[["hiss",{},"Two or three hisses. Breathe low, keep the ribs wide."],["siren",{syl:"lip"},"Two sirens on a lip trill: middle up to comfortable high and back."],["ladder",{lad:"five",syl:"hum",ladDir:"updown",ladStretch:0},"Hum the 5-note pattern up and back down."],
     ["longtone",{ltNote:"mid",ltSecs:8},"Two or three long tones in the middle of your range."],["ladder",{lad:"arp",syl:"ah",ladDir:"up",ladStretch:1},"Arpeggios on an open \"ah\": open more space as it climbs."],["siren",{syl:"hum"},"Cool down: one gentle hum siren from the top down."]],
   20:[["hiss",{},"Three hisses. Aim for an even stream."],["siren",{syl:"lip"},"Lip-trill sirens: start small, then wider."],["ladder",{lad:"five",syl:"lip",ladDir:"updown",ladStretch:0},"5-note scale on a lip trill, up and back down."],
-    ["ladder",{lad:"tri",syl:"nay",ladDir:"updown",ladStretch:1},"1 3 5 3 1 on \"nay\": bright, but keep the back open."],["longtone",{ltNote:"mid",ltSecs:12},"Long tones: three in the middle, then one higher."],
+    ["ladder",{lad:"tri",syl:"nay",ladDir:"updown",ladStretch:1},"1 3 5 3 1 on \"nay\": bright, but keep the back open."],["longtone",{ltNote:"mid",ltSecs:12},"Long tones: three in the middle, then one higher."],["vowels",{vwNote:"mid",vwSet:"uoaei",vwSecs:2},"Vowels on one shape: keep your siren feeling behind every vowel."],
     ["swell",{swNote:"mid",swSecs:8},"Two or three swells: soft, loud, soft, with the pitch staying put."],["match",{jump:4,hold:1},"A few minutes matching notes."],["high",{hiIv:"5"},"High-note leaps of a 5th. Space first, then leap."],["siren",{syl:"hum"},"Cool down with a gentle hum siren downward."]],
   high:[["hiss",{},"Two hisses to wake up the support."],["siren",{syl:"lip"},"Lip-trill sirens, lighter through the break."],["ladder",{lad:"oct",syl:"goo",ladDir:"up",ladStretch:2},"Octave slides on \"goo\": open the space on the way up."],
-    ["longtone",{ltNote:"high",ltSecs:8},"Long tones high in your range: air and space, no push."],["high",{hiIv:"oct"},"Octave leaps to your high target."],["swell",{swNote:"high",swSecs:6},"Gentle swells up high: start soft."],["siren",{syl:"hum"},"Cool down with hum sirens."]],
+    ["longtone",{ltNote:"high",ltSecs:8},"Long tones high in your range: air and space, no push."],["vowels",{vwNote:"high",vwSet:"uaua",vwSecs:2},"Up high, swap oo and ah while keeping the oo feeling behind both."],["high",{hiIv:"oct"},"Octave leaps to your high target."],["swell",{swNote:"high",swSecs:6},"Gentle swells up high: start soft."],["siren",{syl:"hum"},"Cool down with hum sirens."]],
   pitch:[["siren",{syl:"lip"},"Quick lip-trill siren to wake up."],["match",{jump:4,hold:1},"Match notes until it feels easy."],["updown",{},"Up or down patterns."],["steps",{},"Steps and leaps."],["scale",{scale:"major",sdir:"updown"},"A major scale up and down."],["arp",{arp:"maj",apat:"1358531"},"Chord tones."],["harm",{hiv:"M3a"},"Harmony notes against the drone."]]};
-const R=Object.assign({len:"10",step:-1},store.get("sk.routine",{}));const saveR=()=>store.set("sk.routine",R);
+const R=Object.assign({len:"10",step:-1},store.get("sk.routine",{}));const saveR=()=>store.set("sk.routine",R);const B={mode:R.step>=0?"routine":null,lesson:null};
 function renderRoutine(){chipGroup("rLen",R.len,v=>{R.len=v;saveR();renderRoutine()});const ol=$("rSteps");ol.innerHTML="";
   ROUTINES[R.len].forEach(([k,,tip],i)=>{const li=document.createElement("li");li.innerHTML=`<b></b><span class="hint"></span>`;li.querySelector("b").textContent=EX[k].t;li.querySelector(".hint").textContent=" · "+tip;if(R.step===i)li.className="cur";ol.append(li)});
   $("rStart").textContent=R.step>=0?"▶ Resume at step "+(R.step+1):"▶ Start the routine";
   const wk=S.days.filter(d=>Date.now()-new Date(d)<7*864e5).length;$("rProg").innerHTML=`<h3>This week</h3><div class="hint">Practiced ${wk} of the last 7 days. ${wk>=4?"Great consistency.":"A short session most days builds a voice faster than a long one now and then."}</div>`}
 function chipGroup(id,val,onPick){document.querySelectorAll("#"+id+" .chip").forEach(b=>{b.setAttribute("aria-pressed",b.dataset.v===String(val));b.onclick=()=>onPick(b.dataset.v)})}
-function routineGo(i){const steps=ROUTINES[R.len];if(i>=steps.length){R.step=-1;saveR();$("rBanner").hidden=true;xStopAll();location.hash="#routine";renderRoutine();return}
-  R.step=i;saveR();const[k,set,tip]=steps[i];Object.assign(S.set,set);S.ex=k;saveS();$("rBanner").hidden=false;$("rbTitle").textContent=`Step ${i+1} of ${steps.length}: ${EX[k].t}`;$("rbTip").textContent=tip;
+function routineGo(i){const steps=ROUTINES[R.len];if(i>=steps.length){R.step=-1;saveR();B.mode=null;$("rBanner").hidden=true;xStopAll();location.hash="#routine";renderRoutine();return}
+  B.mode="routine";$("rbEnd").textContent="End";R.step=i;saveR();const[k,set,tip]=steps[i];Object.assign(S.set,set);S.ex=k;saveS();$("rBanner").hidden=false;$("rbTitle").textContent=`Step ${i+1} of ${steps.length}: ${EX[k].t}`;$("rbTip").textContent=tip;
   $("rbNext").textContent=i===steps.length-1?"Finish ✓":"Next step ›";if(location.hash!=="#exercises")location.hash="#exercises";else renderEx();window.scrollTo(0,0)}
-$("rStart").onclick=()=>routineGo(Math.max(0,R.step));$("rbNext").onclick=()=>routineGo(R.step+1);$("rbEnd").onclick=()=>{R.step=-1;saveR();$("rBanner").hidden=true;renderRoutine()};
+$("rStart").onclick=()=>routineGo(Math.max(0,R.step));
+$("rbNext").onclick=()=>{if(B.mode==="lesson"){if(!P.done.includes(B.lesson))P.done.push(B.lesson);const nx=LESSONS.find(x=>!P.done.includes(x.id));P.open=nx?nx.id:null;saveP();B.mode=null;$("rBanner").hidden=true;xStopAll();location.hash="#learn";return}routineGo(R.step+1)};
+$("rbEnd").onclick=()=>{if(B.mode==="lesson"){P.open=B.lesson;saveP();B.mode=null;$("rBanner").hidden=true;xStopAll();location.hash="#learn";return}R.step=-1;saveR();B.mode=null;$("rBanner").hidden=true;renderRoutine()};
 
 /* ================= routing ================= */
-function showTab(){const h=location.hash,v=h==="#exercises"?"ex":h==="#technique"?"tech":"routine";
-  $("vRoutine").hidden=v!=="routine";$("vEx").hidden=v!=="ex";$("vTech").hidden=v!=="tech";
-  $("tabRoutine").setAttribute("aria-selected",v==="routine");$("tabEx").setAttribute("aria-selected",v==="ex");$("tabTech").setAttribute("aria-selected",v==="tech");
-  if(v!=="ex")xStopAll();if(v==="ex"){$("rBanner").hidden=R.step<0;renderEx()}if(v==="tech")renderTech();if(v==="routine")renderRoutine()}
+function showTab(){const h=location.hash,v=h==="#exercises"?"ex":h==="#technique"?"tech":h==="#routine"?"routine":h==="#learn"?"learn":((!P.ans&&!P.skipped&&!P.done.length)||(P.ans&&P.done.length<LESSONS.length-1&&!planFor(P.ans).skip)?"learn":"routine");
+  $("vLearn").hidden=v!=="learn";$("vRoutine").hidden=v!=="routine";$("vEx").hidden=v!=="ex";$("vTech").hidden=v!=="tech";
+  $("tabLearn").setAttribute("aria-selected",v==="learn");$("tabRoutine").setAttribute("aria-selected",v==="routine");$("tabEx").setAttribute("aria-selected",v==="ex");$("tabTech").setAttribute("aria-selected",v==="tech");
+  if(v!=="ex")xStopAll();if(v==="ex"){$("rBanner").hidden=!B.mode;renderEx()}if(v==="tech")renderTech();if(v==="routine")renderRoutine();if(v==="learn")renderLearn()}
 window.addEventListener("hashchange",showTab);
 window.addEventListener("resize",()=>{if(!$("vEx").hidden)drawMeter()});
 $("micNotice").hidden=MIC_OK;$("micNotice").textContent="Singing into the app needs the microphone, which works in the standalone version (your GitHub link). Here you can hear the notes and read the tips.";
