@@ -185,6 +185,7 @@ details.lesson.done .lnum{background:var(--good);color:var(--bg)}details.lesson.
       <div id="lessons" class="col" style="gap:8px"></div>
       <div class="row" style="flex-wrap:wrap;gap:12px"><button class="linkbtn" id="lsAll">I've done these before: mark all complete</button><button class="linkbtn" id="lsNone" hidden>Clear lesson progress</button></div>
       <p class="hint" style="margin:0">Everything in the app is open anytime: the Routine, Exercises and Technique tabs work whether or not you've done the lessons.</p>
+      <div class="row"><button class="linkbtn" id="lrReset">Reset the Learn tab</button><span class="hint" id="lrMsg"></span></div>
     </div>
   </div>
 
@@ -1012,6 +1013,8 @@ function renderLearn(){const ci=!P.ans&&!P.skipped;$("ciBox").hidden=!ci;$("plan
     d.addEventListener("toggle",()=>{if(d.open){P.open=l.id;saveP()}});L.append(d)})}
 $("ciRedo").onclick=()=>{P.ans=null;P.skipped=false;saveP();$("ciQs").innerHTML="";renderLearn()};
 $("ciSkip").onclick=()=>{P.skipped=true;saveP();renderLearn()};
+$("lrReset").onclick=()=>{const b=$("lrReset");if(!b.dataset.arm){b.dataset.arm=1;b.textContent="Tap again to reset check-in and lessons";$("lrMsg").textContent="(exercise progress is kept)";setTimeout(()=>{delete b.dataset.arm;b.textContent="Reset the Learn tab";$("lrMsg").textContent=""},4000);return}
+  delete b.dataset.arm;b.textContent="Reset the Learn tab";$("lrMsg").textContent="";P.ans=null;P.skipped=false;P.done=[];P.open=LESSONS[0].id;saveP();$("ciQs").innerHTML="";renderLearn();window.scrollTo(0,0)};
 $("lsAll").onclick=()=>{P.done=LESSONS.map(l=>l.id);P.open=null;saveP();renderLearn()};
 $("lsNone").onclick=()=>{P.done=[];P.open=LESSONS[0].id;saveP();renderLearn()};
 function lessonGo(id){const l=LESSONS.find(x=>x.id===id);B.mode="lesson";B.lesson=id;Object.assign(S.set,l.set);S.ex=l.ex;saveS();
