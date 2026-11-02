@@ -149,6 +149,13 @@ ul.report b{font-weight:600}
 .tq3{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
 .tq3 .ansb{padding:18px 6px;font-size:1.05rem}
 .seg2{margin-top:-4px}
+.tunote{font:700 4rem/1 var(--f-display,inherit);text-align:center;font-variant-numeric:tabular-nums}
+.tunote small{font-size:.4em;color:var(--muted);margin-left:4px}
+.tuarrow{text-align:center;font:600 1rem var(--f-body,inherit);min-height:1.3em}
+.tustr{justify-content:center}.tustr .chip{font-size:1.05rem;padding:10px 18px}
+.tustr .chip.near{border-color:var(--accent);border-width:2px}
+#tuTrace{width:100%;height:90px;border-radius:9px;background:var(--chip)}
+@media (max-width:420px){.tabs a{font-size:.82rem}}
 </style>
 </head>
 <body>
@@ -162,6 +169,7 @@ ul.report b{font-weight:600}
       <a href="#intervals" id="tabIntervals" role="tab" aria-selected="false">Intervals</a>
       <a href="#grader" id="tabGrader" role="tab" aria-selected="false">Grader</a>
       <a href="#drones" id="tabDrones" role="tab" aria-selected="false">Drones</a>
+      <a href="#tuner" id="tabTuner" role="tab" aria-selected="false">Tuner</a>
     </nav>
   </header>
 
@@ -627,6 +635,37 @@ ul.report b{font-weight:600}
     </section>
   </div>
 
+  <!-- ================= TUNER ================= -->
+  <div class="view" id="viewTuner" hidden>
+    <div class="stage">
+      <div class="seg" role="tablist" aria-label="Tuner mode"><button id="tuModeStr" role="tab" aria-selected="true">Fiddle strings</button><button id="tuModeChr" role="tab" aria-selected="false">Chromatic</button></div>
+      <div class="drmeter">
+        <div class="tunote" id="tuNote">–</div>
+        <div class="drdeg" id="tuSub">Tap Start, then play a string</div>
+        <div class="drbar"><div class="drband" id="tuBand"></div><div class="drzero"></div><div class="drneedle" id="tuNeedle"></div></div>
+        <div class="drscale"><span>−50¢ flat</span><span>0</span><span>+50¢ sharp</span></div>
+        <div class="tuarrow" id="tuArrow"></div>
+        <canvas id="tuTrace" aria-label="Pitch over the last few seconds"></canvas>
+      </div>
+      <div class="chips tustr" id="tuStrings"></div>
+      <div class="row"><button class="btn primary" id="tuGo" style="padding:16px;font-size:1.1rem">🎤 Start tuner</button></div>
+      <div class="status" id="tuStatus"></div>
+    </div>
+    <div class="stage">
+      <h3 style="margin:0">Reference tones</h3>
+      <p class="hint" style="margin:0">Tap a string to hear it ring; tap again to stop. Tune by ear against it, or play the pair to hear a pure fifth.</p>
+      <div class="chips" id="tuRefs"></div>
+    </div>
+    <section class="settings">
+      <div class="field"><span class="label">String tuning</span>
+        <div class="chips" id="tuTuneChips"><button class="chip" data-v="pure">Pure fifths from A (by ear)</button><button class="chip" data-v="et">Equal temperament</button></div>
+        <p class="hint" id="tuTuneHint"></p></div>
+      <div class="field"><span class="label">In tune within</span><div class="chips" id="tuTol"><button class="chip" data-v="2">±2¢</button><button class="chip" data-v="3">±3¢</button><button class="chip" data-v="5">±5¢</button></div></div>
+      <label class="field"><span class="label">A = <b id="tuRefOut">440</b> Hz (shared with Drones)</span><input type="range" id="tuRef" min="436" max="446" step="1"></label>
+      <label class="field"><span class="label">Microphone</span><select id="tuMic"></select></label>
+    </section>
+  </div>
+
   <footer class="hint" style="text-align:center;padding:24px 0 8px">© 2026 Matt O'Neil. All rights reserved.</footer>
 </div>
 
@@ -637,9 +676,10 @@ const $=id=>document.getElementById(id);
 
 /* ================= tabs ================= */
 function showView(){
-  const g=location.hash==="#grader",iv=location.hash==="#intervals",dr=location.hash==="#drones";
-  $("viewTrainer").hidden=g||iv||dr;$("viewGrader").hidden=!g;$("viewIntervals").hidden=!iv;$("viewDrones").hidden=!dr;
-  $("tabTrainer").setAttribute("aria-selected",!g&&!iv&&!dr);$("tabGrader").setAttribute("aria-selected",g);$("tabIntervals").setAttribute("aria-selected",iv);$("tabDrones").setAttribute("aria-selected",dr);
+  const g=location.hash==="#grader",iv=location.hash==="#intervals",dr=location.hash==="#drones",tu=location.hash==="#tuner";
+  $("viewTrainer").hidden=g||iv||dr||tu;$("viewGrader").hidden=!g;$("viewIntervals").hidden=!iv;$("viewDrones").hidden=!dr;$("viewTuner").hidden=!tu;
+  $("tabTrainer").setAttribute("aria-selected",!g&&!iv&&!dr&&!tu);$("tabGrader").setAttribute("aria-selected",g);$("tabIntervals").setAttribute("aria-selected",iv);$("tabDrones").setAttribute("aria-selected",dr);$("tabTuner").setAttribute("aria-selected",tu);
+  if(!tu){try{if(TUX.mic)tuStop();if(Object.keys(TUX.ref).length){Object.keys(TUX.ref).forEach(tuRefStop);tuSync()}}catch(e){}}   // the tuner may not be loaded yet on first run
   if(g){if(!G.buf&&!G.loading)loadExample();else drawAll()}
   if(window.ctStop)ctStop();if(window.itStop)itStop();if(window.tnStop)tnStop();
 }
@@ -771,7 +811,7 @@ $("playBtn").onclick=newTrial;
 $("replayBtn").onclick=()=>{if(trial){if(!trial.done)setPads(false);playPair()}};
 $("pad0").onclick=()=>answer(0);$("pad1").onclick=()=>answer(1);
 $("resetBtn").onclick=()=>{score={c:0,n:0,streak:0,run:0,hist:[]};renderScore()};
-document.addEventListener("keydown",e=>{if(location.hash==="#grader"||location.hash==="#intervals"||location.hash==="#drones"||!$("cTrain").hidden)return;
+document.addEventListener("keydown",e=>{if(location.hash==="#grader"||location.hash==="#intervals"||location.hash==="#drones"||location.hash==="#tuner"||!$("cTrain").hidden)return;
   if(e.target.tagName==="INPUT"||e.target.tagName==="SELECT")return;
   if(e.key==="1")answer(0);else if(e.key==="2")answer(1);else if(e.key===" "){e.preventDefault();newTrial()}else if(e.key==="r")$("replayBtn").click()});
 sync();renderScore();
@@ -1893,6 +1933,71 @@ function drTraceDraw(){const M=DRX.mic;if(!M)return;const cv=$("drTrace"),w=cv.c
     c.strokeStyle=Math.abs(p.e)<=DR.tol?css("--good"):css("--bad");if(!pen){c.beginPath();c.moveTo(x,y);pen=true}else{c.lineTo(x,y);c.stroke();c.beginPath();c.moveTo(x,y)}}
   DRX.raf=requestAnimationFrame(drTraceDraw)}
 drUI();drRefreshMics();
+
+/* ================= TUNER ================= */
+const TUS=[["G",55],["D",62],["A",69],["E",76]],TUPURE={55:-3.91,62:-1.96,69:0,76:1.96};   // pure fifths stacked from A, in cents vs equal temperament
+const TU=Object.assign({mode:"str",tune:"pure",tol:3,lock:null,mic:""},(()=>{try{return JSON.parse(localStorage.getItem("tuner")||"{}")}catch(e){return{}}})());
+const tuSave=()=>{try{localStorage.setItem("tuner",JSON.stringify(TU))}catch(e){}};
+const TUX={mic:null,raf:0,ref:{}};
+const tuTargetHz=m=>DR.ref*Math.pow(2,(m-69)/12)*Math.pow(2,(TU.tune==="pure"?TUPURE[m]||0:0)/1200);
+function tuSync(){const str=TU.mode==="str";$("tuModeStr").setAttribute("aria-selected",str);$("tuModeChr").setAttribute("aria-selected",!str);$("tuStrings").hidden=!str;
+  const box=$("tuStrings");if(!box.children.length)TUS.forEach(([n,m])=>{const b=document.createElement("button");b.className="chip";b.dataset.m=m;b.textContent=n;b.onclick=()=>{TU.lock=TU.lock===m?null:m;tuSave();tuSync()};box.append(b)});
+  box.querySelectorAll(".chip").forEach(b=>b.setAttribute("aria-pressed",+b.dataset.m===TU.lock));
+  document.querySelectorAll("#tuTuneChips .chip").forEach(b=>{b.setAttribute("aria-pressed",b.dataset.v===TU.tune);b.onclick=()=>{TU.tune=b.dataset.v;tuSave();tuSync();tuRefUpdate()}});
+  document.querySelectorAll("#tuTol .chip").forEach(b=>{b.setAttribute("aria-pressed",+b.dataset.v===TU.tol);b.onclick=()=>{TU.tol=+b.dataset.v;tuSave();tuSync()}});
+  $("tuTuneHint").textContent=TU.tune==="pure"?`Fifths tuned beatless from A, like tuning by ear with double stops: E ${TUPURE[76].toFixed(0)>0?"+":""}2¢, D −2¢, G −4¢ from equal temperament.`:"Every string exactly on equal temperament (fifths beat very slightly).";
+  $("tuBand").style.left=(50-TU.tol)+"%";$("tuBand").style.width=(2*TU.tol)+"%";$("tuRef").value=DR.ref;$("tuRefOut").textContent=DR.ref;
+  const rb=$("tuRefs");if(!rb.children.length){TUS.forEach(([n,m])=>{const b=document.createElement("button");b.className="chip";b.dataset.k=m;b.textContent=n+(Math.floor(m/12)-1);b.onclick=()=>tuRefToggle(String(m),[m]);rb.append(b)});
+    [["G+D",[55,62]],["D+A",[62,69]],["A+E",[69,76]]].forEach(([l,ms])=>{const b=document.createElement("button");b.className="chip";b.dataset.k=l;b.textContent=l;b.onclick=()=>tuRefToggle(l,ms);rb.append(b)})}
+  rb.querySelectorAll(".chip").forEach(b=>b.setAttribute("aria-pressed",!!TUX.ref[b.dataset.k]))}
+function tuRefToggle(k,ms){getCtx();if(ctx.state!=="running")ctx.resume();const on=TUX.ref[k];Object.keys(TUX.ref).forEach(tuRefStop);if(on){tuSync();return}
+  const c=ctx,out=c.createGain(),t=c.currentTime;out.gain.setValueAtTime(0,t);out.gain.linearRampToValueAtTime(1,t+.08);out.connect(c.destination);
+  const vs=ms.map(m=>{const v=voice(tuTargetHz(m),"fiddle"),g=c.createGain();g.gain.value=peakOf("fiddle")*1.2/Math.sqrt(ms.length);v.n.connect(g).connect(out);v.o.start(t);return{v,m}});
+  TUX.ref[k]={out,vs};tuSync()}
+function tuRefStop(k){const r=TUX.ref[k];if(!r)return;delete TUX.ref[k];try{const t=ctx.currentTime;r.out.gain.setValueAtTime(r.out.gain.value,t);r.out.gain.linearRampToValueAtTime(0,t+.1);r.vs.forEach(x=>x.v.o.stop(t+.15))}catch(e){}}
+function tuRefUpdate(){Object.values(TUX.ref).forEach(r=>r.vs.forEach(x=>x.v.o.frequency.setTargetAtTime(tuTargetHz(x.m),ctx.currentTime,.01)))}
+$("tuModeStr").onclick=()=>{TU.mode="str";tuSave();tuSync()};$("tuModeChr").onclick=()=>{TU.mode="chr";tuSave();tuSync()};
+$("tuRef").oninput=e=>{DR.ref=+e.target.value;drSave();tuSync();tuRefUpdate();if(typeof drUI==="function")drUI()};
+$("tuMic").onchange=e=>{TU.mic=e.target.value;tuSave();if(TUX.mic){tuStop();tuStart()}};
+// what you're playing, relative to what you should be
+function tuRead(f){const m=69+12*Math.log2(f/DR.ref);
+  if(TU.mode==="str"){let tgt=TU.lock;if(tgt==null){let best=null;for(const[,sm]of TUS){const d=Math.abs(m-sm);if(!best||d<best.d)best={d,sm}}tgt=best.d<=4?best.sm:null}
+    if(tgt!=null){const c=1200*Math.log2(f/tuTargetHz(tgt));return{name:NAMES[tgt%12],oct:Math.floor(tgt/12)-1,c,str:tgt}}}
+  const n=Math.round(m);return{name:NAMES[((n%12)+12)%12],oct:Math.floor(n/12)-1,c:(m-n)*100,str:null}}
+async function tuStart(){
+  if(window.claude&&window.claude.use){$("tuStatus").textContent="The tuner needs the microphone, which works in the GitHub version.";$("tuStatus").className="status bad";return}
+  if(DRX.mic)drMeterStop();
+  const base={echoCancellation:false,noiseSuppression:false,autoGainControl:false,channelCount:1};let stream;
+  try{if(navigator.audioSession&&!DRX.playing)navigator.audioSession.type="play-and-record"}catch(e){}
+  try{try{stream=await navigator.mediaDevices.getUserMedia({audio:TU.mic?{...base,deviceId:{exact:TU.mic}}:base})}catch(e){if(!TU.mic||e.name==="NotAllowedError")throw e;stream=await navigator.mediaDevices.getUserMedia({audio:base})}}
+  catch(e){$("tuStatus").textContent=e&&e.name==="NotAllowedError"?"Microphone access was blocked. Allow it for this site in your browser settings.":"The microphone isn't available.";$("tuStatus").className="status bad";return}
+  keepAwake(true);try{const ds=(await navigator.mediaDevices.enumerateDevices()).filter(d=>d.kind==="audioinput"),s=$("tuMic");s.innerHTML="";s.add(new Option("Automatic (phone decides)",""));ds.forEach((d,i)=>s.add(new Option(d.label||("Microphone "+(i+1)),d.deviceId)));s.value=ds.some(d=>d.deviceId===TU.mic)?TU.mic:""}catch(e){}
+  const C=new (window.AudioContext||window.webkitAudioContext)();for(let k=0;k<5&&C.state!=="running";k++){try{await C.resume()}catch(e){}await new Promise(r=>setTimeout(r,60))}
+  const src=C.createMediaStreamSource(stream),sp=C.createScriptProcessor(1024,1,1),mute=C.createGain();mute.gain.value=0;src.connect(sp);sp.connect(mute);mute.connect(C.destination);
+  const ring=new Float32Array(4096),M={C,stream,sp,src,trace:[],sm:[],floor:.002,last:0};TUX.mic=M;
+  if(DRX.playing){try{await ctx.resume()}catch(e){}}
+  sp.onaudioprocess=ev=>{const d=ev.inputBuffer.getChannelData(0);ring.copyWithin(0,d.length);ring.set(d,ring.length-d.length);const r=drMpm(ring,C.sampleRate),t=C.currentTime;
+    if(r.rms<M.floor*1.6)M.floor=M.floor*.97+r.rms*.03;else M.floor*=1.0008;
+    if(!(r.f&&r.clar>=.9&&r.rms>Math.max(.002,2.5*M.floor))){M.sm=[];M.trace.push({t,c:null});return}
+    M.sm.push(r.f);if(M.sm.length>7)M.sm.shift();const fs=[...M.sm].sort((a,b)=>a-b),f=fs[fs.length>>1],q=tuRead(f);M.last=t;M.trace.push({t,c:q.c});M.q={...q,f}};
+  TUX.raf=requestAnimationFrame(tuDraw);$("tuGo").textContent="■ Stop tuner";$("tuStatus").textContent="Listening. Play one string at a time.";$("tuStatus").className="status"}
+function tuStop(){const M=TUX.mic;if(!M)return;TUX.mic=null;try{M.sp.disconnect();M.src.disconnect();M.stream.getTracks().forEach(t=>t.stop());M.C.close()}catch(e){}cancelAnimationFrame(TUX.raf);keepAwake(false);
+  $("tuGo").textContent="🎤 Start tuner";$("tuStatus").textContent="";$("tuNote").textContent="–";$("tuSub").textContent="Tap Start, then play a string";$("tuArrow").textContent="";$("tuNeedle").className="drneedle";
+  document.querySelectorAll("#tuStrings .chip").forEach(b=>b.classList.remove("near"))}
+$("tuGo").onclick=()=>{if(TUX.mic)tuStop();else tuStart()};
+function tuDraw(){const M=TUX.mic;if(!M)return;const now=M.C.currentTime,q=M.q,fresh=q&&now-M.last<.35,nd=$("tuNeedle");
+  if(fresh){const big=Math.abs(q.c)>50,ok=Math.abs(q.c)<=TU.tol;nd.style.left=(50+Math.max(-50,Math.min(50,q.c)))+"%";nd.className="drneedle "+(ok?"ok":"off");
+    $("tuNote").innerHTML=`${q.name}<small>${q.oct}</small>`;$("tuNote").style.color=ok?"var(--good)":"";
+    const s=(q.c>0?"+":"")+(Math.abs(q.c)<10?q.c.toFixed(1):Math.round(q.c));$("tuSub").textContent=`${s}¢ · ${q.f.toFixed(1)} Hz`+(q.str!=null&&TU.mode==="str"?` · target ${tuTargetHz(q.str).toFixed(1)} Hz`:"")+(TU.lock!=null&&TU.mode==="str"?` · locked to ${NAMES[TU.lock%12]} (tap it to unlock)`:"");
+    $("tuArrow").textContent=ok?"✓ In tune":big?(q.c<0?`Way flat: tune up ↑ (${Math.round(-q.c/100)} half step${Math.round(-q.c/100)>1?"s":""})`:`Way sharp: tune down ↓ (${Math.round(q.c/100)} half step${Math.round(q.c/100)>1?"s":""})`):q.c<0?"Flat: tune up ↑":"Sharp: tune down ↓";
+    $("tuArrow").style.color=ok?"var(--good)":"var(--bad)";document.querySelectorAll("#tuStrings .chip").forEach(b=>b.classList.toggle("near",+b.dataset.m===q.str))}
+  else{nd.className="drneedle";$("tuArrow").textContent=""}
+  const cv=$("tuTrace"),w=cv.clientWidth||320,h=90;setup(cv,w,h);const c=cv.getContext("2d"),span=5,css=v=>getComputedStyle(document.documentElement).getPropertyValue(v),Y=e=>h/2-e/50*(h/2-6),X=t=>w-(now-t)/span*w;
+  c.fillStyle=css("--band");c.fillRect(0,Y(TU.tol),w,Y(-TU.tol)-Y(TU.tol));c.strokeStyle=css("--good");c.lineWidth=1;c.beginPath();c.moveTo(0,h/2);c.lineTo(w,h/2);c.stroke();
+  while(M.trace.length&&now-M.trace[0].t>span)M.trace.shift();c.lineWidth=3;let pen=false;
+  for(const p of M.trace){if(p.c==null){pen=false;continue}const x=X(p.t),y=Y(Math.max(-50,Math.min(50,p.c)));c.strokeStyle=Math.abs(p.c)<=TU.tol?css("--good"):css("--bad");if(!pen){c.beginPath();c.moveTo(x,y);pen=true}else{c.lineTo(x,y);c.stroke();c.beginPath();c.moveTo(x,y)}}
+  TUX.raf=requestAnimationFrame(tuDraw)}
+tuSync();
 </script>
 
 </body>
