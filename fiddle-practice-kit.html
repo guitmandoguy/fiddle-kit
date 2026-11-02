@@ -155,7 +155,13 @@ ul.report b{font-weight:600}
 .tustr{justify-content:center}.tustr .chip{font-size:1.05rem;padding:10px 18px}
 .tustr .chip.near{border-color:var(--accent);border-width:2px}
 #tuTrace{width:100%;height:90px;border-radius:9px;background:var(--chip)}
-@media (max-width:420px){.tabs a{font-size:.82rem}}
+
+.hrow{display:flex;align-items:center;justify-content:space-between;gap:10px}
+.tunebtn{appearance:none;border:1px solid var(--line);background:var(--surface);color:var(--ink);border-radius:999px;padding:7px 13px;font:600 .9rem var(--f-body);cursor:pointer;flex:none;white-space:nowrap}
+.tunebtn:active{background:var(--chip)}
+.sheet{position:fixed;inset:0;z-index:50;background:var(--bg);overflow-y:auto;-webkit-overflow-scrolling:touch}
+.sheetin{max-width:640px;margin:0 auto;padding:calc(14px + env(safe-area-inset-top,0px)) 16px calc(24px + env(safe-area-inset-bottom,0px));display:flex;flex-direction:column;gap:18px}
+.sheethead{display:flex;align-items:center;justify-content:space-between}.sheethead h2{margin:0;font:700 1.4rem var(--f-display)}.sheethead .btn{flex:none;padding:8px 18px}
 </style>
 </head>
 <body>
@@ -163,13 +169,12 @@ ul.report b{font-weight:600}
 
 <div class="wrap">
   <header>
-    <h1>Fiddle Practice Kit</h1>
+    <div class="hrow"><h1>Fiddle Practice Kit</h1><button class="tunebtn" id="tuOpen" aria-label="Open the tuner">🎵 Tune</button></div>
     <nav class="tabs" role="tablist">
       <a href="#trainer" id="tabTrainer" role="tab" aria-selected="true">Cents</a>
       <a href="#intervals" id="tabIntervals" role="tab" aria-selected="false">Intervals</a>
       <a href="#grader" id="tabGrader" role="tab" aria-selected="false">Grader</a>
       <a href="#drones" id="tabDrones" role="tab" aria-selected="false">Drones</a>
-      <a href="#tuner" id="tabTuner" role="tab" aria-selected="false">Tuner</a>
     </nav>
   </header>
 
@@ -636,7 +641,9 @@ ul.report b{font-weight:600}
   </div>
 
   <!-- ================= TUNER ================= -->
-  <div class="view" id="viewTuner" hidden>
+  <div class="sheet" id="viewTuner" hidden role="dialog" aria-label="Tuner">
+   <div class="sheetin">
+    <div class="sheethead"><h2>Tuner</h2><button class="btn" id="tuClose">Done</button></div>
     <div class="stage">
       <div class="seg" role="tablist" aria-label="Tuner mode"><button id="tuModeStr" role="tab" aria-selected="true">Fiddle strings</button><button id="tuModeChr" role="tab" aria-selected="false">Chromatic</button></div>
       <div class="drmeter">
@@ -664,6 +671,7 @@ ul.report b{font-weight:600}
       <label class="field"><span class="label">A = <b id="tuRefOut">440</b> Hz (shared with Drones)</span><input type="range" id="tuRef" min="436" max="446" step="1"></label>
       <label class="field"><span class="label">Microphone</span><select id="tuMic"></select></label>
     </section>
+   </div>
   </div>
 
   <footer class="hint" style="text-align:center;padding:24px 0 8px">© 2026 Matt O'Neil. All rights reserved.</footer>
@@ -676,10 +684,9 @@ const $=id=>document.getElementById(id);
 
 /* ================= tabs ================= */
 function showView(){
-  const g=location.hash==="#grader",iv=location.hash==="#intervals",dr=location.hash==="#drones",tu=location.hash==="#tuner";
-  $("viewTrainer").hidden=g||iv||dr||tu;$("viewGrader").hidden=!g;$("viewIntervals").hidden=!iv;$("viewDrones").hidden=!dr;$("viewTuner").hidden=!tu;
-  $("tabTrainer").setAttribute("aria-selected",!g&&!iv&&!dr&&!tu);$("tabGrader").setAttribute("aria-selected",g);$("tabIntervals").setAttribute("aria-selected",iv);$("tabDrones").setAttribute("aria-selected",dr);$("tabTuner").setAttribute("aria-selected",tu);
-  if(!tu){try{if(TUX.mic)tuStop();if(Object.keys(TUX.ref).length){Object.keys(TUX.ref).forEach(tuRefStop);tuSync()}}catch(e){}}   // the tuner may not be loaded yet on first run
+  const g=location.hash==="#grader",iv=location.hash==="#intervals",dr=location.hash==="#drones";
+  $("viewTrainer").hidden=g||iv||dr;$("viewGrader").hidden=!g;$("viewIntervals").hidden=!iv;$("viewDrones").hidden=!dr;
+  $("tabTrainer").setAttribute("aria-selected",!g&&!iv&&!dr);$("tabGrader").setAttribute("aria-selected",g);$("tabIntervals").setAttribute("aria-selected",iv);$("tabDrones").setAttribute("aria-selected",dr);
   if(g){if(!G.buf&&!G.loading)loadExample();else drawAll()}
   if(window.ctStop)ctStop();if(window.itStop)itStop();if(window.tnStop)tnStop();
 }
@@ -1985,6 +1992,12 @@ function tuStop(){const M=TUX.mic;if(!M)return;TUX.mic=null;try{M.sp.disconnect(
   $("tuGo").textContent="🎤 Start tuner";$("tuStatus").textContent="";$("tuNote").textContent="–";$("tuSub").textContent="Tap Start, then play a string";$("tuArrow").textContent="";$("tuNeedle").className="drneedle";
   document.querySelectorAll("#tuStrings .chip").forEach(b=>b.classList.remove("near"))}
 $("tuGo").onclick=()=>{if(TUX.mic)tuStop();else tuStart()};
+/* the tuner opens over whatever you're doing, from the header button */
+function tuOpenSheet(){$("viewTuner").hidden=false;document.body.style.overflow="hidden";tuSync()}
+function tuCloseSheet(){if(TUX.mic)tuStop();Object.keys(TUX.ref).forEach(tuRefStop);$("viewTuner").hidden=true;document.body.style.overflow="";tuSync();if(location.hash==="#tuner")history.replaceState(null,"",location.pathname+location.search)}
+$("tuOpen").onclick=tuOpenSheet;$("tuClose").onclick=tuCloseSheet;
+document.addEventListener("keydown",e=>{if(e.key==="Escape"&&!$("viewTuner").hidden)tuCloseSheet()});
+if(location.hash==="#tuner")tuOpenSheet();window.addEventListener("hashchange",()=>{if(location.hash==="#tuner")tuOpenSheet()});
 function tuDraw(){const M=TUX.mic;if(!M)return;const now=M.C.currentTime,q=M.q,fresh=q&&now-M.last<.35,nd=$("tuNeedle");
   if(fresh){const big=Math.abs(q.c)>50,ok=Math.abs(q.c)<=TU.tol;nd.style.left=(50+Math.max(-50,Math.min(50,q.c)))+"%";nd.className="drneedle "+(ok?"ok":"off");
     $("tuNote").innerHTML=`${q.name}<small>${q.oct}</small>`;$("tuNote").style.color=ok?"var(--good)":"";
