@@ -141,7 +141,7 @@ ul.report b{font-weight:600}
 .drscale{display:flex;justify-content:space-between;font:500 .72rem var(--f-mono,monospace);color:var(--muted)}
 #drTrace{width:100%;height:110px;border-radius:9px;background:var(--chip)}
 .drlv{display:grid;grid-template-columns:auto 1fr;gap:6px 12px;align-items:center;font-size:.9rem}
-.drlv input{accent-color:var(--accent);min-width:0}
+.drlv input,#drBoost{accent-color:var(--accent);min-width:0}
 #drPlay.live{background:var(--ink);border-color:var(--ink);color:var(--bg)}
 .tnread{display:flex;align-items:baseline;gap:12px;justify-content:center}
 .tnread b{font:700 2.2rem/1 var(--f-mono);font-variant-numeric:tabular-nums}
@@ -460,6 +460,7 @@ ul.report b{font-weight:600}
         <div class="info" id="tnBeat"></div>
         <div class="row"><button class="btn primary big-play" id="tnPlay">▶ Play</button></div>
         <div class="row"><button class="btn" id="tnSnap">Snap in tune</button><button class="btn" id="tnAB">A/B: hear in tune</button><button class="btn" id="tnSweep">Sweep</button></div>
+        <div class="status" id="tnPass" aria-live="off" hidden></div>
       </div>
       </div>
       <div id="tnQuiz" hidden>
@@ -633,6 +634,10 @@ ul.report b{font-weight:600}
         <label class="field"><span class="label">A = <b id="drRefOut">440</b> Hz</span><input type="range" id="drRef" min="436" max="446" step="1"></label>
         <label class="field"><span class="label">Timer</span><select id="drTimer"><option value="0">Off</option><option value="5">5 min</option><option value="10">10 min</option><option value="15">15 min</option><option value="20">20 min</option><option value="30">30 min</option></select></label>
       </div>
+      <div class="field"><span class="label">When the screen locks</span>
+        <div class="chips" id="drLock"><button class="chip" data-v="same">Keep the same sound</button><button class="chip" data-v="stream">Backup path</button></div>
+        <p class="hint">Switch to Backup path only if the drone goes silent when the phone locks.</p>
+        <label class="field" id="drBoostRow"><span class="label">Backup path volume: <b id="drBoostOut">150%</b></span><input type="range" id="drBoost" min="100" max="300" step="10"></label></div>
       <div class="field"><span class="label">Meter</span>
         <div class="chips" id="drTol"><button class="chip" data-v="5">±5¢</button><button class="chip" data-v="10">±10¢</button><button class="chip" data-v="15">±15¢</button><button class="chip" data-v="25">±25¢</button></div>
         <label class="field"><span class="label">Microphone</span><select id="drMic"></select></label>
@@ -1124,29 +1129,40 @@ function tnSync(){syncPicker("tn",TN);const quiz=tnSub==="quiz";
   $("tnRel").textContent=c===0?`in tune (${TN.ref==="just"?"pure":"equal"})`:`${who} ${c>0?"sharp":"flat"} of ${TN.ref==="just"?"pure":"equal"}`;
   const pure=tnFreqs(m,g,"just",0,"deg"),et=tnFreqs(m,g,"et",0,"deg"),gap=1200*Math.log2(et.fd/pure.fd),bt=tnBeats(fm,fd,g);
   $("tnBeat").textContent=(g.ss===6?"":bt<.05?"No beats: locked in. ":`Beating about ${bt<10?bt.toFixed(1):Math.round(bt)} times a second. `)+
-    (Math.abs(gap)>=1?`Equal temperament is ${Math.abs(gap).toFixed(1)}¢ ${(g.up?gap>0:gap<0)?"wider":"narrower"} than pure for this one.`:"Pure and equal are the same here (within 2¢).")}
+    (Math.abs(gap)>=1?`Equal temperament is ${Math.abs(gap).toFixed(1)}¢ ${(g.up?gap>0:gap<0)?"wider":"narrower"} than pure for this one.`:"Pure and equal are the same here (within 2¢).");
+  tnABLabel()}
 function tnChanged(){saveTN();tnSync();if(tnLive)tnUpdate()}
-function tnStart(){getCtx();if(ctx.state!=="running")ctx.resume();tnHalt();const c=ctx,t=c.currentTime,out=c.createGain();out.gain.setValueAtTime(0,t);out.gain.linearRampToValueAtTime(1,t+.05);out.connect(c.destination);
+/* The A/B button's wording depends on the style: a live flip on a double stop, a repeating in-tune / your-setting comparison on separate notes. */
+function tnABLabel(){const L=tnLive,c=TN.cents,cs=(c>0?"+":c<0?"−":"")+Math.abs(c)+"¢";
+  $("tnAB").textContent=TN.style==="har"?(L&&L.ab?"A/B: back to "+cs:"A/B: hear in tune"):(L&&L.cmp?"■ Stop A/B":"A/B: in tune, then "+cs)}
+function tnPassShow(off){const c=TN.cents,el=$("tnPass");el.hidden=false;el.className="status"+(off?"":" good");
+  el.textContent=c===0?"The slider is at 0¢, so both rounds match. Move it to hear a difference.":off?"Now: "+Math.abs(c)+"¢ "+(c>0?"sharp":"flat"):"Now: in tune"}
+function tnStart(cmp){const keepCmp=cmp===undefined?!!(tnLive&&tnLive.cmp):cmp;getCtx();if(ctx.state!=="running")ctx.resume();tnHalt();const c=ctx,t=c.currentTime,out=c.createGain();out.gain.setValueAtTime(0,t);out.gain.linearRampToValueAtTime(1,t+.05);out.connect(c.destination);
   const m=tnMain(),g=tnGeom(m,TN.deg,TN.dir),{fm,fd}=tnFreqs(m,g,TN.ref,TN.cents,TN.det),one=peakOf(TN.tone)*tnLvl(),pk=one*.71;   // one note alone = "one"; each note of a double stop = .71 of that, so the pair sounds as loud as a single note
   const a=voice(fm,TN.tone),b=voice(fd,TN.tone),ga=c.createGain(),gb=c.createGain();ga.gain.value=0;gb.gain.value=0;   // both start silent: no stray sound before the pattern begins
   a.n.connect(ga).connect(out);b.n.connect(gb).connect(out);a.o.start(t);b.o.start(t);
-  const L={out,a,b,ga,gb,style:TN.style,tone:TN.tone,t0:t+.05,next:t+.05,step:0,pk};tnLive=L;
+  const L={out,a,b,ga,gb,style:TN.style,tone:TN.tone,t0:t+.05,next:t+.05,step:0,pk,cmp:keepCmp&&TN.style!=="har",marks:[]};tnLive=L;
   // double stop rings continuously; the other styles loop a little pattern
   const sched=()=>{if(tnLive!==L)return;const st=L.style;
     if(st==="har"){if(L.step===0){const lead=TN.lead?.7:0;ga.gain.setValueAtTime(0,L.next);ga.gain.linearRampToValueAtTime(lead?one:pk,L.next+.04);if(lead)ga.gain.setValueAtTime(one,L.next+lead).linearRampToValueAtTime(pk,L.next+lead+.04);gb.gain.setValueAtTime(0,L.next+lead);gb.gain.linearRampToValueAtTime(pk,L.next+lead+.04);L.step=1}return}
-    const d=+TN.len*.5;while(L.next<c.currentTime+.3){const s=L.step%(st==="mel"?2:3),T=L.next;
+    while(L.marks.length&&L.marks[0].T<=c.currentTime)tnPassShow(L.marks.shift().off);
+    const d=+TN.len*.5,n=st==="mel"?2:3;while(L.next<c.currentTime+.3){const s=L.step%n,T=L.next;
+      if(L.cmp){const off=Math.floor(L.step/n)%2===1,m=tnMain(),F=tnFreqs(m,tnGeom(m,TN.deg,TN.dir),TN.ref,off?TN.cents:0,TN.det),at=Math.max(T-.005,c.currentTime);   // retune while silent: round 1 in tune, round 2 your setting
+        a.o.frequency.setValueAtTime(F.fm,at);b.o.frequency.setValueAtTime(F.fd,at);if(s===0)L.marks.push({T,off})}
       if(s===0){env(ga,T,d,one);L.next+=d+.15}else if(s===1){env(gb,T,d,one);L.next+=d+(st==="mel"?.6:.25)}else{env(ga,T,+TN.len,pk);env(gb,T,+TN.len,pk);L.next+=+TN.len+.6}L.step++}};
   const env=(g,T,d,p)=>{g.gain.setValueAtTime(0,T);g.gain.linearRampToValueAtTime(p,T+.03);g.gain.setValueAtTime(p,T+d-.06);g.gain.linearRampToValueAtTime(0,T+d)};
-  sched();L.timer=setInterval(sched,40);$("tnPlay").textContent="■ Stop";$("tnPlay").classList.add("live")}
+  sched();L.timer=setInterval(sched,40);$("tnPlay").textContent="■ Stop";$("tnPlay").classList.add("live");tnABLabel()}
 function tnUpdate(){const L=tnLive;if(!L)return;if(L.style!==TN.style||L.tone!==undefined&&L.tone!==TN.tone){tnStart();return}
+  if(L.cmp)return;   // the comparison picks up the new settings on its next note
   const m=tnMain(),g=tnGeom(m,TN.deg,TN.dir),{fm,fd}=tnFreqs(m,g,TN.ref,L.ab?0:TN.cents,TN.det),t=ctx.currentTime;L.a.o.frequency.setTargetAtTime(fm,t,.008);L.b.o.frequency.setTargetAtTime(fd,t,.008)}
 function tnHalt(){const L=tnLive;if(!L)return;tnLive=null;clearInterval(L.timer);clearInterval(L.sw);try{const t=ctx.currentTime;L.out.gain.cancelScheduledValues(t);L.out.gain.setValueAtTime(L.out.gain.value,t);L.out.gain.linearRampToValueAtTime(0,t+.05);
-  L.a.o.stop(t+.08);L.b.o.stop(t+.08)}catch(e){}$("tnPlay").textContent="▶ Play";$("tnPlay").classList.remove("live");$("tnAB").textContent="A/B: hear in tune";$("tnSweep").textContent="Sweep"}
+  L.a.o.stop(t+.08);L.b.o.stop(t+.08)}catch(e){}$("tnPlay").textContent="▶ Play";$("tnPlay").classList.remove("live");$("tnPass").hidden=true;tnABLabel();$("tnSweep").textContent="Sweep"}
 window.tnStop=()=>{tnHalt();tqTimers.forEach(clearTimeout)};
 $("tnPlay").onclick=()=>{tnLive?tnHalt():tnStart()};
 $("tnCents").oninput=e=>{TN.cents=+e.target.value;tnChanged()};$("tnCentsNum").onchange=e=>{TN.cents=Math.max(-50,Math.min(50,Math.round(+e.target.value||0)));tnChanged()};
 $("tnSnap").onclick=()=>{TN.cents=0;tnChanged()};
-$("tnAB").onclick=()=>{if(!tnLive)tnStart();const L=tnLive;L.ab=!L.ab;$("tnAB").textContent=L.ab?"A/B: back to "+(TN.cents>0?"+":"")+TN.cents+"¢":"A/B: hear in tune";tnUpdate()};
+$("tnAB").onclick=()=>{if(TN.style!=="har"){tnStart(!(tnLive&&tnLive.cmp));return}
+  if(!tnLive)tnStart();const L=tnLive;L.ab=!L.ab;tnABLabel();tnUpdate()};
 $("tnSweep").onclick=()=>{if(tnLive&&tnLive.sw){clearInterval(tnLive.sw);tnLive.sw=null;$("tnSweep").textContent="Sweep";return}
   if(!tnLive||tnLive.style!=="har"){TN.style="har";saveTN();tnSync();tnStart()}const L=tnLive,t0=performance.now();$("tnSweep").textContent="■ Stop sweep";
   L.sw=setInterval(()=>{const ph=((performance.now()-t0)/12000)%1,c=Math.round(-30+60*(ph<.5?ph*2:2-ph*2));TN.cents=c;tnSync();tnUpdate()},60)};   // −30¢ to +30¢ and back, 12 s a round
@@ -1805,7 +1821,7 @@ showView();
 
 /* ================= DRONES ================= */
 const DRK=[0,7,2,9,4,11,6,1,8,3,10,5];   // circle of fifths from C: C G D A E B F♯ D♭ A♭ E♭ B♭ F
-const DR=Object.assign({key:9,oct:0,voicing:"15",third:"0",thirdT:"just",timbre:"bowed",v:{root:80,f5:60,o8:45,t3:50,all:70},ref:440,timer:0,tol:10,mic:"",echo:false,recent:[]},
+const DR=Object.assign({key:9,oct:0,voicing:"15",third:"0",thirdT:"just",timbre:"bowed",v:{root:80,f5:60,o8:45,t3:50,all:70},ref:440,timer:0,tol:10,mic:"",echo:false,recent:[],lock:"same",boost:150},
   (()=>{try{return JSON.parse(localStorage.getItem("drones")||"{}")}catch(e){return{}}})());
 const drSave=()=>{try{localStorage.setItem("drones",JSON.stringify(DR))}catch(e){}};
 const DRX={el:null,url:null,wa:null,playing:false,timerId:null,mic:null};
@@ -1832,7 +1848,7 @@ function drRender(sr){sr=sr||44100;const f=drHz(drRootMidi()),u=f/20;   // root 
       for(let i=0;i<N;i++){const ph=((i*cyc)%N)/N*T,j=ph|0,fr=ph-j,s=tab[j]+(tab[j+1]-tab[j])*fr;
         const env=1+sh*Math.sin(2*Math.PI*m1*i/N)+sh*.6*Math.sin(2*Math.PI*m2*i/N+li);out[i]+=L.g*s*env}})}
   let pk=0;for(let i=0;i<N;i++)pk=Math.max(pk,Math.abs(out[i]));const g=pk>0?.9*lv(V.all)/pk:0;for(let i=0;i<N;i++)out[i]*=g;
-  return{data:out,sr,secs:N/sr,f:C*20*sr/N}}
+  return{data:out,sr,secs:N/sr,f:C*20*sr/N,pk:.9*lv(V.all)}}
 function drTanpura(out,N,sr,f,layers){const per=Math.round(N/12),buf=new Float32Array(2*N);   // pa-sa-sa-sa (low), 3 rounds per loop
   const has5=layers[1].on,str=[has5?f*.75:f*2,f*2,f*2,f],gains=[has5?layers[1].g:layers[0].g,layers[0].g,layers[0].g,layers[0].g];
   for(let p=0;p<12;p++){const s0=p*per,fz=str[p%4],gg=gains[p%4]*(p%4===3?1.1:.8),len=Math.min(N,Math.round(4.5*sr));
@@ -1847,17 +1863,20 @@ function drWav(r){const n=r.data.length,b=new ArrayBuffer(44+n*2),v=new DataView
 function drMsg(t,bad){$("drStatus").className="status"+(bad?" bad":"");$("drStatus").textContent=t}
 /* The drone loops inside the audio engine (sample-exact, no gap), and that sound is fed to a live audio stream on a media element,
    which is what lets an iPhone keep it going with the screen locked. A watchdog restarts anything iOS pauses. */
-/* Two ways out: straight to the speakers (clean, no drift) while the screen is on, and through a media stream (which iPhone keeps alive
-   with the screen locked, but which slowly drifts and crackles over minutes). We fade between them when the screen locks and unlocks. */
+/* Two ways out: straight to the speakers (clean, no drift), and through a media stream (which is what iPhone treats as "music playing", so it
+   keeps the page's audio alive with the screen locked, but it drifts and crackles over minutes and can play quieter).
+   By default the speaker path carries the drone all the time, locked or not, and the stream stays running at an inaudible level just to hold the
+   audio alive, so nothing changes at the moment of locking. The "Backup path" setting fades over to the stream on lock, with its own volume. */
 function drBus(){const c=getCtx();if(DRX.bus&&DRX.bus.c===c)return DRX.bus;const g=c.createGain();g.gain.value=1;let el=null,direct=false,gs=null;
   const gd=c.createGain();gd.gain.value=1;g.connect(gd);gd.connect(c.destination);
   try{if(!c.createMediaStreamDestination)throw 0;const d=c.createMediaStreamDestination();gs=c.createGain();gs.gain.value=0;g.connect(gs);gs.connect(d);
     el=document.createElement("audio");el.setAttribute("playsinline","");el.autoplay=true;el.srcObject=d.stream;document.body.append(el)}
   catch(e){direct=true}
   DRX.bus={c,g,gd,gs,el,direct};drRoute();return DRX.bus}
-function drRoute(){const B=DRX.bus;if(!B)return;const hidden=document.visibilityState==="hidden"&&B.gs&&B.el,t=B.c.currentTime;
+function drRoute(){const B=DRX.bus;if(!B)return;const hidden=DR.lock==="stream"&&document.visibilityState==="hidden"&&B.gs&&B.el,t=B.c.currentTime;
+  const room=DRX.last&&DRX.last.pk>0?.98/DRX.last.pk:1,up=Math.min(DR.boost/100,Math.max(1,room));   // never boost past clipping
   try{B.gd.gain.cancelScheduledValues(t);B.gd.gain.setValueAtTime(B.gd.gain.value,t);B.gd.gain.linearRampToValueAtTime(hidden?0:1,t+.25);
-    if(B.gs){B.gs.gain.cancelScheduledValues(t);B.gs.gain.setValueAtTime(B.gs.gain.value,t);B.gs.gain.linearRampToValueAtTime(hidden?1:0,t+.25)}}catch(e){}}
+    if(B.gs){B.gs.gain.cancelScheduledValues(t);B.gs.gain.setValueAtTime(B.gs.gain.value,t);B.gs.gain.linearRampToValueAtTime(hidden?up:.0001,t+.25)}}catch(e){}}
 async function drStart(){const r=drRender();DRX.last=r;
   try{if(navigator.audioSession&&!DRX.mic)navigator.audioSession.type="playback"}catch(e){}
   const c=getCtx(),B=drBus(),buf=c.createBuffer(1,r.data.length,r.sr);buf.getChannelData(0).set(r.data);
@@ -1886,6 +1905,7 @@ function drUI(){const m=drRootMidi();$("drName").firstChild.nodeValue=NAMES[DR.k
   drChips("drKeys",DR.key,v=>{DR.key=+v;drRemember();drChanged(true)});
   drChips("drVoicing",DR.voicing,v=>{DR.voicing=v;drChanged()});drChips("drThird",DR.third,v=>{DR.third=v;drChanged()});drChips("drThirdT",DR.thirdT,v=>{DR.thirdT=v;drChanged()});
   $("drThirdT").hidden=DR.third==="0";drChips("drTimbre",DR.timbre,v=>{DR.timbre=v;drChanged()});drChips("drOct",DR.oct,v=>{DR.oct=+v;drChanged()});drChips("drTol",DR.tol,v=>{DR.tol=+v;drSave();drUI()});
+  drChips("drLock",DR.lock,v=>{DR.lock=v;drSave();drRoute();drUI()});$("drBoostRow").hidden=DR.lock!=="stream";$("drBoostOut").textContent=DR.boost+"%";
   $("drPlay").textContent=DRX.playing?"■ Stop drone":"▶ Play drone";$("drPlay").classList.toggle("live",DRX.playing);
   const rc=$("drRecent");rc.innerHTML="";DR.recent.forEach(it=>{const b=document.createElement("button");b.className="chip";const sv=DR.key;
     b.textContent=NAMES[it.key]+(it.voicing==="1"?"":it.voicing==="15"?" + 5th":it.voicing==="158"?" + 5th + 8ve":" + 8ve")+(it.third==="M"?" + 3rd":it.third==="m"?" + ♭3":"");
@@ -1894,6 +1914,7 @@ function drUI(){const m=drRootMidi();$("drName").firstChild.nodeValue=NAMES[DR.k
   $("drBand").style.left=(50-DR.tol)+"%";$("drBand").style.width=(2*DR.tol)+"%";$("drRefOut").textContent=DR.ref}
 $("drPlay").onclick=()=>{if(DRX.playing)drStop();else{drRemember();drStart()}};
 [["drVRoot","root"],["drV5","f5"],["drV8","o8"],["drV3","t3"],["drVAll","all"]].forEach(([id,k])=>{const el=$(id);el.value=DR.v[k];el.oninput=()=>{DR.v[k]=+el.value;drChanged()}});
+$("drBoost").value=DR.boost;$("drBoost").oninput=e=>{DR.boost=+e.target.value;$("drBoostOut").textContent=DR.boost+"%";drSave();drRoute()};
 $("drRef").value=DR.ref;$("drRef").oninput=e=>{DR.ref=+e.target.value;drChanged()};
 $("drTimer").value=DR.timer;$("drTimer").onchange=e=>{DR.timer=+e.target.value;drSave();DRX.timerEnd=null;if(DRX.playing)drStart()};
 $("drEcho").checked=DR.echo;$("drEcho").onchange=e=>{DR.echo=e.target.checked;drSave();if(DRX.mic){drMeterStop();drMeterStart()}};
