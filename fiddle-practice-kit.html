@@ -597,7 +597,7 @@ ul.report b{font-weight:600}
       </div>
       <label class="toggle"><input type="checkbox" id="gA440"> Grade against A440 instead of your own tuning center (ignored when the fiddle is calibrated)</label>
       <div class="row"><button class="btn primary" id="regradeBtn">Re-grade</button></div>
-      <p class="hint">A note counts as in tune if it is within 10¢ of equal temperament or of the just interval in the key. With a calibrated fiddle it also counts when it rings with your actual open strings (a pure 3rd, 4th, 5th or 6th against one), and the 10¢ widens if your open strings wobble more than usual under the bow. If it hits neither, it still counts when you place it the same way every time; it is flagged when it strays from your usual spot. Notes shorter than 0.15 s aren't graded. This measures pitch and timing only, not tone or feel. Double stops are read as both notes plus the interval between them; octave double stops read as one note. Band mixes aren't reliable. Send me the recording if you want the full write-up with drills.</p>
+      <p class="hint">Each note's pitch is read from its fundamental and first two overtones together, so a body resonance or sympathetic ringing can't drag the reading. A note counts as in tune if it is within 10¢ of equal temperament or of the just interval in the key. With a calibrated fiddle it also counts when it rings with your actual open strings (a pure 3rd, 4th, 5th or 6th against one), and the 10¢ widens if your open strings wobble more than usual under the bow. If it hits neither, it still counts when you place it the same way every time; it is flagged when it strays from your usual spot. Notes shorter than 0.15 s aren't graded. This measures pitch and timing only, not tone or feel. Double stops are read as both notes plus the interval between them; octave double stops read as one note. Band mixes aren't reliable. Send me the recording if you want the full write-up with drills.</p>
     </section>
   </div>
 
@@ -1485,7 +1485,15 @@ async function analyze(full,opt,onProg){
     const cand=pk.map(p=>{const al=Sd[p-1],be=Sd[p],ga=Sd[p+1],den=al-2*be+ga;return{f:(p+(den?.5*(al-ga)/den:0))*hz,amp:be}}).sort((u,v)=>u.f-v.f);
     const keep=[];for(const q of cand){if(keep.some(p=>{const r=q.f/p.f,m=pyRound(r);return m>=2&&Math.abs(r-m)<.02}))continue;keep.push(q)}
     keep.sort((u,v)=>v.amp-u.amp);
-    if(keep.length)notes.push({t:a+T0,d,ms:keep.slice(0,2).map(q=>hzToM(q.f))});
+    // pitch = median of the estimates from the fundamental and the 2nd and 3rd overtones: a body resonance or
+    // sympathetic ringing can pull the fundamental's peak several cents (a D5 read +6 while its overtones read -2)
+    const dB=q=>20*Math.log10(Math.sqrt(bR[q]*bR[q]+bI[q]*bI[q])+1e-9);
+    const harm=f=>{const est=[],ref=dB(Math.round(f/hz));
+      for(let h=1;h<=3;h++){const fc=h*f,k0=Math.floor(fc*Math.pow(2,-40/1200)/hz),k1=Math.floor(fc*Math.pow(2,40/1200)/hz)+1;if(k1+1>=N/2)break;
+        let km=k0,vm=-Infinity;for(let q=k0;q<=k1;q++){const v=dB(q);if(v>vm){vm=v;km=q}}
+        if(vm<ref-30)continue;const al=dB(km-1),ga=dB(km+1),den=al-2*vm+ga;est.push((km+(den?.5*(al-ga)/den:0))*hz/h)}
+      return est.length>=2?median(est):f};
+    if(keep.length)notes.push({t:a+T0,d,ms:keep.slice(0,2).map(q=>hzToM(harm(q.f)))});
     if(k%25===0){onProg(.3+.25*k/bounds.length);await tick()}
   }
   if(notes.length<4)throw new Error("nonotes");
