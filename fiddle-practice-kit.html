@@ -1323,10 +1323,13 @@ function calibrateStrings(y){
     re.fill(0);im.fill(0);for(let i=0;i<L;i++)re[i]=y[s+i]*win[i];fft(re,im);
     let tot=0;for(let k=Math.floor(bin(150));k<=Math.ceil(bin(2000));k++)tot+=P(k);
     let best=null;
-    for(const [nmS,f] of STR){const b1=band(f),b2=band(2*f),sc=Math.min(b1.e,b2.e);if(!best||sc>best.sc)best={nmS,f,sc,b2}}
-    if(!best||best.b2.e<.15*tot||best.sc<.01*tot)continue;
-    const k=best.b2.km,a=Math.log(P(k-1)+1e-30),b=Math.log(P(k)+1e-30),c=Math.log(P(k+1)+1e-30),d=a-2*b+c,off=d?.5*(a-c)/d:0;
-    const cents=1200*Math.log2((k+off)*SR/N/(2*best.f));
+    for(const [nmS,f] of STR){   // phone mics barely pick up open G's fundamental, so G is read from its 2nd and 3rd harmonics
+      const bs=(nmS==="G"?[1,2,3]:[1,2]).map(h=>Object.assign(band(h*f),{h}));
+      if(nmS!=="G"&&bs[0].e<.05*tot)continue;   // D, A and E need their fundamental (keeps G's harmonics from posing as them)
+      const sc=bs.reduce((s,x)=>s+x.e,0),top=bs.reduce((m,x)=>x.e>m.e?x:m);if(!best||sc>best.sc)best={nmS,f,sc,top}}
+    if(!best||best.sc<.25*tot)continue;
+    const k=best.top.km,a=Math.log(P(k-1)+1e-30),b=Math.log(P(k)+1e-30),c=Math.log(P(k+1)+1e-30),d=a-2*b+c,off=d?.5*(a-c)/d:0;
+    const cents=1200*Math.log2((k+off)*SR/N/(best.top.h*best.f));
     if(Math.abs(cents)<45)per[best.nmS].push(cents);
   }
   const str={},iqr=[],n={};
