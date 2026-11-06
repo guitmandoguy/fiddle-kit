@@ -98,6 +98,11 @@ select,input[type=number]{font:500 .95rem var(--f-mono);background:var(--surface
 .cents-row input[type=range]{flex:1;min-width:0;accent-color:var(--accent)}
 .cents-row input[type=number]{width:5.5em}
 .hint{color:var(--muted);font-size:.84rem;margin:0}
+.hint.bad{color:var(--bad)} .hint.live{color:var(--ink)}
+.calline{font-size:.84rem;color:var(--muted);margin:8px 0 4px;line-height:1.5}
+.calline.bad{color:var(--bad)} .calline.live{color:var(--ink)}
+.linkbtn{font:inherit;font-weight:600;color:var(--ink);background:none;border:1px solid var(--line,#ccc);border-radius:999px;padding:4px 12px;margin-left:4px;cursor:pointer;white-space:nowrap}
+.linkbtn.live{background:var(--bad);border-color:var(--bad);color:#fff}
 .toggle{display:flex;align-items:center;gap:10px;cursor:pointer}
 .toggle input{width:20px;height:20px;accent-color:var(--accent);flex:none}
 .two{display:grid;grid-template-columns:1fr 1fr;gap:12px}
@@ -513,6 +518,7 @@ ul.report b{font-weight:600}
         <button class="btn" id="exampleBtn">Example take</button>
       </div>
       <div class="rec" id="recBox" hidden><div class="meter" aria-label="Input level"><i id="recLvl"></i></div><span class="mono" id="recTime">0:00</span></div>
+      <div class="calline"><span id="gCalInfo"></span> <button class="linkbtn" id="gCalBtn">Check strings</button></div>
       <div class="row" id="recActions" hidden><button class="btn" id="saveRecBtn">Save or share this recording</button></div>
       <p class="hint"><b>Recording:</b> set the phone a few feet away and play. Keep the level bar out of the red. Recording stops on its own at 5 minutes.</p>
       <p class="hint"><b>From Voice Memos:</b> open the memo, tap ⋯ (or Share), choose <b>Save to Files</b>, then tap Choose recording and pick it from Files.</p>
@@ -584,20 +590,9 @@ ul.report b{font-weight:600}
           <input type="number" id="gEnd" min="0" step="0.5" placeholder="end" aria-label="End time in seconds">
         </div>
       </div>
-      <div class="field">
-        <span class="label">Fiddle</span>
-        <div class="row" style="align-items:center"><select id="gFid" aria-label="Fiddle profile" style="flex:1"></select><button class="btn" id="gFidNew" style="flex:none;padding:8px 14px">New</button><button class="btn" id="gFidDel" style="flex:none;padding:8px 14px">Delete</button></div>
-        <div class="row"><button class="btn" id="gCalBtn">Calibrate open strings</button></div>
-        <p class="hint" id="gCalInfo"></p>
-      </div>
-      <div class="field" id="gBodyField" hidden>
-        <span class="label">Body ring on this fiddle (optional)</span>
-        <div class="row" style="align-items:center"><select id="gBodyNote" aria-label="Note the body rings on" style="flex:1"></select><input type="number" id="gBodyC" min="-50" max="50" step="1" placeholder="¢" aria-label="Body ring cents vs A440" style="width:80px"><span>¢</span></div>
-        <p class="hint">If the wood rings loudest on one note a bit off pitch, notes that land there are marked "body ring": they sound full solo, but a band or tuner hears them off.</p>
-      </div>
-      <label class="toggle"><input type="checkbox" id="gA440"> Grade against A440 instead of your own tuning center (ignored when the fiddle is calibrated)</label>
+      <label class="toggle"><input type="checkbox" id="gA440"> Grade against A440 instead of your open strings</label>
       <div class="row"><button class="btn primary" id="regradeBtn">Re-grade</button></div>
-      <p class="hint">Each note's pitch is read from its fundamental and first two overtones together, so a body resonance or sympathetic ringing can't drag the reading. A note counts as in tune if it is within 10¢ of equal temperament or of the just interval in the key. With a calibrated fiddle it also counts when it rings with your actual open strings (a pure 3rd, 4th, 5th or 6th against one), and the 10¢ widens if your open strings wobble more than usual under the bow. If it hits neither, it still counts when you place it the same way every time; it is flagged when it strays from your usual spot. Notes shorter than 0.15 s aren't graded. This measures pitch and timing only, not tone or feel. Double stops are read as both notes plus the interval between them; octave double stops read as one note. Band mixes aren't reliable. Send me the recording if you want the full write-up with drills.</p>
+      <p class="hint">Each note's pitch is read from its fundamental and first two overtones together, so a body resonance or sympathetic ringing can't drag the reading. A note counts as in tune if it is within 10¢ of equal temperament or of the just interval in the key. It also counts when it rings with your open strings (a pure 3rd, 4th, 5th or 6th against one), using the open strings as you tuned them in that take, or your last string check if it still matches. If that check found your strings wobbling more than usual under the bow, the 10¢ widens a little.</p>
     </section>
   </div>
 
@@ -1304,12 +1299,12 @@ async function synthExample(){
 const RINGDEF={0:[["G",-2]],2:[["D",0]],4:[["E",0]],7:[["G",0]],9:[["A",0]],11:[["E",2],["G",-14]],
   6:[["D",-14],["A",-16]],1:[["A",-14]],8:[["E",-14]],5:[["D",16]],10:[["G",16]],3:[["G",14]]};
 function ringTargets(str,center){const t=[];for(let pc=0;pc<12;pc++)t.push((RINGDEF[pc]||[]).filter(([s])=>isFinite(str[s])).map(([s,o])=>str[s]+o-center));return t}
-const FID={list:[],cur:0};
-try{const v=JSON.parse(localStorage.getItem("fiddleProfiles")||"null");if(v&&Array.isArray(v.list)&&v.list.length)Object.assign(FID,v)}catch(e){}
-if(!FID.list.length)FID.list=[{name:"Main fiddle"},{name:"Second fiddle"}];
-if(!(FID.cur>=0&&FID.cur<FID.list.length))FID.cur=0;
-const fidSave=()=>{try{localStorage.setItem("fiddleProfiles",JSON.stringify(FID))}catch(e){}};
-const curFid=()=>FID.list[FID.cur];
+// one string check: the last open-string calibration (tuning changes every session, so there's nothing per-fiddle to keep)
+let CAL=null;
+try{CAL=JSON.parse(localStorage.getItem("stringCheck")||"null")}catch(e){}
+if(!CAL)try{const v=JSON.parse(localStorage.getItem("fiddleProfiles")||"null");   // carry over the newest old fiddle-profile calibration
+  const l=v&&v.list?v.list.filter(f=>f.str&&f.when).sort((x,y)=>y.when-x.when):[];if(l.length)CAL={str:l[0].str,wob:l[0].wob,when:l[0].when}}catch(e){}
+const calSave=()=>{try{localStorage.setItem("stringCheck",JSON.stringify(CAL))}catch(e){}};
 // bowed open strings -> each string's offset from A440 and how much it wobbles with the bow
 function calibrateStrings(y){
   const N=16384,L=4096,hop=1024,fft=getFFT(N),re=new Float64Array(N),im=new Float64Array(N),win=new Float64Array(L);
@@ -1336,24 +1331,14 @@ function calibrateStrings(y){
   for(const k in per){const v=per[k];n[k]=v.length;if(v.length>=8){str[k]=Math.round(median(v)*10)/10;iqr.push(quant(v,.75)-quant(v,.25))}}
   return{str,n,wob:iqr.length?Math.round(median(iqr)*10)/10:null};
 }
-function fidUI(){
-  const sel=$("gFid");sel.innerHTML="";sel.add(new Option("No profile (use the take itself)","-1"));
-  FID.list.forEach((f,i)=>sel.add(new Option(f.name+(f.str?"":" (not calibrated)"),String(i))));
-  sel.value=String(FID.useNone?-1:FID.cur);
-  const f=FID.useNone?null:curFid();$("gFidDel").disabled=!f;$("gCalBtn").disabled=!f;$("gBodyField").hidden=!f||!f.str;
-  const bn=$("gBodyNote");if(!bn.options.length){bn.add(new Option("None",""));GN.forEach((g,i)=>bn.add(new Option(g,String(i))))}
-  bn.value=f&&f.body&&f.body.pc!=null?String(f.body.pc):"";$("gBodyC").value=f&&f.body&&isFinite(f.body.c)?f.body.c:"";
-  const s=f&&f.str,sc=v=>v==null?"?":sgn(v)+"¢";
-  $("gCalInfo").textContent=!f?"Grading against the take's own open strings (or its overall tuning center if there are too few).":!s?"Not calibrated yet. Tap Calibrate, then bow each open string for about 3 seconds, low to high, and tap Stop.":
-    "Calibrated "+new Date(f.when).toLocaleDateString()+": G "+sc(s.G)+", D "+sc(s.D)+", A "+sc(s.A)+", E "+sc(s.E)+" vs A440. Bow wobble ±"+(f.wob!=null?Math.round(f.wob/2):"?")+"¢"+
-    (f.wob>7?", more than usual, so tolerance widens to ±"+Math.min(15,Math.round(1.5*f.wob))+"¢ (strings getting old?)":"")+". Recalibrate whenever you retune or change strings.";
+function calUI(){
+  const e=$("gCalInfo"),sc=v=>v==null?"?":sgn(Math.round(v)),c=CAL;$("gCalBtn").textContent=c?"Recheck":"Check strings (30 sec)";
+  $("gCalBtn").parentNode.className="calline";
+  if(!c){e.textContent="Grading against the open strings in each take.";return}
+  const d=new Date(c.when),today=d.toDateString()===new Date().toDateString();
+  e.textContent="Strings checked "+(today?d.toLocaleTimeString([],{hour:"numeric",minute:"2-digit"})+" today":d.toLocaleDateString())+" · G "+sc(c.str.G)+" D "+sc(c.str.D)+" A "+sc(c.str.A)+" E "+sc(c.str.E)+
+    (c.wob>7?" · bow wobble ±"+Math.round(c.wob/2)+"¢, more than usual (strings getting old?)":"");
 }
-$("gFid").onchange=e=>{const v=+e.target.value;FID.useNone=v<0;if(v>=0)FID.cur=v;fidSave();fidUI();if(G.buf)runGrade()};
-$("gFidNew").onclick=()=>{const name=(prompt("Name this fiddle","Fiddle "+(FID.list.length+1))||"").trim();if(!name)return;FID.list.push({name});FID.cur=FID.list.length-1;FID.useNone=false;fidSave();fidUI()};
-$("gFidDel").onclick=()=>{const f=curFid();if(!f||!confirm("Delete the profile for "+f.name+"?"))return;FID.list.splice(FID.cur,1);if(!FID.list.length)FID.list=[{name:"Main fiddle"}];FID.cur=0;fidSave();fidUI();if(G.buf)runGrade()};
-const bodySave=()=>{const f=curFid();if(!f)return;const pc=$("gBodyNote").value,c=parseFloat($("gBodyC").value);f.body=pc===""?null:{pc:+pc,c:isFinite(c)?c:0};fidSave();if(G.buf)runGrade()};
-$("gBodyNote").onchange=bodySave;$("gBodyC").onchange=bodySave;
-
 /* --- analysis: a port of the full grader (onsets, middle-of-note spectral pitch, repeated-phrase tempo) --- */
 const tick=()=>new Promise(r=>setTimeout(r,0));
 const IVN=["unison","minor 2nd","major 2nd","minor 3rd","major 3rd","perfect 4th","tritone","perfect 5th","minor 6th","major 6th","minor 7th","major 7th","octave",
@@ -1506,11 +1491,17 @@ async function analyze(full,opt,onProg){
   // the fiddle is tuned; fingered notes would pull it toward the player's habits. Fallback: circular mean of everything.
   let cx=0,cy=0,cn=0;for(const nt of notes)for(const m of nt.ms){const fr=(m-pyRound(m));cx+=Math.cos(2*Math.PI*fr);cy+=Math.sin(2*Math.PI*fr);cn++}
   const openDev=notes.filter(nt=>nt.d>=.15&&[55,62,69,76].includes(pyRound(nt.ms[0]))).map(nt=>(nt.ms[0]-pyRound(nt.ms[0]))*100);
-  const PR=opt.prof&&opt.prof.str?opt.prof:null;
-  const center=PR?PR.str.A:opt.a440?0:openDev.length>=8?median(openDev):Math.atan2(cy/cn,cx/cn)/(2*Math.PI)*100;
+  // each open string as played in THIS take (median of its readings), then the saved string check if it still agrees
+  const takeStr={};[["G",55],["D",62],["A",69],["E",76]].forEach(([s,m])=>{const v=notes.filter(nt=>nt.d>=.15&&pyRound(nt.ms[0])===m).map(nt=>(nt.ms[0]-m)*100);if(v.length>=3)takeStr[s]=median(v)});
+  const cmp=opt.cal&&opt.cal.str?Object.keys(takeStr).filter(s=>isFinite(opt.cal.str[s])):[];
+  const dif=cmp.map(s=>Math.abs(takeStr[s]-opt.cal.str[s])),calStale=dif.length>0&&(median(dif)>3||Math.max(...dif)>6);   // retuned, or the other fiddle
+  const useCal=opt.cal&&opt.cal.str&&isFinite(opt.cal.str.A)&&!calStale&&!opt.a440;
+  const PR=useCal?{str:opt.cal.str,wob:opt.cal.wob}:null;
+  const center=PR?PR.str.A:opt.a440?0:isFinite(takeStr.A)?takeStr.A:openDev.length>=8?median(openDev):Math.atan2(cy/cn,cx/cn)/(2*Math.PI)*100;
+  if(!PR&&!opt.a440){const s5={G:center-4,D:center-2,A:center,E:center+2};for(const k in s5)if(!isFinite(takeStr[k]))takeStr[k]=s5[k]}   // fill missing strings as pure fifths
+  const STR=PR?PR.str:opt.a440?null:takeStr;
   const TOL=PR&&PR.wob>7?Math.min(15,Math.round(1.5*PR.wob)):10;
-  const RT=PR?ringTargets(PR.str,center):null;   // ring points vs the A string, by pitch class
-  const BODY=PR&&PR.body&&PR.body.pc!=null&&isFinite(PR.body.c)?{pc:PR.body.pc,c:PR.body.c-center}:null;
+  const RT=STR?ringTargets(STR,center):null;   // ring points vs the A string, by pitch class
   const items=[],dsArr=[];
   const OPEN=[55,62,69,76],onStr=(m,s)=>m>=OPEN[s]-.5&&m<=OPEN[s]+7.5;
   const bowable=(lo,hi)=>{if(hi-lo<.8)return false;for(let s=0;s<3;s++)if(onStr(lo,s)&&onStr(hi,s+1))return true;return false};
@@ -1540,7 +1531,7 @@ async function analyze(full,opt,onProg){
   for(const x of graded){x.just=JUST[((x.n-tonic)%12+12)%12];x.dr=pyRound(x.dev);
     const pcx=((x.n%12)+12)%12;
     x.status=Math.abs(x.dr)<=TOL?"et":(Math.abs(x.just)>3&&Math.abs(x.dr-x.just)<=TOL)?"just":
-      (RT&&RT[pcx].some(t=>Math.abs(x.dr-t)<=TOL))?"ring":(BODY&&BODY.pc===pcx&&Math.abs(x.dr-BODY.c)<=8)?"body":null;
+      (RT&&RT[pcx].some(t=>Math.abs(x.dr-t)<=TOL))?"ring":null;
     (groups[x.n]=groups[x.n]||[]).push(x)}
   const stats=[];
   for(const k in groups){const g=groups[k],dv=g.map(x=>x.dr),med=median(dv),spread=g.length>=3?quant(dv,.75)-quant(dv,.25):Infinity;
@@ -1629,7 +1620,7 @@ async function analyze(full,opt,onProg){
     tg=ladder[gi2]}
   onProg(1);
   return{notes:items,graded,center,tonic,keyAuto,stats,pct,problems,dsList,dsStats,dsProblems,dsOk,ig,tg,bpm,loc,sm,drift,range,chain,
-    tStart:T0,tEnd:T0+n/SR,a440:opt.a440,onsets:onsets.length,prof:PR,tol:TOL};
+    tStart:T0,tEnd:T0+n/SR,a440:opt.a440,onsets:onsets.length,useCal:!!PR,calStale,tol:TOL};
 }
 
 /* --- run + render --- */
@@ -1638,7 +1629,7 @@ async function runGrade(){
   if(!G.buf)return;
   $("prog").hidden=false;$("progBar").style.width="0%";$("gStatus").className="status";$("gStatus").textContent="Analyzing…";
   try{
-    G.res=await analyze(G.buf,{start:+$("gStart").value||0,end:+$("gEnd").value||0,a440:$("gA440").checked,key:$("gKey").value,prof:FID.useNone?null:curFid()},p=>$("progBar").style.width=Math.round(p*100)+"%");
+    G.res=await analyze(G.buf,{start:+$("gStart").value||0,end:+$("gEnd").value||0,a440:$("gA440").checked,key:$("gKey").value,cal:CAL},p=>$("progBar").style.width=Math.round(p*100)+"%");
     $("gStatus").textContent="";renderReport();drawAll();
   }catch(err){
     G.res=null;$("gStatus").className="status bad";
@@ -1660,7 +1651,8 @@ function renderReport(){
   $("gTimSub").textContent=b?Math.round(b)+" bpm"+(r.drift!=null?" · "+(r.drift>=0?"+":"−")+Math.abs(r.drift*100).toFixed(1)+"% drift":""):"tempo not found";
   const lvl=+$("gBpm").value?"at your "+Math.round(+$("gBpm").value)+"-bpm level":b!==r.bpm?"at the beat (doubled for a slow tune; set your metronome bpm below to change it)":"at the cut-time pulse ("+Math.round(2*(b||0))+" if you count quarter notes)";
   let f="Key: "+GN[r.tonic]+" major"+(r.keyAuto?" (detected)":"")+". ";
-  f+=r.prof?"Graded against your calibrated "+r.prof.name+" (A string "+sgn(r.prof.str.A)+"¢ vs A440)"+(r.tol!==10?", tolerance ±"+r.tol+"¢":"")+". ":r.a440?"Graded against A440. ":"Your open strings sit "+sgn(r.center)+"¢ vs A440"+(Math.abs(r.center)>8?", which is enough to rub against a band tuned to 440":", close enough to 440 not to matter")+". ";
+  f+=r.calStale?"Your open strings in this take don't match your last string check (retuned, or the other fiddle?), so it was graded against the take's own strings. ":r.useCal?"Graded against your string check"+(r.tol!==10?", tolerance ±"+r.tol+"¢":"")+". ":"";
+  f+=r.a440?"Graded against A440. ":"Your open A sits "+sgn(r.center)+"¢ vs A440"+(Math.abs(r.center)>8?", which is enough to rub against a band tuned to 440":", close enough to 440 not to matter")+". ";
   if(b)f+="Tempo about "+Math.round(b)+" bpm "+lvl+". ";
   if(r.dsList.length)f+="Double stops: "+r.dsOk+" of "+r.dsList.length+" in tune.";
   $("gFacts").textContent=f;
@@ -1681,7 +1673,6 @@ function renderReport(){
   r.dsProblems.slice(0,2).forEach(s=>{
     I.append(li("<b>"+dsName(s)+"</b> double stop ("+ivName(s.semis)+"): "+s.off+" of "+s.count+" flagged, median "+wn(s.med)+
       (Math.abs(s.just)>3?" (pure is "+sgn(s.just)+"¢)":"")+". Listen for the beats and move the "+(s.med>s.just?"top note down or bottom note up":"top note up or bottom note down")+" until they stop. At "+s.offTimes.slice(0,5).map(fmtT).join(", ")+"."))});
-  r.stats.filter(s=>s.body>=2).forEach(s=>I.append(li("<b>"+nm(s.n)+"</b> ("+fing(s.n)+"): "+s.body+" of "+s.count+" land on this fiddle's body ring ("+sgn(r.prof.body.c)+"¢ vs A440). Full and loud solo, but a guitar or tuner hears it "+(r.prof.body.c-r.prof.str.A>0?"sharp":"flat")+"; in a band, aim for the string's ring point.")));
   const loose=r.graded.filter(n=>n.status==="off"&&!r.problems.some(p=>p.n===n.n));
   if(loose.length)I.append(li("<b>Scattered misses:</b> "+loose.length+" other note"+(loose.length>1?"s":"")+" flagged with no repeating pattern, at "+loose.slice(0,5).map(n=>fmtT(n.t0)).join(", ")+(loose.length>5?"…":"")+"."));
   const dsLoose=r.dsList.filter(x=>x.status==="off"&&!r.dsProblems.some(p=>p.key===x.key));
@@ -1793,6 +1784,8 @@ function drawTempo(){
 /* --- recording straight into the grader --- */
 const REC={on:false,chunks:[],sr:48000,last:null};
 const recMsg=(t,bad)=>{$("gStatus").className="status"+(bad?" bad":"");$("gStatus").textContent=t};
+// calibration talks to you right under its own button, so the page doesn't move while you bow
+const calMsg=(t,bad,live)=>{$("gCalBtn").parentNode.className="calline"+(bad?" bad":live?" live":"");$("gCalInfo").textContent=t};
 /* keep the screen on while recording: Screen Wake Lock, plus a tiny silent looping video for iPhones where the lock doesn't hold */
 const AWAKE={lock:null,video:null,on:false};
 /* keep the screen on while anything needs it (recording, meter, tuner). Each asks under its own name; the screen stays on until all are done.
@@ -1824,13 +1817,15 @@ async function startRec(mode){REC.mode=mode||"take";
     let pk=0;for(let i=0;i<d.length;i+=4){const a=Math.abs(d[i]);if(a>pk)pk=a}REC.level=Math.max(pk,REC.level*.85);if(pk>.98)REC.clip=Date.now()};
   src.connect(node);node.connect(mute);mute.connect(C.destination);
   Object.assign(REC,{on:true,ctx:C,stream,node,src,mute,sr:C.sampleRate,t0:Date.now()});
-  const cal=REC.mode==="cal",btn=cal?$("gCalBtn"):$("recBtn");btn.textContent=cal?"■ Stop calibrating":"■ Stop";btn.classList.add("live");$("recBox").hidden=false;$("recActions").hidden=true;
-  if(cal)$("recBox").scrollIntoView({block:"center",behavior:"smooth"});
-  const msg=cal?"Calibrating "+curFid().name+": bow open G, D, A and E, about 3 seconds each with your normal bow, then tap Stop.":"Recording. Play your take, then tap Stop.";
-  if(!cal)$("srcLabel").textContent="Recording…";recMsg(msg);REC.msg=msg;
-  REC.timer=setInterval(()=>{const t=(Date.now()-REC.t0)/1000;$("recTime").textContent=Math.floor(t/60)+":"+String(Math.floor(t%60)).padStart(2,"0");
+  const cal=REC.mode==="cal",btn=cal?$("gCalBtn"):$("recBtn");btn.textContent=cal?"■ Stop 0:00":"■ Stop";btn.classList.add("live");$("recActions").hidden=true;
+  if(!cal)$("recBox").hidden=false;   // calibrating: no meter box at the top, so nothing above you moves
+  const msg=cal?"Checking strings: bow open G, D, A and E, about 3 seconds each with your normal bow, then tap Stop.":"Recording. Play your take, then tap Stop.";
+  const say=cal?(t,bad)=>calMsg(t,bad,!bad):recMsg;
+  if(!cal)$("srcLabel").textContent="Recording…";say(msg);REC.msg=msg;let wasHot=false;
+  REC.timer=setInterval(()=>{const t=(Date.now()-REC.t0)/1000,tt=Math.floor(t/60)+":"+String(Math.floor(t%60)).padStart(2,"0");$("recTime").textContent=tt;
+    if(cal)btn.textContent="■ Stop "+tt;
     $("recLvl").style.width=Math.min(100,Math.round(REC.level*100))+"%";const hot=Date.now()-REC.clip<600;$("recLvl").classList.toggle("hot",hot);
-    if(hot)recMsg("Too loud: move the phone farther from the fiddle.",true);else if($("gStatus").classList.contains("bad"))recMsg(REC.msg);
+    if(hot)say("Too loud: move the phone farther from the fiddle.",true);else if(wasHot)say(REC.msg);wasHot=hot;
     if(t>=300)stopRec()},100);
 }
 async function stopRec(){
@@ -1840,15 +1835,15 @@ async function stopRec(){
   try{await REC.ctx.close()}catch(e){}
   keepAwake(false);
   try{if(navigator.audioSession)navigator.audioSession.type="playback"}catch(e){}
-  $("recBtn").textContent="● Record";$("recBtn").classList.remove("live");$("gCalBtn").textContent="Calibrate open strings";$("gCalBtn").classList.remove("live");$("recBox").hidden=true;
+  $("recBtn").textContent="● Record";$("recBtn").classList.remove("live");$("gCalBtn").classList.remove("live");calUI();$("recBox").hidden=true;
   const len=REC.chunks.reduce((a,c)=>a+c.length,0),raw=new Float32Array(len);let o=0;for(const c of REC.chunks){raw.set(c,o);o+=c.length}
   REC.chunks=[];
-  if(REC.mode==="cal"){const f=curFid();
-    if(len/REC.sr<4){recMsg("That was too short. Bow each open string for about 3 seconds.",true);return}
+  if(REC.mode==="cal"){
+    if(len/REC.sr<4){calMsg("That was too short. Bow each open string for about 3 seconds, then tap Stop.",true);return}
     const c=calibrateStrings(resample(raw,REC.sr,22050)),miss=["G","D","A","E"].filter(k=>c.str[k]==null);
-    if(c.str.A==null){recMsg("I couldn't hear a steady open A. Try again a little closer to the phone, bowing each string for 3 seconds.",true);return}
-    Object.assign(f,{str:c.str,wob:c.wob,when:Date.now()});FID.useNone=false;fidSave();fidUI();
-    recMsg("Calibrated "+f.name+"."+(miss.length?" Couldn't read open "+miss.join(", ")+"; notes that ring with "+(miss.length>1?"those strings":"that string")+" are judged on equal and just tuning only. Recalibrate to add "+(miss.length>1?"them":"it")+".":""),!!miss.length);
+    if(c.str.A==null){calMsg("I couldn't hear a steady open A. Try again a little closer to the phone, bowing each string for 3 seconds.",true);return}
+    CAL={str:c.str,wob:c.wob,when:Date.now()};calSave();calUI();
+    if(miss.length)calMsg("Strings checked, but I couldn't read open "+miss.join(", ")+"; "+(miss.length>1?"those strings come":"that string comes")+" from each take instead. Recheck to add "+(miss.length>1?"them":"it")+".",true);
     if(G.buf)runGrade();return}
   if(len/REC.sr<3){$("srcLabel").textContent="No recording loaded";recMsg("That recording was too short to grade. Tap Record and play for at least a few seconds.",true);return}
   REC.last={raw,sr:REC.sr,when:new Date()};
@@ -1876,8 +1871,8 @@ async function saveRec(){
   catch(e){recMsg("This page can't save files here. Saving works in the standalone version of the kit.",true)}
 }
 $("recBtn").onclick=()=>{if(REC.on){if(REC.mode!=="cal")stopRec()}else startRec("take")};
-$("gCalBtn").onclick=()=>{if(REC.on){if(REC.mode==="cal")stopRec()}else if(curFid())startRec("cal")};
-fidUI();
+$("gCalBtn").onclick=()=>{if(REC.on){if(REC.mode==="cal")stopRec()}else startRec("cal")};
+calUI();
 $("saveRecBtn").onclick=saveRec;
 
 /* --- loading --- */
