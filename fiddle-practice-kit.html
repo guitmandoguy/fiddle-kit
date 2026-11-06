@@ -1344,7 +1344,7 @@ function fidUI(){
   const bn=$("gBodyNote");if(!bn.options.length){bn.add(new Option("None",""));GN.forEach((g,i)=>bn.add(new Option(g,String(i))))}
   bn.value=f&&f.body&&f.body.pc!=null?String(f.body.pc):"";$("gBodyC").value=f&&f.body&&isFinite(f.body.c)?f.body.c:"";
   const s=f&&f.str,sc=v=>v==null?"?":sgn(v)+"¢";
-  $("gCalInfo").textContent=!f?"Grading against the take's own tuning center, as before.":!s?"Not calibrated yet. Tap Calibrate, then bow each open string for about 3 seconds, low to high, and tap Stop.":
+  $("gCalInfo").textContent=!f?"Grading against the take's own open strings (or its overall tuning center if there are too few).":!s?"Not calibrated yet. Tap Calibrate, then bow each open string for about 3 seconds, low to high, and tap Stop.":
     "Calibrated "+new Date(f.when).toLocaleDateString()+": G "+sc(s.G)+", D "+sc(s.D)+", A "+sc(s.A)+", E "+sc(s.E)+" vs A440. Bow wobble ±"+(f.wob!=null?Math.round(f.wob/2):"?")+"¢"+
     (f.wob>7?", more than usual, so tolerance widens to ±"+Math.min(15,Math.round(1.5*f.wob))+"¢ (strings getting old?)":"")+". Recalibrate whenever you retune or change strings.";
 }
@@ -1493,14 +1493,21 @@ async function analyze(full,opt,onProg){
         let km=k0,vm=-Infinity;for(let q=k0;q<=k1;q++){const v=dB(q);if(v>vm){vm=v;km=q}}
         if(vm<ref-30)continue;const al=dB(km-1),ga=dB(km+1),den=al-2*vm+ga;est.push((km+(den?.5*(al-ga)/den:0))*hz/h)}
       return est.length>=2?median(est):f};
-    if(keep.length)notes.push({t:a+T0,d,ms:keep.slice(0,2).map(q=>hzToM(harm(q.f)))});
+    // a "note" above C#6 whose octave-below or twelfth-below is within 20 dB is an overtone of that lower note (phone mics often
+    // pick up an open E's 2nd-4th overtones louder than the E itself)
+    const pkdB=f=>{let v=-Infinity;for(let q=Math.floor(f*Math.pow(2,-30/1200)/hz);q<=Math.ceil(f*Math.pow(2,30/1200)/hz);q++)v=Math.max(v,dB(q));return v};
+    const sub=f=>{if(f<1100)return f;let best=f,bv=pkdB(f)-20;
+      for(const h of [2,3]){const g=f/h;if(g<185)continue;const v=pkdB(g);if(v>=bv){bv=v;best=g}}return best===f?f:sub(best)};   // repeat: E7 -> E6 -> E5
+    if(keep.length)notes.push({t:a+T0,d,ms:keep.slice(0,2).map((q,i)=>hzToM(harm(i===0?sub(q.f):q.f)))});
     if(k%25===0){onProg(.3+.25*k/bounds.length);await tick()}
   }
   if(notes.length<4)throw new Error("nonotes");
-  // tuning center: circular mean of every reading's fractional cents
+  // tuning center: taken from the open-string pitches (G3, D4, A4, E5), which are mostly open strings and so show how
+  // the fiddle is tuned; fingered notes would pull it toward the player's habits. Fallback: circular mean of everything.
   let cx=0,cy=0,cn=0;for(const nt of notes)for(const m of nt.ms){const fr=(m-pyRound(m));cx+=Math.cos(2*Math.PI*fr);cy+=Math.sin(2*Math.PI*fr);cn++}
+  const openDev=notes.filter(nt=>nt.d>=.15&&[55,62,69,76].includes(pyRound(nt.ms[0]))).map(nt=>(nt.ms[0]-pyRound(nt.ms[0]))*100);
   const PR=opt.prof&&opt.prof.str?opt.prof:null;
-  const center=PR?PR.str.A:opt.a440?0:Math.atan2(cy/cn,cx/cn)/(2*Math.PI)*100;
+  const center=PR?PR.str.A:opt.a440?0:openDev.length>=8?median(openDev):Math.atan2(cy/cn,cx/cn)/(2*Math.PI)*100;
   const TOL=PR&&PR.wob>7?Math.min(15,Math.round(1.5*PR.wob)):10;
   const RT=PR?ringTargets(PR.str,center):null;   // ring points vs the A string, by pitch class
   const BODY=PR&&PR.body&&PR.body.pc!=null&&isFinite(PR.body.c)?{pc:PR.body.pc,c:PR.body.c-center}:null;
@@ -1509,9 +1516,11 @@ async function analyze(full,opt,onProg){
   const bowable=(lo,hi)=>{if(hi-lo<.8)return false;for(let s=0;s<3;s++)if(onStr(lo,s)&&onStr(hi,s+1))return true;return false};
   for(const nt of notes){
     const vs=nt.ms.map((m,i)=>{const v=m-center/100,nn=pyRound(v);return{t0:nt.t,dur:nt.d,med:m,n:nn,dev:(v-nn)*100,dsI:null,
-      grade:nt.d>=.15&&(i===0||nt.d>=.2)&&nn<=88}});
+      grade:nt.d>=.15&&i===0&&nn<=88}});
     if(vs.length===2&&vs[0].n<=88&&vs[1].n<=88){const lo=Math.min(nt.ms[0],nt.ms[1]),hi=Math.max(nt.ms[0],nt.ms[1]);
-      if(bowable(lo-center/100,hi-center/100)){const di=dsArr.length;dsArr.push({t0:nt.t,dur:nt.d,lo,hi});vs.forEach(v=>v.dsI=di)}}
+      // a second voice counts only when it makes a playable double stop with the main note; anything else
+      // (sympathetic ringing, an overtone of an open string) is not a note he played
+      if(bowable(lo-center/100,hi-center/100)){const di=dsArr.length;dsArr.push({t0:nt.t,dur:nt.d,lo,hi});vs.forEach(v=>v.dsI=di);if(nt.d>=.2)vs[1].grade=true}}
     vs.forEach(v=>{if(v.grade||v.dsI!=null)items.push(v)});
   }
   const graded=items.filter(x=>x.grade);
@@ -1651,7 +1660,7 @@ function renderReport(){
   $("gTimSub").textContent=b?Math.round(b)+" bpm"+(r.drift!=null?" · "+(r.drift>=0?"+":"−")+Math.abs(r.drift*100).toFixed(1)+"% drift":""):"tempo not found";
   const lvl=+$("gBpm").value?"at your "+Math.round(+$("gBpm").value)+"-bpm level":b!==r.bpm?"at the beat (doubled for a slow tune; set your metronome bpm below to change it)":"at the cut-time pulse ("+Math.round(2*(b||0))+" if you count quarter notes)";
   let f="Key: "+GN[r.tonic]+" major"+(r.keyAuto?" (detected)":"")+". ";
-  f+=r.prof?"Graded against your calibrated "+r.prof.name+" (A string "+sgn(r.prof.str.A)+"¢ vs A440)"+(r.tol!==10?", tolerance ±"+r.tol+"¢":"")+". ":r.a440?"Graded against A440. ":"Your tuning center is "+sgn(r.center)+"¢ vs A440"+(Math.abs(r.center)>8?", which is enough to rub against a band tuned to 440":", close enough to 440 not to matter")+". ";
+  f+=r.prof?"Graded against your calibrated "+r.prof.name+" (A string "+sgn(r.prof.str.A)+"¢ vs A440)"+(r.tol!==10?", tolerance ±"+r.tol+"¢":"")+". ":r.a440?"Graded against A440. ":"Your open strings sit "+sgn(r.center)+"¢ vs A440"+(Math.abs(r.center)>8?", which is enough to rub against a band tuned to 440":", close enough to 440 not to matter")+". ";
   if(b)f+="Tempo about "+Math.round(b)+" bpm "+lvl+". ";
   if(r.dsList.length)f+="Double stops: "+r.dsOk+" of "+r.dsList.length+" in tune.";
   $("gFacts").textContent=f;
