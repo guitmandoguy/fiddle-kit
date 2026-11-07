@@ -327,7 +327,7 @@ ul.report b{font-weight:600}
       </section>
     </div>
     <div class="sub-view" id="cScale" hidden>
-      <p class="sub">A scale or arpeggio plays with some notes out of tune. Tap the notes that were off, then Check.</p>
+      <p class="sub">A scale, arpeggio or chord plays with some notes out of tune. Tap the notes that were off, then Check.</p>
       <div class="stage" aria-live="polite">
         <div class="trial-head">
           <div class="trial-note" id="scName">–<small id="scSub">Tap Play</small></div>
@@ -354,7 +354,7 @@ ul.report b{font-weight:600}
       </div>
       <section class="settings">
         <div class="field"><span class="label">Play</span>
-          <div class="chips" id="scKindChips"><button class="chip" data-v="scale">Scale</button><button class="chip" data-v="arp">Arpeggio</button></div></div>
+          <div class="chips" id="scKindChips"><button class="chip" data-v="scale">Scale</button><button class="chip" data-v="arp">Arpeggio</button><button class="chip" data-v="chord">Chord</button></div></div>
         <div class="field"><span class="label">Key</span>
           <div class="chips" id="scKeyChips"></div>
           <label class="toggle"><input type="checkbox" id="scRandKey"> Random key each time</label></div>
@@ -364,12 +364,20 @@ ul.report b{font-weight:600}
           <div class="chips" id="scChordChips"></div>
           <label class="toggle"><input type="checkbox" id="scSeventh"> Add the 7th (V7, maj7, m7)</label>
           <label class="toggle"><input type="checkbox" id="scInv"> Sometimes start on the 3rd or 5th (inversions)</label></div>
-        <div class="field"><span class="label">Order</span>
+        <div class="field noCh"><span class="label">Order</span>
           <div class="chips" id="scDirChips"><button class="chip" data-v="up">Up</button><button class="chip" data-v="down">Down</button><button class="chip" data-v="updown">Up and back</button><button class="chip" data-v="rand">Random order</button></div></div>
-        <div class="field"><span class="label">Range</span>
+        <div class="field noCh"><span class="label">Range</span>
           <div class="chips" id="scOctChips"><button class="chip" data-v="1">1 octave</button><button class="chip" data-v="2">2 octaves</button></div></div>
-        <div class="field"><span class="label">Notes out of tune</span>
+        <div class="field noCh"><span class="label">Notes out of tune</span>
           <div class="chips" id="scCountChips"><button class="chip" data-v="1">1</button><button class="chip" data-v="2">2</button><button class="chip" data-v="3">3</button><button class="chip" data-v="r">Random 0–3</button></div></div>
+        <div class="field chOnly"><span class="label">Notes out of tune</span>
+          <div class="chips" id="scChCountChips"><button class="chip" data-v="1">Always 1</button><button class="chip" data-v="01">0 or 1</button></div>
+          <p class="hint">One at most: with two tones off, the one left in tune would sound like the odd one out.</p></div>
+        <div class="field chOnly"><span class="label">How it plays</span>
+          <div class="chips" id="scBuildChips"><button class="chip" data-v="all">All at once</button><button class="chip" data-v="build">Build it up</button></div>
+          <p class="hint">Build it up brings the tones in one at a time from the bottom and lets them ring, so you hear the wobble start. Easier.</p></div>
+        <div class="field chOnly"><span class="label">Chord length <span class="mono" id="scChLenOut">2.5 s</span></span>
+          <input type="range" id="scChLen" min="1" max="5" step="0.25" aria-label="Chord length"></div>
         <div class="field"><span class="label">How far off</span>
           <div class="chips" id="scModeChips"><button class="chip" data-v="adapt">Adjust as I go</button><button class="chip" data-v="fixed">Stay put</button></div>
           <div class="cents-row" id="scFixedRow"><input type="range" id="scCents" min="1" max="50" step="1" aria-label="Cents off"><b id="scCentsOut" style="min-width:48px;text-align:right">15¢</b></div>
@@ -378,13 +386,14 @@ ul.report b{font-weight:600}
           <div class="chips" id="scSignChips"><button class="chip" data-v="random">Sharp or flat</button><button class="chip" data-v="sharp">Always sharp</button><button class="chip" data-v="flat">Always flat</button></div>
           <label class="toggle"><input type="checkbox" id="scSay"> Also say which way: tap once for sharp, twice for flat</label></div>
         <div class="field"><span class="label">In tune means</span>
-          <div class="chips" id="scRefChips"><button class="chip" data-v="just">Pure (no beats)</button><button class="chip" data-v="et">Equal temperament</button></div></div>
-        <div class="field"><span class="label">Drone</span>
+          <div class="chips" id="scRefChips"><button class="chip" data-v="just">Pure (no beats)</button><button class="chip" data-v="et">Equal temperament</button></div>
+          <p class="hint" id="scEtHint" hidden>An equal-tempered chord already beats (its 3rd is 14¢ wide of pure), so finding the off tone is harder. A flat 3rd can even sound better.</p></div>
+        <div class="field noCh"><span class="label">Drone</span>
           <div class="chips" id="scDroneChips"><button class="chip" data-v="on">Drone on the root</button><button class="chip" data-v="off">No drone</button></div>
           <p class="hint">With the drone, off notes beat against it (easier). Without it you judge from the line alone, like playing.</p></div>
-        <div class="field"><span class="label">Tone</span>
+        <div class="field noCh"><span class="label">Tone</span>
           <div class="chips" id="scToneChips"><button class="chip" data-v="sine">Pure sine</button><button class="chip" data-v="fiddle">Fiddle-like</button></div></div>
-        <div class="two">
+        <div class="two noCh">
           <div class="field"><span class="label">Note length <span class="mono" id="scDurOut">0.5 s</span></span>
             <input type="range" id="scDur" min="0.15" max="1.5" step="0.05" aria-label="Note length"></div>
           <div class="field"><span class="label">Gap <span class="mono" id="scGapOut">0.10 s</span></span>
@@ -1018,9 +1027,9 @@ function setSub(k,v){SUB[k]=v;try{localStorage.setItem("subViews",JSON.stringify
 $("cSegQuiz").onclick=()=>setSub("c","quiz");$("cSegTrain").onclick=()=>setSub("c","train");
 $("iSegQuiz").onclick=()=>setSub("i","quiz");$("iSegTrain").onclick=()=>setSub("i","train");$("iSegTune").onclick=()=>setSub("i","tune");
 /* ---- scales & arpeggios with out-of-tune notes ---- */
-const SC={kind:"scale",key:2,randKey:false,type:"major",chord:"I",seventh:false,inv:false,dir:"up",oct:1,count:"1",mode:"adapt",cents:15,sign:"random",say:false,ref:"just",drone:"on",tone:"fiddle",dur:.5,gap:.1};
+const SC={chCount:"1",build:"all",chLen:2.5,kind:"scale",key:2,randKey:false,type:"major",chord:"I",seventh:false,inv:false,dir:"up",oct:1,count:"1",mode:"adapt",cents:15,sign:"random",say:false,ref:"just",drone:"on",tone:"fiddle",dur:.5,gap:.1};
 try{Object.assign(SC,JSON.parse(localStorage.getItem("scaleQuiz")||"{}"))}catch(e){}
-const scLevel={scale:20,arp:20,run:0};try{Object.assign(scLevel,JSON.parse(localStorage.getItem("scaleLevels")||"{}"))}catch(e){}
+const scLevel={scale:20,arp:20,chord:20,run:0};try{Object.assign(scLevel,JSON.parse(localStorage.getItem("scaleLevels")||"{}"))}catch(e){}
 let scScore={c:0,n:0,streak:0,per:{}},scTrial=null,scTimers=[],scBus=null;
 const saveSC=()=>{try{localStorage.setItem("scaleQuiz",JSON.stringify(SC));localStorage.setItem("scaleLevels",JSON.stringify(scLevel))}catch(e){}};
 const SC_KEYS=[0,7,2,9,4,11,6,1,8,3,10,5];   // all 12, around the circle of fifths
@@ -1042,16 +1051,23 @@ const scHz=(m,c)=>S.refA*Math.pow(2,(m-69)/12+c/1200);
 function scStop(){scTimers.forEach(clearTimeout);scTimers=[];if(scBus){try{scBus.disconnect()}catch(e){}scBus=null}
   document.querySelectorAll("#scAns .ansb").forEach(b=>b.classList.remove("playing"))}
 function scBuild(){
-  const key=SC.randKey?SC_KEYS[Math.floor(Math.random()*SC_KEYS.length)]:SC.key,arp=SC.kind==="arp";
+  const key=SC.randKey?SC_KEYS[Math.floor(Math.random()*SC_KEYS.length)]:SC.key,chd=SC.kind==="chord",arp=SC.kind==="arp"||chd;
   const minorish=!arp&&["dorian","minor","mpent"].includes(SC.type);
   const kName=minorish&&key===1?"C♯":minorish&&key===8?"G♯":SC_KEYNAME[key];
   let rootPc,tones,name,sub,rName=kName;
   if(!arp){const T=SC_TYPES[SC.type]||SC_TYPES.major;rootPc=key;tones=T[1].map(s=>[s,SC_DEG[s],SC_JUST[s]]);name=kName+" "+T[0].toLowerCase();sub="scale"}
   else{const ch=SC.chord==="rand"?Object.keys(SC_CHORDS)[Math.floor(Math.random()*5)]:SC.chord,[st,q]=SC_CHORDS[ch];rootPc=(key+st)%12;tones=scChordTones(q,SC.seventh);rName=scSpell(kName,st);
-    name=rName+(q==="min"?"m":"")+(SC.seventh?(q==="maj"?"maj7":"7"):"");sub=(ch+(SC.seventh&&ch==="V"?"7":""))+" in "+kName+" · arpeggio"}
+    name=rName+(q==="min"?"m":"")+(SC.seventh?(q==="maj"?"maj7":"7"):"");sub=(ch+(SC.seventh&&ch==="V"?"7":""))+" in "+kName+(chd?"":" · arpeggio")}
+  tones=tones.map((t,i)=>t.concat(i));   // remember each tone's role index through inversions
   const root=55+((rootPc-7+12)%12);   // root between G3 and F♯4
   let start=0;if(arp&&SC.inv&&Math.random()<.5)start=1+Math.floor(Math.random()*2);   // inversion: start on the 3rd or 5th
-  if(start)tones=tones.slice(start).concat(tones.slice(0,start).map(([s,l,j])=>[s+12,l,j]));
+  if(start)tones=tones.slice(start).concat(tones.slice(0,start).map(([s,l,j,r])=>[s+12,l,j,r]));
+  if(chd){   // block chord: one voicing, one tone off at most
+    const P=tones.map(([s,l,j,r])=>({m:root+s,lab:l,j,ri:r,nm:scSpell(rName,s)})),seq=P.map((_,i)=>i);
+    const lvl=SC.mode==="fixed"?SC.cents:Math.max(2,Math.round(scLevel.chord||20));
+    const n=SC.chCount==="01"&&Math.random()<1/(P.length+1)?0:1;P.forEach(p=>p.off=0);
+    if(n){const i=Math.floor(Math.random()*P.length),sh=SC.sign==="sharp"||(SC.sign==="random"&&Math.random()<.5);P[i].off=sh?lvl:-lvl}
+    return{P,seq,root,name:name+" chord",sub,lvl,n,chord:true,inv:start,none:false,mark:P.map(()=>0),done:false,played:false}}
   const P=[];for(let o=0;o<SC.oct;o++)tones.forEach(([s,l,j])=>P.push({m:root+12*o+s,lab:l,j,nm:scSpell(rName,s)}));
   P.push({m:root+12*SC.oct+tones[0][0],lab:tones[0][1],j:tones[0][2],nm:scSpell(rName,tones[0][0])});
   const up=P.map((_,i)=>i);let seq;
@@ -1063,19 +1079,31 @@ function scBuild(){
   for(let i=cand.length-1;i>0;i--){const k=Math.floor(Math.random()*(i+1));[cand[i],cand[k]]=[cand[k],cand[i]]}
   P.forEach(p=>p.off=0);cand.slice(0,n).forEach(i=>{const sh=SC.sign==="sharp"||(SC.sign==="random"&&Math.random()<.5);P[i].off=sh?lvl:-lvl});
   return{P,seq,root,name,sub,lvl,n,mark:P.map(()=>0),done:false,played:false}}
+const SC_ROLE={"1":"Root","3":"3rd","♭3":"3rd","5":"5th","7":"7th","♭7":"7th"};
 function scRenderAns(){const tr=scTrial,box=$("scAns");box.innerHTML="";if(!tr)return;
-  tr.P.forEach((p,i)=>{const b=document.createElement("button");b.className="ansb";
-    const acc=p.nm.includes("𝄪")?2:p.nm.includes("𝄫")?-2:p.nm.includes("♯")?1:p.nm.includes("♭")?-1:0,nm=p.nm+(SC.oct>1?Math.floor((p.m-acc)/12)-1:""),mk=tr.mark[i];
-    b.innerHTML=nm+(mk&&SC.say?" <b>"+(mk===1?"♯":"♭")+"</b>":"")+"<span>"+p.lab+"</span>";
+  const order=tr.chord?tr.P.map((p,i)=>i).sort((a,b)=>tr.P[a].ri-tr.P[b].ri):tr.P.map((p,i)=>i);
+  order.forEach(i=>{const p=tr.P[i],b=document.createElement("button");b.className="ansb";
+    const acc=p.nm.includes("𝄪")?2:p.nm.includes("𝄫")?-2:p.nm.includes("♯")?1:p.nm.includes("♭")?-1:0,mk=tr.mark[i];
+    const nm=tr.chord?SC_ROLE[p.lab]:p.nm+(SC.oct>1?Math.floor((p.m-acc)/12)-1:""),small=tr.chord?p.nm:p.lab;
+    b.innerHTML=nm+(mk&&SC.say?" <b>"+(mk===1?"♯":"♭")+"</b>":"")+"<span>"+small+"</span>";
     if(mk)b.classList.add("mark");
     if(tr.done){const off=p.off!==0,want=off?(SC.say?(p.off>0?1:2):1):0;
-      b.querySelector("span").textContent=off?(p.off>0?"+":"−")+Math.abs(p.off)+"¢":p.lab;b.classList.remove("mark");
+      b.querySelector("span").textContent=off?(p.off>0?"+":"−")+Math.abs(p.off)+"¢":small;b.classList.remove("mark");
       if(off&&mk===want)b.classList.add("right");else if(off&&!mk)b.classList.add("missed");else if(mk)b.classList.add("wrong")}
-    b.disabled=tr.done;b.onclick=()=>{if(tr.done)return;tr.mark[i]=SC.say?(tr.mark[i]+1)%3:(tr.mark[i]?0:1);scRenderAns()};box.append(b)})}
+    b.disabled=tr.done;b.onclick=()=>{if(tr.done)return;
+      if(tr.chord){const nv=SC.say?(tr.mark[i]+1)%3:(tr.mark[i]?0:1);tr.mark=tr.mark.map(()=>0);tr.mark[i]=nv;tr.none=false}
+      else tr.mark[i]=SC.say?(tr.mark[i]+1)%3:(tr.mark[i]?0:1);scRenderAns()};box.append(b)});
+  if(tr.chord&&SC.chCount==="01"){const b=document.createElement("button");b.className="ansb";b.innerHTML="In tune<span>none off</span>";
+    if(tr.none)b.classList.add("mark");
+    if(tr.done){b.classList.remove("mark");if(!tr.n&&tr.none)b.classList.add("right");else if(!tr.n)b.classList.add("missed");else if(tr.none)b.classList.add("wrong")}
+    b.disabled=tr.done;b.onclick=()=>{if(tr.done)return;tr.none=!tr.none;if(tr.none)tr.mark=tr.mark.map(()=>0);scRenderAns()};box.append(b)}}
 async function scPlayNow(inTune){getCtx();scStop();try{if(ctx.state!=="running")await ctx.resume()}catch(e){}
   const tr=scTrial;if(!tr)return;
   if(ctx.state!=="running"){$("scStatus").className="status bad";$("scStatus").textContent="Audio is blocked. Turn volume up, turn off silent mode, then tap Replay.";return}
   scBus=ctx.createGain();scBus.connect(ctx.destination);
+  if(tr.chord){const t0=ctx.currentTime+.08,L=+SC.chLen,step=SC.build==="build"?.8:0,end=t0+step*(tr.P.length-1)+L,vol=.9/Math.sqrt(tr.P.length);
+    tr.P.forEach((p,k)=>{const c=(SC.ref==="just"?p.j:0)+(inTune?0:p.off),t=t0+k*step;tone(scHz(p.m,c),t,end-t,"fiddle",vol,scBus)});
+    tr.played=true;$("scCheck").disabled=tr.done;return}
   const d=+SC.dur,g=+SC.gap,lead=SC.drone==="on"?.8:0,t0=ctx.currentTime+.08,total=lead+tr.seq.length*(d+g);
   if(SC.drone==="on")tone(scHz(tr.root,0),t0,total+.2,SC.tone,.5,scBus);
   tr.seq.forEach((i,k)=>{const p=tr.P[i],c=(SC.ref==="just"?p.j:0)+(inTune?0:p.off),t=t0+lead+k*(d+g);tone(scHz(p.m,c),t,d,SC.tone,SC.drone==="on"?.75:1,scBus);
@@ -1083,17 +1111,21 @@ async function scPlayNow(inTune){getCtx();scStop();try{if(ctx.state!=="running")
   scTimers.push(setTimeout(()=>{document.querySelectorAll("#scAns .ansb").forEach(b=>b.classList.remove("playing"))},(t0+total-ctx.currentTime)*1000+100));
   tr.played=true;$("scCheck").disabled=tr.done}
 function scNew(){scTrial=scBuild();const tr=scTrial;$("scName").firstChild.nodeValue=tr.name;
-  $("scSub").textContent=tr.sub+" · "+(SC.ref==="just"?"pure":"equal")+(SC.drone==="on"?" · drone":"");
+  $("scSub").textContent=tr.sub+" · "+(SC.ref==="just"?"pure":"equal")+(tr.chord?(tr.inv?" · inverted":""):SC.drone==="on"?" · drone":"");
   $("scCentsNow").textContent=tr.lvl+"¢";$("scStatus").className="status";
-  $("scStatus").textContent=SC.count==="r"?"Tap the notes that were off (maybe none), then Check.":"Tap the "+(tr.n>1?tr.n+" notes":"note")+" that "+(tr.n>1?"were":"was")+" off, then Check.";
+  $("scStatus").textContent=tr.chord?(SC.chCount==="01"?"Which chord tone was off, if any? Tap it, then Check.":"Which chord tone was off? Tap it, then Check."):SC.count==="r"?"Tap the notes that were off (maybe none), then Check.":"Tap the "+(tr.n>1?tr.n+" notes":"note")+" that "+(tr.n>1?"were":"was")+" off, then Check.";
   $("scPlay").textContent="Next";$("scReplay").disabled=false;$("scTrue").disabled=true;scRenderAns();scPlayNow(false)}
 function scCheck(){const tr=scTrial;if(!tr||tr.done)return;tr.done=true;scStop();
   let found=0,miss=0,fa=0,dirWrong=0;
-  tr.P.forEach((p,i)=>{const mk=tr.mark[i],k=p.lab,s=scScore.per[k]=scScore.per[k]||{f:0,n:0,fa:0};
+  tr.P.forEach((p,i)=>{const mk=tr.mark[i],k=tr.chord?"chord "+SC_ROLE[p.lab]:p.lab,s=scScore.per[k]=scScore.per[k]||{f:0,n:0,fa:0};
     if(p.off){s.n++;if(mk){if(!SC.say||mk===(p.off>0?1:2)){found++;s.f++}else dirWrong++}else miss++}else if(mk){fa++;s.fa++}});
   const ok=!miss&&!fa&&!dirWrong;scScore.n++;if(ok){scScore.c++;scScore.streak++}else scScore.streak=0;
   let msg=ok?(tr.n?"Right: "+(tr.n>1?"all "+tr.n+" found":"found it")+".":"Right: nothing was off."):
     "Found "+found+" of "+tr.n+(miss?", missed "+miss:"")+(dirWrong?", "+dirWrong+" the wrong way":"")+(fa?", "+fa+" in-tune note"+(fa>1?"s":"")+" marked off":"")+".";
+  if(tr.chord){const offP=tr.P.find(p=>p.off),pick=tr.P.find((p,i)=>tr.mark[i]),w=p=>"the "+SC_ROLE[p.lab].toLowerCase()+" ("+p.nm+")";
+    const dirn=p=>p.off>0?"sharp":"flat";
+    msg=ok?(offP?"Right: "+w(offP)+" was "+dirn(offP)+".":"Right: nothing was off."):
+      offP?(pick?(pick===offP?"Right tone, but it was "+dirn(offP)+".":"It was "+w(offP)+", "+dirn(offP)+", not "+w(pick)+"."):(tr.none?"Something was off: ":"Missed it: ")+w(offP)+" was "+dirn(offP)+"."):"Nothing was off this time."}
   if(SC.mode==="adapt"){const L=scLevel[SC.kind]||20;
     if(ok){scLevel.run=(scLevel.run||0)+1;if(scLevel.run>=2){scLevel[SC.kind]=Math.max(2,L*.8);scLevel.run=0}}else{scLevel[SC.kind]=Math.min(50,L*1.3+1);scLevel.run=0}
     msg+=" Next: "+Math.round(scLevel[SC.kind])+"¢.";saveSC()}
@@ -1101,24 +1133,28 @@ function scCheck(){const tr=scTrial;if(!tr||tr.done)return;tr.done=true;scStop()
   $("scCheck").disabled=true;$("scTrue").disabled=false;scRenderAns();scRenderScore()}
 function scRenderScore(){$("scCorrect").textContent=scScore.c+"/"+scScore.n;$("scAcc").textContent=scScore.n?Math.round(100*scScore.c/scScore.n)+"%":"–";$("scStreak").textContent=scScore.streak;
   const order=["1","♭2","2","♭3","3","4","♭5","5","♭6","6","♭7","7"];
+  order.push("chord Root","chord 3rd","chord 5th","chord 7th");
   $("scStats").innerHTML=order.filter(k=>scScore.per[k]&&(scScore.per[k].n||scScore.per[k].fa)).map(k=>{const p=scScore.per[k];
     return "<span>"+k+(p.n?' found <b class="'+(p.f/p.n>=.8?"g":"b")+'">'+p.f+"/"+p.n+"</b>":"")+(p.fa?' · <b class="b">'+p.fa+" false</b>":"")+"</span>"}).join("")}
 function scSync(){const pr=(id,v)=>document.querySelectorAll("#"+id+" .chip").forEach(b=>b.setAttribute("aria-pressed",b.dataset.v===String(v)));
   pr("scKindChips",SC.kind);pr("scKeyChips",SC.key);pr("scTypeChips",SC.type);pr("scChordChips",SC.chord);pr("scDirChips",SC.dir);pr("scOctChips",SC.oct);
   pr("scCountChips",SC.count);pr("scModeChips",SC.mode);pr("scSignChips",SC.sign);pr("scRefChips",SC.ref);pr("scDroneChips",SC.drone);pr("scToneChips",SC.tone);
-  document.querySelectorAll("#cScale .scOnly").forEach(e=>e.hidden=SC.kind!=="scale");document.querySelectorAll("#cScale .arOnly").forEach(e=>e.hidden=SC.kind!=="arp");
+  document.querySelectorAll("#cScale .scOnly").forEach(e=>e.hidden=SC.kind!=="scale");document.querySelectorAll("#cScale .arOnly").forEach(e=>e.hidden=SC.kind==="scale");
+  document.querySelectorAll("#cScale .noCh").forEach(e=>e.hidden=SC.kind==="chord");document.querySelectorAll("#cScale .chOnly").forEach(e=>e.hidden=SC.kind!=="chord");
+  pr("scChCountChips",SC.chCount);pr("scBuildChips",SC.build);$("scChLen").value=SC.chLen;$("scChLenOut").textContent=(+SC.chLen).toFixed(2).replace(/0$/,"")+" s";
+  $("scEtHint").hidden=!(SC.kind==="chord"&&SC.ref==="et");
   $("scRandKey").checked=SC.randKey;$("scSeventh").checked=SC.seventh;$("scInv").checked=SC.inv;$("scSay").checked=SC.say;
   $("scFixedRow").hidden=SC.mode!=="fixed";$("scAdaptHint").hidden=SC.mode!=="adapt";$("scCents").value=SC.cents;$("scCentsOut").textContent=SC.cents+"¢";
-  if(SC.mode==="adapt")$("scAdaptHint").textContent="Gets smaller after 2 perfect rounds in a row, wider after a miss. Now: "+Math.round(scLevel[SC.kind]||20)+"¢ for "+(SC.kind==="arp"?"arpeggios":"scales")+".";
+  if(SC.mode==="adapt")$("scAdaptHint").textContent="Gets smaller after 2 perfect rounds in a row, wider after a miss. Now: "+Math.round(scLevel[SC.kind]||20)+"¢ for "+(SC.kind==="arp"?"arpeggios":SC.kind==="chord"?"chords":"scales")+".";
   $("scDur").value=SC.dur;$("scDurOut").textContent=(+SC.dur).toFixed(2)+" s";$("scGap").value=SC.gap;$("scGapOut").textContent=(+SC.gap).toFixed(2)+" s"}
 SC_KEYS.forEach(k=>{const b=document.createElement("button");b.className="chip";b.dataset.v=k;b.textContent=SC_KEYNAME[k];$("scKeyChips").append(b)});
 Object.entries(SC_TYPES).forEach(([k,v])=>{const b=document.createElement("button");b.className="chip";b.dataset.v=k;b.textContent=v[0];$("scTypeChips").append(b)});
 ["I","IV","V","ii","vi","rand"].forEach(k=>{const b=document.createElement("button");b.className="chip";b.dataset.v=k;b.textContent=k==="rand"?"Random":k;$("scChordChips").append(b)});
 const scOn=(id,key,num)=>document.querySelectorAll("#"+id+" .chip").forEach(b=>b.onclick=()=>{SC[key]=num?+b.dataset.v:b.dataset.v;saveSC();scSync()});
 scOn("scKindChips","kind");scOn("scKeyChips","key",1);scOn("scTypeChips","type");scOn("scChordChips","chord");scOn("scDirChips","dir");scOn("scOctChips","oct",1);
-scOn("scCountChips","count");scOn("scModeChips","mode");scOn("scSignChips","sign");scOn("scRefChips","ref");scOn("scDroneChips","drone");scOn("scToneChips","tone");
+scOn("scCountChips","count");scOn("scChCountChips","chCount");scOn("scBuildChips","build");scOn("scModeChips","mode");scOn("scSignChips","sign");scOn("scRefChips","ref");scOn("scDroneChips","drone");scOn("scToneChips","tone");
 [["scRandKey","randKey"],["scSeventh","seventh"],["scInv","inv"],["scSay","say"]].forEach(([id,k])=>$(id).onchange=e=>{SC[k]=e.target.checked;saveSC();scSync();if(k==="say"&&scTrial&&!scTrial.done){scTrial.mark=scTrial.mark.map(m=>m?1:0);scRenderAns()}});
-$("scCents").oninput=e=>{SC.cents=+e.target.value;saveSC();scSync()};$("scDur").oninput=e=>{SC.dur=+e.target.value;saveSC();scSync()};$("scGap").oninput=e=>{SC.gap=+e.target.value;saveSC();scSync()};
+$("scCents").oninput=e=>{SC.cents=+e.target.value;saveSC();scSync()};$("scDur").oninput=e=>{SC.dur=+e.target.value;saveSC();scSync()};$("scChLen").oninput=e=>{SC.chLen=+e.target.value;saveSC();scSync()};$("scGap").oninput=e=>{SC.gap=+e.target.value;saveSC();scSync()};
 $("scPlay").onclick=scNew;$("scReplay").onclick=()=>scPlayNow(false);$("scTrue").onclick=()=>scPlayNow(true);$("scCheck").onclick=scCheck;
 $("scReset").onclick=()=>{scScore={c:0,n:0,streak:0,per:{}};scRenderScore()};
 $("cSegScale").onclick=()=>setSub("c","scale");
