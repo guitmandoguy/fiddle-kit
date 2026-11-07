@@ -1190,7 +1190,7 @@ async function bpRun(x,prog){const L=BPR.lib,F=[],O=[],C=[];
   if(pk>1e-4&&(pk<.25||pk>.9)){const g=.5/pk,y=new Float32Array(x.length);for(let i=0;i<x.length;i++)y[i]=Math.max(-1,Math.min(1,x[i]*g));x=y}
   await BPR.bp.evaluateModel(x,(f,o,c)=>{for(const r of f)F.push(r);for(const r of o)O.push(r);for(const r of c)C.push(r)},p=>prog&&prog(p));
   // singing range only (about C2 to C6), notes at least ~90 ms
-  let ns=L.outputToNotesPoly(F,O,.5,.3,8,true,1050,62,true);ns=L.noteFramesToTime(L.addPitchBendsToNoteEvents(C,ns));
+  let ns=L.outputToNotesPoly(F,O,.4,.22,6,true,1050,62,true);ns=L.noteFramesToTime(L.addPitchBendsToNoteEvents(C,ns));
   const K=Math.ceil(x.length/256)+2,m=new Float32Array(K).fill(NaN),sc=new Float32Array(K);
   const notes=ns.map(n=>{const pb=n.pitchBends&&n.pitchBends.length?median(n.pitchBends.slice(Math.floor(n.pitchBends.length*.25)))/3:0;
     return{a:n.startTimeSeconds,b:n.startTimeSeconds+n.durationSeconds,m:n.pitchMidi+Math.max(-.5,Math.min(.5,pb)),s:n.amplitude*Math.min(1,n.durationSeconds/.3)}});
@@ -1209,8 +1209,13 @@ async function bpRun(x,prog){const L=BPR.lib,F=[],O=[],C=[];
     for(let k=r.a;k<r.b;k++)m[k]=to.m;r.m=to.m});
   return{m,dt:BP_DT}}
 // rewrite frames ({time,m,voiced,rms}) from the network's melody. t0 = the clock time of the audio's first sample.
-function bpApply(frames,tr,t0){let hit=0;for(const f of frames){if(f.time==null)continue;const k=Math.round((f.time-t0)/tr.dt),v=k>=0&&k<tr.m.length?tr.m[k]:NaN;
-    if(v===v){f.m=v;f.voiced=true;hit++}else f.voiced=false}return hit}
+// Where the network heard nothing for a while (0.12 s or more) but the classic tracker heard steady singing, the classic pitch stays,
+// so a quiet mic or a voice the network is unsure of never loses notes. Short silences at note edges (scoops) stay out.
+function bpApply(frames,tr,t0){let hit=0,fill=0;const fs=frames.filter(f=>f.time!=null).sort((a,b)=>a.time-b.time),on=fs.map(f=>{const k=Math.round((f.time-t0)/tr.dt);return k>=0&&k<tr.m.length?tr.m[k]:NaN});
+  for(let i=0;i<fs.length;){if(on[i]===on[i]){fs[i].m=on[i];fs[i].voiced=true;hit++;i++;continue}
+    let j=i;while(j<fs.length&&on[j]!==on[j])j++;const long=(j<fs.length?fs[j].time:fs[j-1].time+.05)-fs[i].time>=.12;
+    for(let q=i;q<j;q++){if(long&&fs[q].voiced)fill++;else fs[q].voiced=false}i=j}
+  return{hit,fill}}
 // the reader the person picked (smart by default)
 const readerSmart=()=>T.reader!=="classic";
 // read a take: returns a short note for the summary. Leaves frames untouched (classic reader) if anything fails.
@@ -1218,9 +1223,9 @@ async function smartRead(frames,raw,say){BD.readerNote="";if(!readerSmart()||!ra
   try{if(!BPR.bp){say&&say("Loading the note reader (first time only, about 2 MB)…");await bpReady()}
     say&&say("Reading your notes…");const x=await to22k(raw.x,raw.sr);
     const tr=await bpRun(x,p=>say&&say(`Reading your notes… ${Math.round(p*100)}%`));
-    const keep=frames.map(f=>({m:f.m,voiced:f.voiced})),hit=bpApply(frames,tr,raw.t0);
-    if(hit<10){frames.forEach((f,i)=>Object.assign(f,keep[i]));BD.readerNote="The smart reader heard almost nothing, so I used the classic one. ";return}
-    BD.readerNote=""}
+    const keep=frames.map(f=>({m:f.m,voiced:f.voiced})),r=bpApply(frames,tr,raw.t0);
+    if(r.hit<10){frames.forEach((f,i)=>Object.assign(f,keep[i]));BD.readerNote="The smart reader heard almost nothing, so I used the classic one. ";return}
+    BD.readerNote=r.fill>r.hit?"The smart reader only caught some of your singing, so the classic reader filled in the rest. ":""}
   catch(e){BD.readerNote="The smart note reader couldn't load (it needs the internet the first time), so I used the classic one. "}}
 
 /* ================= songs, setlists, player ================= */
