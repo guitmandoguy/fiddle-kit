@@ -204,13 +204,12 @@ ul.cues{margin:0;padding-left:1.1em;display:flex;flex-direction:column;gap:5px}
         <p class="hint">Screenshot your Strum Machine chart and choose it here; set beats per bar first. Or type it: bars split with |, one chord per bar or one per beat, / repeats the last chord. B, E7, F#m, Bb all work.</p>
         <div class="hint" id="bdChartOut"></div>
         <label class="field"><span class="label">Lyrics (optional, but they help)</span>
-          <textarea id="bdLyrics" rows="3" style="font:500 .93rem var(--f-body);background:var(--surface);color:var(--ink);border:1px solid var(--line);border-radius:8px;padding:8px 10px;resize:vertical" placeholder="Paste the words. Each word gets one tap. A word sung over two notes: split it with a hyphen (moun-tains)."></textarea></label>
-        <p class="hint">While you sing and tap, the next word shows on the tap pad. Words are matched to notes in order.</p>
+          <textarea id="bdLyrics" rows="3" style="font:500 .93rem var(--f-body);background:var(--surface);color:var(--ink);border:1px solid var(--line);border-radius:8px;padding:8px 10px;resize:vertical" placeholder="Paste the words. Each word goes to one note, in order. A word sung over two notes: split it with a hyphen (moun-tains)."></textarea></label>
+        <p class="hint">Words are matched to notes in order. When you tap in the notes, the next word shows as you go.</p>
       </div>
       <div class="stage">
         <h3>2 · Record the melody</h3>
-        <div class="chips" id="bdRecMode"><button class="chip" data-v="hold">Hold with backing</button><button class="chip" data-v="tap">Sing and tap</button><button class="chip" data-v="tapfile">Tap to a recording</button><button class="chip" data-v="keys">Tap the notes</button><button class="chip" data-v="more">Other ways</button></div>
-        <div class="chips" id="bdMoreMode" hidden><button class="chip" data-v="backing">Sing with backing</button><button class="chip" data-v="visual">On-screen beat</button><button class="chip" data-v="load">Recording + tap the beat</button></div>
+        <div class="chips" id="bdRecMode"><button class="chip" data-v="backing">Sing with backing</button><button class="chip" data-v="visual">On-screen beat</button><button class="chip" data-v="load">Load a recording</button><button class="chip" data-v="keys">Tap the notes</button></div>
         <label class="field" id="bdMicField"><span class="label">Microphone</span><select id="bdMic" aria-label="Microphone"></select></label>
         <div class="field" id="bdReaderField"><span class="label">Note reader</span>
           <div class="chips" id="bdReader"><button class="chip" data-v="smart">Smart (best with slides and vibrato)</button><button class="chip" data-v="classic">Classic</button></div></div>
@@ -1820,7 +1819,7 @@ function fromHolds(frames,holds,o){ // holds:[{on,off}] in beats (already correc
   return{notes:out,pickup,shift:0,offCents:Math.round(100*c),lag:Math.round(lag*1000),dropped:notes.length-out.length}}
 
 /* ================= song builder (runs on the device, from the user's own singing) ================= */
-const BD={editId:null,frames:null,mode:"hold",recMode:"hold",shift:0,offC:0,grid:.5,notes:[],sel:0,taps:[],audio:null,bpm:90,meter:2,key:11,chords:[],pickup:0,info:""};
+const BD={editId:null,frames:null,mode:"backing",recMode:"backing",shift:0,offC:0,grid:.5,notes:[],sel:0,taps:[],audio:null,bpm:90,meter:2,key:11,chords:[],pickup:0,info:""};
 
 /* ---- chord chart ---- */
 function parseChart(text,meter){
@@ -1933,14 +1932,14 @@ function openBuilder(song){eStop();BD.editId=song?song.id:null;$("songsHome").hi
   $("bdRecStatus").textContent="";$("bdStatus").textContent="";$("bdSummary").textContent=song?"Edit the notes, chords or lyrics, or record it again.":"";
   $("bdPhones").checked=!!T.phones;refreshMics();$("bdMic").onchange=e=>{T.micId=e.target.value;saveT()};bdMode(BD.recMode);chipGroup("bdGrid",String(BD.grid),bdGridPick);bdReaderChips();if(readerSmart()&&!IN_CLAUDE)bpReady().catch(()=>{});KN.seq=[];$("bdENeck").hidden=true;$("bdENeckBtn").textContent="🎸 Pick notes on the neck";chartPreview();if(BD.notes.length){bdReflag();bdDraw()}window.scrollTo(0,0)}
 function bdReaderChips(){chipGroup("bdReader",readerSmart()?"smart":"classic",v=>{T.reader=v;saveT();bdReaderChips();if(v==="smart")bpReady().catch(()=>{})})}
-function bdMode(v){if(v==="more")v=["backing","visual","load"].includes(BD.recMode)?BD.recMode:"backing";BD.recMode=v;$("bdKeysBox").hidden=v!=="keys";$("bdReaderField").hidden=v==="keys";if(v==="keys")knRender();
-  const more=["backing","visual","load"].includes(v);chipGroup("bdRecMode",more?"more":v,bdMode);$("bdMoreMode").hidden=!more;if(more)chipGroup("bdMoreMode",v,bdMode);
+function bdMode(v){if(!["backing","visual","load","keys"].includes(v))v="backing";BD.recMode=v;$("bdKeysBox").hidden=v!=="keys";$("bdReaderField").hidden=v==="keys";if(v==="keys")knRender();
+  chipGroup("bdRecMode",v,bdMode);
   $("bdTapBox").hidden=v!=="tap";$("bdHoldBox").hidden=v!=="hold";$("bdHoldRec").disabled=!MIC_OK;$("bdPhones2").checked=!!T.phones;$("bdBacking").hidden=v!=="backing";$("bdLoad").hidden=v!=="load"&&v!=="tapfile";$("bdVisual").hidden=v!=="visual";$("bdMicField").hidden=v==="load"||v==="tapfile"||v==="keys";
   $("bdLoadHint").textContent=v==="tapfile"?"Load a recording of you singing (guitar is fine too). Voice Memos: Share → Save to Files, then choose it here. Then play it back and tap the pad once as each word starts, like you're pointing at each note.":
     "Load a recording of you singing, with or without guitar. Voice Memos: Share → Save to Files, then choose it here. Then play it back and tap along on every beat, starting on the first strong beat of the first full bar.";
   $("bdTap").textContent=v==="tapfile"?"TAP each word":"TAP the beat";
   $("bdRec").disabled=!MIC_OK;$("bdRecV").disabled=!MIC_OK;$("bdTapRec").disabled=!MIC_OK;$("bdLatOut").textContent=T.lat!=null?"Now "+T.lat+" ms":"";
-  if(v!=="load"&&v!=="tapfile"&&v!=="keys"&&!MIC_OK)$("bdRecStatus").textContent="Recording needs the standalone version (your GitHub link). You can still use Tap to a recording or Tap the notes here.";else $("bdRecStatus").textContent=""}
+  if(v!=="load"&&v!=="tapfile"&&v!=="keys"&&!MIC_OK)$("bdRecStatus").textContent="Recording needs the standalone version (your GitHub link). You can still use Load a recording or Tap the notes here.";else $("bdRecStatus").textContent=""}
 $("bdChart").oninput=chartPreview;$("bdMeter").onchange=chartPreview;$("bdKey").onchange=()=>{chartPreview();if(BD.notes.length){bdReflag();bdDraw()}};
 $("bdBpm").onchange=e=>{BD.bpm=Math.max(40,Math.min(220,+e.target.value||90))};
 $("bdBack").onclick=()=>{eStop();micStop();$("builder").hidden=true;$("songsHome").hidden=false;renderSets()};
