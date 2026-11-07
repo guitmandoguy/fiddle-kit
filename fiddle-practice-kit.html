@@ -178,8 +178,7 @@ ul.report b{font-weight:600}
 #viewBreaks{--accent-soft:color-mix(in srgb,var(--accent) 20%,var(--surface));--on-accent:var(--accent-ink);--display:var(--f-display);--body:var(--f-body);--mono:var(--f-mono)}
 #viewBreaks .table{display:flex;flex-direction:column;gap:10px}
 #viewBreaks .row3{display:grid;grid-template-columns:1.6fr .7fr .9fr;gap:10px}
-@media (max-width:460px){#viewBreaks .row3{grid-template-columns:1fr 1fr}#viewBreaks .row3 .card.tune{grid-column:1/-1}}
-#viewBreaks .row3.notune{grid-template-columns:1fr 1fr}
+#viewBreaks .row3{grid-template-columns:1fr 1fr}
 #viewBreaks .card{background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:12px 14px;display:flex;flex-direction:column;gap:6px;min-width:0;transition:transform .25s ease, opacity .25s ease}
 #viewBreaks .card.locked{border-color:var(--accent);box-shadow:inset 0 0 0 1px var(--accent)}
 #viewBreaks .card.flip{animation:deal .3s ease}
@@ -193,7 +192,6 @@ ul.report b{font-weight:600}
 #viewBreaks .icon[aria-pressed="true"]{color:var(--accent);border-color:var(--accent)}
 #viewBreaks .icon svg{width:16px;height:16px}
 #viewBreaks .val{font-family:var(--display);font-weight:700;font-stretch:80%;font-size:1.6rem;line-height:1.1;overflow-wrap:anywhere}
-#viewBreaks .tune .val{font-size:1.75rem}
 #viewBreaks .bpm .val{font-variant-numeric:tabular-nums}
 #viewBreaks .valsel{appearance:none;-webkit-appearance:none;font:inherit;color:var(--ink);background:transparent;border:0;border-bottom:1.5px dashed var(--line);border-radius:0;padding:0 1.1em 0 0;width:100%;cursor:pointer;
   background-image:linear-gradient(45deg,transparent 50%,var(--muted) 50%),linear-gradient(-45deg,transparent 50%,var(--muted) 50%);background-size:6px 6px;background-position:calc(100% - 9px) 55%,calc(100% - 3px) 55%;background-repeat:no-repeat}
@@ -801,17 +799,16 @@ ul.report b{font-weight:600}
   <!-- ================= TUNER ================= -->
   <!-- ================= BREAK DECK ================= -->
   <div class="view" id="viewBreaks" hidden>
-    <p class="sub">Deal a tune or a progression, a key, a tempo and a rule to play your break under. Lock anything you want to keep and redeal the rest.</p>
+    <p class="sub">Deal a key, a tempo, a bluegrass progression and a rule to play your break under. Lock anything you want to keep and redeal the rest.</p>
 
 
   <section class="table" aria-live="polite">
     <div class="row3">
-      <div class="card tune" id="c-tune"><div class="lab"><span>Tune</span><div class="tools"></div></div><div class="val"></div></div>
       <div class="card key" id="c-key"><div class="lab"><span>Key</span><div class="tools"></div></div><div class="val"></div></div>
       <div class="card bpm" id="c-bpm"><div class="lab"><span>Tempo · BPM</span><div class="tools"></div></div><div class="val"></div></div>
     </div>
-    <div class="card prog" id="c-prog" hidden><div class="lab"><span>Progression</span><div class="tools"></div></div><div class="val"></div></div>
-    <div class="player" id="player" hidden>
+    <div class="card prog" id="c-prog"><div class="lab"><span>Progression</span><div class="tools"></div></div><div class="val"></div></div>
+    <div class="player" id="player">
       <button class="play" id="play" type="button" aria-pressed="false">Play</button>
       <div class="bd-seg" id="mix" role="group" aria-label="Instruments"></div>
       <label class="vol" for="vol">Vol <input type="range" id="vol" min="0" max="1" step="0.05"></label>
@@ -837,15 +834,9 @@ ul.report b{font-weight:600}
         <div class="bd-seg" id="cats"></div>
       </div>
       <div class="bd-field">
-        <span class="flabel">Tune</span>
-        <div class="bd-seg" id="tunemode"></div>
-        <p class="bd-hint">With no tune, you get a standard bluegrass progression in the dealt key. Minor keys get minor progressions.</p>
-      </div>
-      <div class="bd-field">
         <span class="flabel">Key</span>
-        <div class="bd-seg" id="keysrc"></div>
         <div class="bd-seg" id="keys"></div>
-        <p class="bd-hint">"Tune's key" uses the key after the | in your tune list, and falls back to a random key from the chips.</p>
+        <p class="bd-hint">Deal picks from the keys you turn on here. Minor keys get minor progressions.</p>
       </div>
       <div class="bd-field">
         <span class="flabel">Tempo range (BPM, cut time)</span>
@@ -854,11 +845,6 @@ ul.report b{font-weight:600}
           <span>to</span>
           <input type="number" id="bpmMax" min="40" max="200" step="1" aria-label="Highest tempo">
         </div>
-      </div>
-      <div class="bd-field">
-        <label for="tunes">Tunes (one per line, optional "| key")</label>
-        <textarea id="tunes" spellcheck="false"></textarea>
-        <button class="textbtn" id="resetTunes" type="button">Restore the default list</button>
       </div>
     </div>
   </details>
@@ -2484,37 +2470,6 @@ tuSync();
 <script>
 /* ================= BREAK DECK ================= */
 (function(){
-const DEFAULT_TUNES = `Salt Creek | A
-Blackberry Blossom | G
-Whiskey Before Breakfast | D
-Soldier's Joy | D
-Bill Cheatham | A
-Old Joe Clark | A
-Big Sciota | G
-Beaumont Rag | F
-Billy in the Lowground | C
-Red Haired Boy | A
-Sally Goodin | A
-Arkansas Traveler | D
-Ragtime Annie | D
-Liberty | D
-Angeline the Baker | D
-Cripple Creek | A
-Turkey in the Straw | G
-Sally Ann | A
-Gold Rush | A
-Jerusalem Ridge | Am
-Wheel Hoss | A
-Big Mon | A
-Lonesome Fiddle Blues | Am
-Foggy Mountain Breakdown | G
-Nine Pound Hammer | G
-Roll in My Sweet Baby's Arms | G
-Blue Moon of Kentucky | A
-Little Maggie | G
-Lonesome Road Blues | G
-Rocky Top | A`;
-
 const KEYS = ["G","A","B♭","B","C","D","E","F","Am","Em","Bm"];
 const DEFAULT_KEYS = ["G","A","D","C","E","B♭"];
 
@@ -2553,14 +2508,8 @@ const PROMPTS = {
     "Nashville shuffle bowing only",
     "Georgia shuffle bowing only",
     "Slur everything, no separate bows",
-    "Drone a string under the melody throughout",
+    "Drone a string under your line throughout",
     "End every phrase with a chop or hard accent"]},
-  melody:{label:"From the melody",items:[
-    "Play the melody straight, then change only the rhythm",
-    "Play the melody an octave up",
-    "Keep the melody's first and last notes, change everything between",
-    "Fill only the gaps where a singer would breathe",
-    "Sing a phrase, then play it right away"]},
   style:{label:"Style & borrowing",items:[
     "Play it like a Kenny Baker break",
     "Play it like a swing fiddler",
@@ -2568,7 +2517,6 @@ const PROMPTS = {
     "Use one lick you learned this week three times",
     "Ban your most-used lick for the whole session"]},
   wild:{label:"Wildcard",items:[
-    "Play it in a key you never play this tune in",
     "Make the break sound deliberately sad",
     "Make the break sound deliberately happy",
     "Start mid-phrase, as if you'd already been playing"]}
@@ -2635,18 +2583,16 @@ const store={get(){try{return JSON.parse(localStorage.getItem(LS)||"null")}catch
 const saved=store.get()||{};
 const S=Object.assign({
   count:2,
-  useTune:true,
   mix:{bass:true,gtr:true,mando:true},
   ring:true,
   vol:0.8,
-  cats:{melodic:true,rhythm:true,texture:true,melody:true,style:true,wild:true},
-  keySource:"random",
+  cats:{melodic:true,rhythm:true,texture:true,style:true,wild:true},
   keys:DEFAULT_KEYS.slice(),
   bpmMin:85,bpmMax:115,
-  tunes:DEFAULT_TUNES,
   history:[]
 },saved.settings||{});
 S.history=Array.isArray(S.history)?S.history:[];
+delete S.useTune;delete S.tunes;delete S.keySource;delete S.cats.melody;
 const save=()=>store.set({settings:S});
 
 // shuffle bags so repeats only come after the whole pool is used
@@ -2667,22 +2613,14 @@ function draw(name,pool,avoid){
   return bag.items.splice(idx,1)[0];
 }
 
-function parseTunes(){
-  return S.tunes.split("\n").map(l=>l.trim()).filter(Boolean).map(l=>{
-    const [n,k]=l.split("|").map(s=>s&&s.trim());
-    return {n,k:k||null};
-  }).filter(t=>t.n);
-}
 function enabledCats(){return Object.keys(PROMPTS).filter(c=>S.cats[c])}
 
-const D={tune:null,key:null,bpm:null,prog:null,p:[null,null]};
-const L={tune:false,key:false,bpm:false,prog:false,p0:false,p1:false};
+const D={key:null,bpm:null,prog:null,p:[null,null]};
+const L={key:false,bpm:false,prog:false,p0:false,p1:false};
 
-function pickTune(){const ts=parseTunes();const t=draw("tune",ts.map(x=>x.n),D.tune&&D.tune.n);return ts.find(x=>x.n===t)||null}
 function pickKey(){
-  if(S.useTune&&S.keySource==="tune"&&D.tune&&D.tune.k) return D.tune.k;
   let ks=S.keys.length?S.keys:DEFAULT_KEYS;
-  if(!S.useTune&&L.prog&&D.prog){const f=ks.filter(k=>isMinor(k)===D.prog.minor);if(f.length)ks=f;}
+  if(L.prog&&D.prog){const f=ks.filter(k=>isMinor(k)===D.prog.minor);if(f.length)ks=f;}
   return draw("key",ks,D.key);
 }
 function pickBpm(){
@@ -2703,27 +2641,23 @@ function pickProg(){
 }
 function pickPrompt(i){
   let cats=enabledCats(); if(!cats.length) return null;
-  if(!S.useTune){const c2=cats.filter(c=>c!=="melody");if(c2.length)cats=c2;}
   const other=D.p[1-i];
   let pool=cats; if(other&&S.count===2&&cats.length>1) pool=cats.filter(c=>c!==other.cat);
   const cat=pool[Math.floor(Math.random()*pool.length)];
-  const items=PROMPTS[cat].items.filter(t=>S.useTune||!/this tune/.test(t));
-  const text=draw("p-"+cat,items,D.p[i]&&D.p[i].text);
+  const text=draw("p-"+cat,PROMPTS[cat].items,D.p[i]&&D.p[i].text);
   return {cat,text};
 }
 
 function dealAll(){
-  if(!S.useTune) D.tune=null; else if(!L.tune||!D.tune) D.tune=pickTune();
   if(!L.key) D.key=pickKey();
-  if(S.useTune) D.prog=null; else if(!L.prog||!D.prog||D.prog.minor!==isMinor(D.key)) D.prog=pickProg();
+  if(!L.prog||!D.prog||D.prog.minor!==isMinor(D.key)) D.prog=pickProg();
   if(!L.bpm) D.bpm=pickBpm();
   if(!L.p0) D.p[0]=pickPrompt(0);
   if(S.count===2){ if(!L.p1) D.p[1]=pickPrompt(1);} else D.p[1]=null;
   logHistory(); render(true);
 }
 function reroll(which){
-  if(which==="tune"){D.tune=pickTune(); if(S.keySource==="tune"&&!L.key) D.key=pickKey();}
-  if(which==="key"){D.key=pickKey(); if(!S.useTune&&(!D.prog||D.prog.minor!==isMinor(D.key))) D.prog=pickProg();}
+  if(which==="key"){D.key=pickKey(); if((!D.prog||D.prog.minor!==isMinor(D.key))) D.prog=pickProg();}
   if(which==="prog") D.prog=pickProg();
   if(which==="bpm") D.bpm=pickBpm();
   if(which==="p0") D.p[0]=pickPrompt(0);
@@ -2732,7 +2666,7 @@ function reroll(which){
 }
 
 function logHistory(){
-  S.history.unshift({t:D.tune?D.tune.n:"",f:D.prog?D.prog.label:"",k:D.key,b:D.bpm,p:D.p.filter(Boolean).map(x=>x.text)});
+  S.history.unshift({f:D.prog?D.prog.label:"",k:D.key,b:D.bpm,p:D.p.filter(Boolean).map(x=>x.text)});
   S.history=S.history.slice(0,12); save();
 }
 
@@ -2741,8 +2675,8 @@ const ICON={
   unlock:'<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6"><rect x="3" y="7" width="10" height="7" rx="1.5"/><path d="M5.5 7V5a2.5 2.5 0 0 1 5-.5"/></svg>',
   redo:'<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M13 3v3.5H9.5"/><path d="M12.6 6.5A5 5 0 1 0 13 9"/></svg>'
 };
-const CARDS=[["tune","c-tune"],["key","c-key"],["bpm","c-bpm"],["prog","c-prog"],["p0","c-p0"],["p1","c-p1"]];
-const NAMES={tune:"tune",key:"key",bpm:"tempo",prog:"progression",p0:"first rule",p1:"second rule"};
+const CARDS=[["key","c-key"],["bpm","c-bpm"],["prog","c-prog"],["p0","c-p0"],["p1","c-p1"]];
+const NAMES={key:"key",bpm:"tempo",prog:"progression",p0:"first rule",p1:"second rule"};
 CARDS.forEach(([k,id])=>{
   const tools=document.querySelector("#"+id+" .tools");
   const lock=document.createElement("button");lock.type="button";lock.className="icon";lock.id="lock-"+k;
@@ -2766,16 +2700,11 @@ const esc=s=>String(s==null?"":s).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",
 
 function render(all,one){
   const f=k=>all?!L[k]:one===k;
-  document.getElementById("c-tune").hidden=!S.useTune;
-  document.querySelector(".row3").classList.toggle("notune",!S.useTune);
-  setCard("tune",D.tune?esc(D.tune.n):"Add tunes in Settings",f("tune")||(one==="tune"));
-  setCard("key",`<select id="keySel" class="valsel" aria-label="Key">${KEYS.concat(KEYS.includes(D.key)?[]:[D.key]).map(k=>`<option${k===D.key?" selected":""}>${esc(k)}</option>`).join("")}</select>`,f("key")||(one==="tune"&&S.keySource==="tune"));
+  setCard("key",`<select id="keySel" class="valsel" aria-label="Key">${KEYS.concat(KEYS.includes(D.key)?[]:[D.key]).map(k=>`<option${k===D.key?" selected":""}>${esc(k)}</option>`).join("")}</select>`,f("key"));
   setCard("bpm",`<span class="tempo"><button type="button" class="step" data-step="-5" aria-label="5 BPM slower">−</button><input id="bpmIn" type="number" inputmode="numeric" min="40" max="200" value="${D.bpm||100}" aria-label="Tempo in BPM"><button type="button" class="step" data-step="5" aria-label="5 BPM faster">+</button></span>`,f("bpm"));
-  const pc=document.getElementById("c-prog");pc.hidden=S.useTune;
-  document.getElementById("player").hidden=S.useTune;
-  if(S.useTune&&playing) stopPlay();
+  const pc=document.getElementById("c-prog");
   requestRerender();
-  if(!S.useTune){pc.querySelector(".lab span").textContent=D.prog?"Progression · "+D.prog.label:"Progression";
+  {pc.querySelector(".lab span").textContent=D.prog?"Progression · "+D.prog.label:"Progression";
     setCard("prog",D.prog?progHTML(D.prog,D.key):"–",f("prog")||one==="key");}
   ["p0","p1"].forEach((k,i)=>{
     const p=D.p[i];const el=document.getElementById("c-"+k);
@@ -2788,7 +2717,7 @@ function render(all,one){
 }
 function renderHistory(){
   const ul=document.getElementById("bdHist");
-  ul.innerHTML=S.history.length?S.history.map(h=>`<li><b>${esc(h.t||"No tune")}</b><span>${esc(h.k)} · ${esc(h.b)} BPM${h.f?" · "+esc(h.f):""}</span>${h.p.map(p=>`<span class="p">${esc(p)}</span>`).join("")}</li>`).join(""):'<li class="p">Your last dozen deals show up here.</li>';
+  ul.innerHTML=S.history.length?S.history.map(h=>`<li><b>${esc(h.k)} · ${esc(h.b)} BPM</b>${h.f?`<span>${esc(h.f)}</span>`:""}${h.p.map(p=>`<span class="p">${esc(p)}</span>`).join("")}</li>`).join(""):'<li class="p">Your last dozen deals show up here.</li>';
 }
 
 // settings UI
@@ -2805,17 +2734,13 @@ function buildSettings(){
   chipGroup("count",[[1,"One rule"],[2,"Two rules"]],v=>S.count===v,v=>{S.count=v;if(v===2&&!D.p[1])D.p[1]=pickPrompt(1)});
   chipGroup("cats",Object.keys(PROMPTS).map(c=>[c,PROMPTS[c].label]),c=>!!S.cats[c],c=>{S.cats[c]=!S.cats[c]});
   if(typeof buildMix==="function") buildMix();
-  chipGroup("tunemode",[[true,"Deal a tune"],[false,"No tune"]],v=>S.useTune===v,v=>{S.useTune=v;if(v&&!D.tune)D.tune=pickTune();if(!v){D.tune=null;D.prog=pickProg()}});
-  chipGroup("keysrc",[["random","Random from these keys"],["tune","Tune's key"]],v=>S.keySource===v,v=>{S.keySource=v});
   chipGroup("keys",KEYS.map(k=>[k,k]),k=>S.keys.includes(k),k=>{S.keys=S.keys.includes(k)?S.keys.filter(x=>x!==k):S.keys.concat(k)});
 }
-const bMin=document.getElementById("bpmMin"),bMax=document.getElementById("bpmMax"),ta=document.getElementById("tunes");
-bMin.value=S.bpmMin;bMax.value=S.bpmMax;ta.value=S.tunes;
+const bMin=document.getElementById("bpmMin"),bMax=document.getElementById("bpmMax");
+bMin.value=S.bpmMin;bMax.value=S.bpmMax;
 const num=(el,def)=>{const v=parseInt(el.value,10);return isNaN(v)?def:Math.max(40,Math.min(200,v))};
 bMin.addEventListener("change",()=>{S.bpmMin=num(bMin,85);bMin.value=S.bpmMin;save()});
 bMax.addEventListener("change",()=>{S.bpmMax=num(bMax,115);bMax.value=S.bpmMax;save()});
-ta.addEventListener("input",()=>{S.tunes=ta.value;save()});
-document.getElementById("resetTunes").addEventListener("click",()=>{S.tunes=DEFAULT_TUNES;ta.value=S.tunes;save()});
 document.getElementById("deal").addEventListener("click",dealAll);
 
 // Matt's own guitar: [shape, pitch class of the chord, strum|root|fifth, measured tuning in cents, mp3]
@@ -3084,7 +3009,7 @@ document.addEventListener("change",e=>{
   if(e.target.id==="bpmIn") setBpm(parseFloat(e.target.value));
   if(e.target.id==="keySel"){
     D.key=e.target.value;L.key=true;
-    if(!S.useTune&&D.prog&&D.prog.minor!==isMinor(D.key)){D.prog=pickProg();render(false,"prog")}else render(false);
+    if(D.prog&&D.prog.minor!==isMinor(D.key)){D.prog=pickProg();render(false,"prog")}else render(false);
   }
 });
 const volEl=document.getElementById("vol");volEl.value=S.vol;
@@ -3094,7 +3019,7 @@ function buildMix(){
   chipGroup("mix",[["bass","Bass"],["gtr","Guitar"],["mando","Mando"],["ring","Ringing chucks"]],k=>k==="ring"?S.ring!==false:!!S.mix[k],k=>{if(k==="ring")S.ring=S.ring===false;else S.mix[k]=!S.mix[k]});
 }
 // warm up sample decoding in the background so the first Play is quick
-setTimeout(()=>{if(!S.useTune)loadSamples().catch(()=>{})},300);
+setTimeout(()=>{loadSamples().catch(()=>{})},300);
 
 buildSettings();
 dealAll();
