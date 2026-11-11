@@ -128,6 +128,7 @@ ul.cues{margin:0;padding-left:1.1em;display:flex;flex-direction:column;gap:5px}
       <div class="stage" id="qkCard">
         <h3>Sing it, get the harmony</h3>
         <p class="hint">Sing the part you want harmonized, on your own: no chart, no tapping, no backing. Tap Done and the tenor and baritone come up, built only from the notes you held.</p>
+        <p class="hint">Leave a breath between lines. To get every note, sing the words or “da da da”: on a plain ooh, repeated notes on one pitch run together into one long note.</p>
         <div class="row"><button class="btn primary grow" id="qkBtn" style="padding:16px 14px;font-size:1.05rem">● Sing it</button></div>
         <div class="readout" id="qkLive" hidden><div class="bignote" id="qkNote">–</div><div class="cue" id="qkTime"></div></div>
         <div class="row"><label class="linkbtn" for="qkFile" id="qkFileLbl">Or choose a recording of you singing alone</label><input type="file" id="qkFile" accept="audio/*,video/*,.m4a,.mp3,.wav,.mov,.mp4,.aac" style="position:absolute;width:1px;height:1px;opacity:0;pointer-events:none"></div>
@@ -1446,8 +1447,9 @@ function quickNotes(frames){ // frames:{time,m,voiced,rms} → notes in seconds 
     let d=Math.atan2(ss,sc)/(2*Math.PI)-g0;d-=Math.round(d);return g0+.6*d});
   const mc=V.map((f,i)=>f.m-offs[i]);
   const ms=mc.map((m,i)=>{const w=[];for(let j=i-2;j<=i+2;j++)if(V[j]&&Math.abs(V[j].time-V[i].time)<=.035)w.push(mc[j]);return median(w)});
+  const DIP=.62;   // how far the loudness has to drop between two syllables on one pitch
   const dip=V.map((f,i)=>{let pre=0,post=0;for(let j=i-1;j>=0&&f.time-V[j].time<=.12;j--)pre=Math.max(pre,V[j].rms);
-    for(let j=i+1;j<V.length&&V[j].time-f.time<=.12;j++)post=Math.max(post,V[j].rms);return f.rms<.45*pre&&f.rms<.45*post});
+    for(let j=i+1;j<V.length&&V[j].time-f.time<=.12;j++)post=Math.max(post,V[j].rms);return f.rms<DIP*pre&&f.rms<DIP*post});
   // 1) a new note only counts once the pitch has left the old one and settled on another for a moment (vibrato and slides never settle)
   const BAND=.7,HOLD=.07,GAP=Math.max(.05,2.4*hop),segs=[];let cur=null,cand=null,lastT=-9;
   const mk=(i,art)=>({i0:i,i1:i,n:Math.round(ms[i]),art});
@@ -1472,8 +1474,10 @@ function quickNotes(frames){ // frames:{time,m,voiced,rms} → notes in seconds 
   //    a voiced consonant (m, n, l, w) is a very short quiet hum before the vowel; a fall-off is a short tail.
   for(let pass=0;pass<3;pass++){const out=[];
     for(let k=0;k<N.length;k++){const s=N[k],nx=N[k+1],pr=out[out.length-1],L=len(s),g=nx?nx.t-s.e:9;
+      if(!s.flat&&L>=.08&&L<.3&&pr&&nx&&touch(pr,s)&&nx.t-s.e<.1){const up=s.hi-Math.max(pr.p,nx.p),dn=Math.min(pr.p,nx.p)-s.lo;
+        if(up>=1.7||dn>=1.7){s.p=up>=dn?s.hi-.15:s.lo+.15;s.flat=true;out.push(s);continue}}   // flicked up (or down) to and left again: a note at its far point, not a slide
       const back=pr&&touch(pr,s)&&!s.art&&nx&&Math.abs(pr.p-s.p)<Math.abs(s.p-nx.p);   // closer to the note behind it than the one ahead
-      if(nx&&!back&&g<.1&&(nx.flat||len(nx)>=.25)&&(L<.075||(!s.flat&&L<.45)||(L<.18&&(!s.flat||L<.1)&&len(nx)>=1.5*L&&Math.abs(s.arr-nx.p)<=2.3)||(L<.2&&len(nx)>=1.5*L&&Math.abs(s.p-nx.p)<.95)||(L<.13&&s.rms<.45*nx.rms))){
+      if(nx&&!back&&g<.1&&(nx.flat||len(nx)>=.25)&&(L<.075||(!s.flat&&L<.45)||(L<.18&&(!s.flat||L<.1)&&len(nx)>=1.5*L&&Math.abs(s.arr-nx.p)<=2.3)||(len(nx)>=1.5*L&&((L<.26&&Math.abs(s.p-nx.p)<.95)||(nx.p-s.p>0&&((L<.14&&nx.p-s.p<1.6)||(L<.24&&nx.p-s.p<1.25)))))||(L<.13&&s.rms<.45*nx.rms))){
         N[k+1]=join(s,nx,nx.p);continue}                       // lead-in: the note starts where the slide started, at the pitch it lands on
       if(pr&&touch(pr,s)&&!s.art&&(L<.11||(!s.flat&&L<.3))){out[out.length-1]=join(pr,s,Math.abs(pr.p-s.p)<1.3&&L>=.4*len(pr)?null:pr.p);continue}   // tail; two halves of one drifting note get one pitch
       if(!s.flat&&L<.3){if(L<.25)continue;s.p=s.arr;s.flat=true}   // a short sound that never settles on a pitch (a slide, a trailed-off word) is not a note
@@ -1482,14 +1486,14 @@ function quickNotes(frames){ // frames:{time,m,voiced,rms} → notes in seconds 
     N=out}
   // 4) a held note that sags or creeps less than a real half step is still one note
   {const out=[];for(const s of N){const pr=out[out.length-1];
-      if(pr&&!s.art&&touch(pr,s)&&(Math.round(pr.p)===Math.round(s.p)||Math.abs(pr.p-s.p)<.72)){if(len(s)>len(pr))pr.p=s.p;pr.e=s.e}else out.push(s)}
+      if(pr&&!s.art&&touch(pr,s)&&(Math.round(pr.p)===Math.round(s.p)||Math.abs(pr.p-s.p)<.72||(len(pr)<.3&&Math.abs(pr.p-s.p)<1.2&&Math.abs(pr.arr-s.p)<.35))){if(len(s)>len(pr)||Math.abs(pr.p-s.p)>=.72)pr.p=s.p;pr.e=s.e}else out.push(s)}
     N=out}
   // 5) one note leaping an octave away from both neighbors is the tracker, not you
   N.forEach((s,k)=>{const a=N[k-1],b=N[k+1];if(!a||!b)return;for(const o of [12,-12])if(Math.abs(s.p-a.p)>=9&&Math.abs(s.p-b.p)>=9&&Math.abs(s.p+o-a.p)<=5&&Math.abs(s.p+o-b.p)<=5){s.p+=o;break}});
   if(N.length<3)return{err:"I only caught "+N.length+" note"+(N.length===1?"":"s")+". Sing the whole line, a bit louder or closer to the phone."};
   // each note rings until the next one unless you really stopped (a breath)
-  const t0=N[0].t;N.forEach((s,k)=>{const nx=N[k+1];s.rest=nx?nx.t-s.e:0;if(nx&&nx.t-s.e<.2)s.e=nx.t});
-  return{notes:N.map(s=>({t:+(s.t-t0).toFixed(3),e:+(s.e-t0).toFixed(3),p:+s.p.toFixed(2),art:!!s.art,rest:+s.rest.toFixed(3)})),offCents:Math.round(100*median(offs))}}
+  const t0=N[0].t;N.forEach((s,k)=>{const pv=N[k-1];if(pv&&s.t-pv.e0>=.06)s.art=true;s.e0=s.e;const nx=N[k+1];s.rest=nx?nx.t-s.e:0;if(nx&&nx.t-s.e<.2)s.e=nx.t});
+  return{notes:N.map(s=>({t:+(s.t-t0).toFixed(3),e:+(s.e-t0).toFixed(3),p:+s.p.toFixed(2),lo:+s.lo.toFixed(2),hi:+s.hi.toFixed(2),art:!!s.art,rest:+s.rest.toFixed(3)})),offCents:Math.round(100*median(offs))}}
 
 function quickKeys(notes){ // likeliest major keys, best first
   const w=new Float64Array(12);for(const n of notes)w[mod(Math.round(n.p),12)]+=Math.min(1.5,n.e-n.t);
@@ -1515,7 +1519,7 @@ function quickChordsLoose(notes,key){ // fallback when the lines can't be found:
 
 /* ---- lines and bars: bluegrass comes in lines of four bars, and you breathe between lines ---- */
 function qkLines(N){ // N: notes in seconds {t,d,m,rest}. Each line starts on its first strong note; short notes before it are pickups
-  const n=N.length,ph=[];let a=0;for(let i=0;i<n;i++)if(i===n-1||N[i].rest>=.35){ph.push([a,i]);a=i+1}
+  const n=N.length,ph=[];let a=0;for(let i=0;i<n;i++)if(i===n-1||N[i].rest>=.25){ph.push([a,i]);a=i+1}
   const ts=ph.map(([a,b])=>{let d=a;for(let k=0;k<2&&d<b;k++){const x=N[d],y=N[d+1];if(x.d<.45&&y.d>=1.5*x.d&&y.t-N[a].t<.8)d++;else break}return N[d].t});
   const end=N[n-1].t+N[n-1].d,[a0,b0]=ph[0],firsts=[];for(let i=a0;i<=Math.min(b0,a0+2);i++)if(N[i].t-N[a0].t<=.8)firsts.push(N[i].t);
   // the line length is the spacing that puts a breath-start on every line; a breath in the middle of a line is allowed, a line with no start costs
@@ -1581,9 +1585,12 @@ function quickChartChords(notes,key,chart){ // lay the chart's rows over the sun
   return{notes:best.out.map(({rest,...n})=>n),chords:qkToChords(best.out,best.labs),loose,rows:P.rows.length,lines:lines.length,from:best.o}}
 
 function quickBuild(raw,keys,ci,base,chart){ // raw: quickNotes() result. Turns it into a song the player can harmonize
+  if(chart&&chart.text&&Math.abs(raw.offCents)>=30&&!raw.shifted){const ck=chart.key!=null?chart.key:qkParseChart(chart.text).key,d=raw.offCents>0?1:-1;
+    if(ck!=null&&mod(keys[ci]+d,12)===ck){raw={...raw,shifted:d,offCents:raw.offCents-100*d,notes:raw.notes.map(n=>({...n,p:n.p+d,lo:n.lo+d,hi:n.hi+d}))};keys=keys.map(k=>mod(k+d,12))}}   // sung in the crack between two keys: name it the chart's way
   const key=keys[ci],B=x=>+(x*2).toFixed(3),ns=[];
-  const pen=m=>{const r=mod(m-key,12);return MAJ.includes(r)?0:(r===3||r===10)?.45:.9};   // a note outside the key has to be sung squarely to count; only flat 3 and flat 7 get real room
-  for(const r of raw.notes){const lo=Math.floor(r.p),m=Math.abs(r.p-lo)+pen(lo)<Math.abs(r.p-lo-1)+pen(lo+1)?lo:lo+1;
+  const pen=m=>{const r=mod(m-key,12);return MAJ.includes(r)?0:(r===3||r===10)?.55:.9};   // a note outside the key has to be sung squarely to count; only flat 3 and flat 7 get real room
+  for(const r of raw.notes){const fl=Math.floor(r.p);let m=Math.abs(r.p-fl)+pen(fl)<Math.abs(r.p-fl-1)+pen(fl+1)?fl:fl+1;
+    if(pen(m)>.6&&r.hi!=null){if(r.hi>=m+.6&&!pen(m+1))m++;else if(r.lo<=m-.6&&!pen(m-1))m--}   // a note that sags or climbs through a pitch outside the key: take the in-key pitch it touched
     const p=ns[ns.length-1];if(p&&p.m===m&&!r.art){p.e=r.e;p.rest=r.rest}else ns.push({t:r.t,e:r.e,m,rest:r.rest})}
   let notes=ns.map(x=>({t:B(x.t),d:Math.max(.15,+(B(x.e)-B(x.t)).toFixed(3)),m:x.m,ly:""}));
   const withRest=notes.map((n,i)=>({...n,rest:i<ns.length-1?ns[i].rest:9})),placed=chart&&chart.text?quickChartChords(withRest,key,chart):null;
@@ -1604,13 +1611,17 @@ function qkOcrRows(lines){
     s=s.replace(/€/g,"E").replace(/[—–_~]/g," ").replace(/♯/g,"#").replace(/♭/g,"b")
       .replace(/(^|\s)[\[\]'"`|!1Il(]+(?=[A-G])/g,"$1")                       // a bar line read as 1, I, l or [ in front of a chord
       .replace(/([A-G])\s?[\*#H]/g,"$1#").replace(/([A-G])[e&](?![a-z])/g,"$1#").replace(/([A-G])e(?=[lI|!\]]\s)/g,"$1#").replace(/([A-G])4(?!\d)/g,"$1#")   // the sharp sign comes out as e, *, H or 4
-      .replace(/([A-G][#b]?(?:m|7|m7)?)[lIi|!\]\/\\]+(?=[\s]|$)/g,"$1 ")      // a bar line stuck on the end of a chord
-      .replace(/([A-G][#b]?7?)[1lI|!\/]+(?=[A-G])/g,"$1 ").replace(/(^|\s)([A-G])(?=[A-G](\s|$))/g,"$1$2 ")   // two boxes run together
+      .replace(/([A-G][#b]?(?:m|7|m7)?)[lIiJ|!\]\/\\]+(?=[\s]|$)/g,"$1 ")      // a bar line stuck on the end of a chord
+      .replace(/([A-G][#b]?7?)[1lIJ|!\/\]]+(?=[A-G])/g,"$1 ").replace(/(^|\s)([A-G])(?=[A-G](\s|$))/g,"$1$2 ")   // two boxes run together
       .replace(/(^|[\s|\/])8(?=[\s|\/]|$)/g,"$1B").replace(/[|\/\\\[\]()'!]/g," ");
     const toks=[];let m,junk=0;CH.lastIndex=0;const words=s.trim().split(/\s+/).filter(Boolean);
     for(const w of words){CH.lastIndex=0;m=CH.exec(w);if(m&&m.index===0&&m[0].length===w.length)toks.push(w);else if(/[A-Za-z0-9]{2,}/.test(w))junk++}
     if(toks.length>=4&&junk<=1){toks.junk=junk;cand.push(toks)}}
   if(!cand.length)return[];
+  // one chart never has both F and F#, or B and Bb: a lone odd one out is a misread sharp or flat sign
+  {const tally={};cand.forEach(r=>r.forEach(c=>{const m=/^([A-G])(#|b)?/.exec(c),k=m[1];(tally[k]=tally[k]||{})[m[2]||""]=((tally[k]||{})[m[2]||""]||0)+1}));
+   const win={};for(const k in tally){const e=Object.entries(tally[k]).sort((a,b)=>b[1]-a[1]||(b[0]?1:0)-(a[0]?1:0));win[k]=e[0][0]}
+   cand.forEach(r=>r.forEach((c,i)=>{r[i]=c.replace(/^([A-G])(#|b)?/,(_,k)=>k+win[k])}))}
   const cnt={};cand.forEach(r=>{const n=r.length+(r.length%2);cnt[n]=(cnt[n]||0)+1});const mode=+Object.keys(cnt).sort((a,b)=>cnt[b]-cnt[a]||b-a)[0];
   const fix=r=>{if(r.length===mode||(!r.junk&&r.length%2===0))return r;const runs=[];r.forEach((c,i)=>{const p=runs[runs.length-1];if(p&&p.c===c)p.n++;else runs.push({c,i,n:1})});
     const odd=runs.filter(x=>x.n%2).sort((a,b)=>b.n-a.n)[0];if(!odd)return null;
