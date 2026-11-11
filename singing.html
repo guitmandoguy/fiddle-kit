@@ -1,18 +1,6 @@
-<!doctype html>
-<html lang="en">
-<head>
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<meta name="apple-mobile-web-app-capable" content="yes">
-<meta name="mobile-web-app-capable" content="yes">
-<meta name="apple-mobile-web-app-title" content="Singing">
-<style>
-:root{color-scheme:light;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
-body{margin:0;font:14px system-ui,-apple-system,sans-serif}
-img{max-width:100%}
-[hidden]{display:none!important}
-</style>
+<!doctype html><html><head><meta charset=utf8><meta name=viewport content="width=device-width,initial-scale=1,viewport-fit=cover"><style>:root{color-scheme:light;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}html{scroll-padding-top:env(safe-area-inset-top,0px)}body{margin:0;padding:0;font:14px -apple-system,BlinkMacSystemFont,sans-serif;background:#fff;color:#000}img{max-width:100%}[hidden]:not([hidden=until-found i]){display:none!important}</style></head><body>
 <title>Singing Practice Kit</title>
+<meta name="claude:viewport-fit-sides" content="cover">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Familjen+Grotesk:wght@500;700&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500;600&display=swap">
 <style>
@@ -150,9 +138,6 @@ details.lesson.done .lnum{background:var(--good);color:var(--bg)}details.lesson.
 .lwhy{margin:0;line-height:1.5}.lhow{margin:0;padding-left:20px;display:flex;flex-direction:column;gap:5px;line-height:1.45}
 .lchev{font-size:1.3rem;color:var(--muted);transition:transform .15s;margin-left:2px}details.lesson[open] .lchev{transform:rotate(90deg)}
 </style>
-</head>
-<body>
-
 <div class="wrap">
   <header>
     <h1>Singing Practice Kit</h1>
@@ -604,11 +589,18 @@ async function xMic(onFrame){try{await micStart(f=>{const t=f.time;if(f.voiced){
     BX.on=true;practiced();cancelAnimationFrame(BX.raf);xAnim();return true}
   catch(e){xMsg(e&&e.name==="NotAllowedError"?"Microphone access was blocked. Allow it for this site in your browser settings.":MIC_OK?"The microphone isn't available here.":"The microphone works in the standalone version (your GitHub link).","bad");return false}}
 function stableSegments(fr,minLen){const segs=[];let cur=null;minLen=minLen||.2;
+  // the tracker sometimes reads a few frames an octave off: pull those back to their neighbors before finding notes
+  const V=fr.filter(f=>f.voiced&&f.m!=null),fix=new Map();
+  V.forEach((f,i)=>{const w=[];for(let j=i-8;j<=i+8;j++)if(V[j]&&Math.abs(V[j].t-f.t)<=.15)w.push(V[j].m);const md=median(w);
+    if(Math.abs(f.m-md)>8){const alt=f.m+(f.m<md?12:-12);if(Math.abs(alt-md)<2.5)fix.set(f,alt)}});
   for(const f of fr){if(!f.voiced){if(cur&&f.t-cur.end>.12){segs.push(cur);cur=null}continue}
-    if(cur&&Math.abs(f.m-median(cur.ms.slice(-6)))>.5){segs.push(cur);cur=null}
-    if(!cur)cur={start:f.t,end:f.t,ms:[]};cur.ms.push(f.m);cur.end=f.t}
+    const m=fix.has(f)?fix.get(f):f.m;
+    if(cur&&Math.abs(m-median(cur.ms.slice(-6)))>.5){segs.push(cur);cur=null}
+    if(!cur)cur={start:f.t,end:f.t,ms:[]};cur.ms.push(m);cur.end=f.t}
   if(cur)segs.push(cur);const out=[];
-  for(const s of segs.filter(s=>s.end-s.start>=minLen)){const m=median(s.ms);const p=out[out.length-1];if(p&&Math.abs(p.m-m)<.5&&s.start-p.end<.08){p.end=s.end;p.ms.push(...s.ms);p.m=median(p.ms)}else out.push({start:s.start,end:s.end,ms:s.ms,m})}
+  // a note's pitch is where it settles: leave out the slide into it and the fall off the end
+  const settled=ms=>ms.length>=8?median(ms.slice(Math.floor(ms.length*.25),Math.ceil(ms.length*.85))):median(ms);
+  for(const s of segs.filter(s=>s.end-s.start>=minLen)){const m=settled(s.ms);const p=out[out.length-1];if(p&&Math.abs(p.m-m)<.5&&s.start-p.end<.08){p.end=s.end;p.ms.push(...s.ms);p.m=settled(p.ms)}else out.push({start:s.start,end:s.end,ms:s.ms,m})}
   return out}
 // match sung notes to the pattern in order, skipping stray blips (and allowing a whole-pattern octave shift)
 function alignSeq(pat,segs){const n=pat.length,m=segs.length;if(m<n)return null;let best=null;
@@ -909,7 +901,7 @@ function exPattern(kind){let pat;const fresh=()=>{pat=makePattern(kind);BX.targe
     BX.timer=setTimeout(async()=>{xMsg("Your turn: sing them back.");const fr=[];if(!await xMic((f,t)=>fr.push({t,m:f.m,voiced:f.voiced}))){BX.busy=false;return}
       BX.timer=setTimeout(()=>{xStopAll();judge(stableSegments(fr,Math.min(.22,nl()*.33)))},pat.length*(nl()+.35)*1000+1600)},ms+250)},true);
   xBtn("New pattern",()=>{fresh();xMsg("");drawMeter()});
-  const judge=segs=>{const n=pat.length,al=alignSeq(pat,segs);if(!al){xMsg(`I heard ${segs.length} of ${n} notes. Give each note a moment, and sing a little louder.`,"warn");return}
+  const judge=segs=>{const n=pat.length,al=alignSeq(pat,segs);if(!al){xMsg(`I heard ${segs.length} of ${n} notes. Give each note a moment, and start each one with a light "d" ("doo, doo") so they come out separate.`,"warn");return}
     const s=al.map(x=>x.m),lines=[];let allOk=true,wrongDir=0,flatTop=false;const tol=tolB();
     if(kind==="scale"||kind==="arp"){const e=s.map((m,i)=>octErr(m,pat[i])),c=median(e),shifted=Math.abs(c)>Math.max(tol,40),ee=shifted?e.map(x=>x-c):e,ton=BX.tonic,bad=[];
       ee.forEach((x,i)=>{if(Math.abs(x)>Math.max(tol,25))bad.push(`${DEG[mod(pat[i]-ton,12)===0&&pat[i]>ton?12:mod(pat[i]-ton,12)]||"?"} ${x<0?"flat":"sharp"} ${Math.abs(Math.round(x))}¢`)});
@@ -953,7 +945,7 @@ const TECH=[
     "Over time the flip turns into a smooth handoff."],try:["siren"]},
   {h:"Staying on pitch",p:["Hear the note in your head before you sing it. Many pitch problems are starting before you know where you're going.",
     "Flat usually means not enough air or the space collapsed; sharp often means too much pressure. Fix the body first and the pitch often follows.",
-    "Practice on a hum or \"loo\" first, then add words.",
+    "Practice on a hum or \"loo\" first, then add words.","When notes need to come out separate, start each with a light \"d\" (\"doo\" or \"da\"). On one long \"ooh\", repeated notes run together and quick ones smear into slides.","Singing alone you may sit a little above or below the piano's pitch the whole way through. That is fine: what matters is that the steps between your notes are right. With a band or a backing track, match them.",
     "Watch the line, but listen too: notice what in tune feels like in your body."],try:["match","longtone"]},
   {h:"The bluegrass sound",p:["The high lonesome sound is bright and forward, and that brightness is often called twang or forward placement.",
     "Keep the brightness at the front while keeping space at the back. The brightness is the color, and the open space keeps it from turning pinched as it climbs.",
@@ -1066,5 +1058,4 @@ showTab();
 
 </script>
 
-</body>
-</html>
+</body></html>

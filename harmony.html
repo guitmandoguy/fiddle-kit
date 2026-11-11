@@ -305,7 +305,7 @@ ul.cues{margin:0;padding-left:1.1em;display:flex;flex-direction:column;gap:5px}
             </select>
             <select id="focusPart" aria-label="Focus part" style="flex:1"></select>
           </div>
-          <p class="hint" id="focusHint">Learn: that part plays loud with the others soft underneath. Sing: everything except that part, so you fill it in.</p>
+          <p class="hint" id="focusHint">Learn: only that part plays, everything else is muted. Sing: everything except that part, so you fill it in.</p>
         </div>
         <div class="field">
           <span class="label">Mixer</span>
@@ -702,9 +702,10 @@ async function micStart(cb){
   const a=ac();for(let k=0;k<5&&a.state!=="running";k++){try{await a.resume()}catch(e){}await new Promise(r=>setTimeout(r,80))}   // iOS can pause audio when the mic opens
   refreshMics();
   const src=a.createMediaStreamSource(stream),sp=a.createScriptProcessor(1024,1,1),mute=a.createGain();mute.gain.value=0;
-  const ring=new Float32Array(2048);
+  const ring=new Float32Array(2048);let floor=.002;MPM_FLOOR=Math.min(MPM_FLOOR,.0008);
   sp.onaudioprocess=ev=>{if(!MIC.on)return;const d=ev.inputBuffer.getChannelData(0);ring.copyWithin(0,d.length);ring.set(d,ring.length-d.length);
-    const r=mpm(ring,a.sampleRate);r.time=a.currentTime-ring.length/a.sampleRate/2;r.m=r.f?69+12*Math.log2(r.f/440):null;r.voiced=!!r.f&&r.clar>=.8&&r.rms>=.008;cb(r)};
+    const r=mpm(ring,a.sampleRate);if(r.rms<floor*1.6)floor=floor*.97+r.rms*.03;else floor*=1.0008;   // the room's own noise level, followed slowly
+    r.time=a.currentTime-ring.length/a.sampleRate/2;r.m=r.f?69+12*Math.log2(r.f/440):null;r.voiced=!!r.f&&r.clar>=.8&&r.rms>=Math.max(.0015,2.5*floor);cb(r)};
   src.connect(sp);sp.connect(mute);mute.connect(a.destination);
   Object.assign(MIC,{on:true,stream,src,sp,mute,t0:Date.now()});
 }
@@ -724,7 +725,7 @@ async function measureDelay(say){const a=ac(),bps=100/60,lead=4,count=8,frames=[
   const d=[];for(const c of clicks){const o=on.find(t=>t>c-.12&&t<c+.5);if(o!=null)d.push(o-c)}
   if(d.length<4){say("I didn't catch enough of your \"taa\"s. If you couldn't hear the clicks, your headphones go quiet when the mic is on: try iPhone Microphone above, wired headphones, or the on-screen beat mode.","warn");return null}
   const ms=Math.max(0,Math.min(500,Math.round(median(d)*1000/10)*10));T.lat=ms;saveT();say(`Delay measured: ${ms} ms. Saved for these headphones.`,"good");return ms}
-function micStop(){keepAwake(false);if(!MIC.on)return;MIC.on=false;try{MIC.sp.disconnect();MIC.src.disconnect();MIC.mute.disconnect()}catch(e){}
+function micStop(){keepAwake(false);MPM_FLOOR=.003;if(!MIC.on)return;MIC.on=false;try{MIC.sp.disconnect();MIC.src.disconnect();MIC.mute.disconnect()}catch(e){}
   try{MIC.stream.getTracks().forEach(t=>t.stop())}catch(e){}
   const used=(Date.now()-MIC.t0)/1000,day=new Date().toDateString(),u=store.get("hc.micUse",{day,s:0});if(u.day!==day){u.day=day;u.s=0}u.s+=used;store.set("hc.micUse",u);
   try{if(navigator.audioSession)navigator.audioSession.type="playback"}catch(e){}}
@@ -780,9 +781,10 @@ function rebuild(){const s=P.song;P.H=harmonize(s,shiftFor(s,P.key),{tuning:P.pr
 function savePref(){store.set("hc.pref."+P.song.id,P.pref)}
 function levelsFor(pref,override){const lv={};
   for(const k of PART_KEYS){let v=pref.mute[k]?0:pref.vol[k];if(pref.solo)v=pref.solo===k?(pref.vol[k]||.8):0;lv[k]=v}
-  if(pref.focus==="learn"){for(const k of PART_KEYS)lv[k]=k===pref.fpart?Math.max(.9,pref.vol[pref.fpart]):lv[k]*.28}
+  if(pref.focus==="learn"){for(const k in lv)lv[k]=k===pref.fpart?Math.max(.9,pref.vol[pref.fpart]):0}   // learn: that part alone, everything else silent
   if(pref.focus==="sing")lv[pref.fpart]=0;
   lv.gtr=pref.solo&&pref.solo!=="gtr"?0:(pref.mute.gtr?0:pref.vol.gtr);if(pref.solo==="gtr")lv.gtr=pref.vol.gtr||.6;
+  if(pref.focus==="learn"&&pref.fpart!=="gtr")lv.gtr=0;
   lv.click=.6;return Object.assign(lv,override||{})}
 function openSong(setId,idx){
   const set=setById(setId),it=set.items[idx],s=songById(it.song);
@@ -791,7 +793,8 @@ function openSong(setId,idx){
 }
 $("backBtn").onclick=()=>{eStop();stopRaf();$("songView").hidden=true;$("songsHome").hidden=false;renderSets()};
 function setKey(k){P.key=k;store.set("hc.lastKey."+P.song.id,k);
-  const set=setById(P.setId);if(set.bundled){bundledKeys[set.id]=bundledKeys[set.id]||{};bundledKeys[set.id][P.idx]=k}else{const ps=personalSets.find(z=>z.id===set.id);ps.items[P.idx].key=k}
+  for(const set of allSets())set.items.forEach((it,i)=>{if(it.song!==P.song.id)return;   // the key belongs to the song: every setlist that holds it follows
+    if(set.bundled){bundledKeys[set.id]=bundledKeys[set.id]||{};bundledKeys[set.id][i]=k}else{const ps=personalSets.find(z=>z.id===set.id);if(ps&&ps.items[i])ps.items[i].key=k}});
   saveSets();rebuild();restartIfPlaying();renderPlayer()}
 function chipGroup(id,val,onPick){document.querySelectorAll("#"+id+" .chip").forEach(b=>{b.setAttribute("aria-pressed",b.dataset.v===val);b.onclick=()=>onPick(b.dataset.v)})}
 function partRange(k){const ns=P.H[k],o=P.pref.oct[k]||0;let lo=Infinity,hi=-Infinity;for(const n of ns){lo=Math.min(lo,n.m+12*o);hi=Math.max(hi,n.m+12*o)}return[lo,hi]}
@@ -1889,7 +1892,7 @@ $("bdLyrics").oninput=()=>{applyLyrics(BD.notes,$("bdLyrics").value);if(BD.notes
 $("bdSave").onclick=()=>{if(!BD.notes.length)return;const r=bdReady();if(!r)return;applyLyrics(BD.notes,$("bdLyrics").value);
   const s=fixPickupChords(bdSong());s.notes=BD.notes.map(n=>({t:n.t,d:n.d,m:n.m,ly:n.ly||""}));
   const L=songLen(s);s.phrases=null;const list=userSongs().filter(x=>x.id!==s.id);list.push(s);store.set("hc.userSongs",list);
-  const ps=personalSets.find(z=>z.id===curSet);if(ps&&!ps.items.some(it=>it.song===s.id)){ps.items.push({song:s.id,key:s.key});saveSets()}
+  const ps=personalSets.find(z=>z.id===curSet);if(ps&&!ps.items.some(it=>it.song===s.id)){ps.items.push({song:s.id,key:lastKeyOf(s.id)});saveSets()}
   BD.editId=s.id;$("bdStatus").textContent="Saved"+(ps?" and added to "+ps.name:"")+". Open it from the setlist or library.";$("bdStatus").className="status good";$("bdDelete").hidden=false;
   if(L<1)$("bdStatus").textContent="Saved."};
 $("bdDelete").onclick=()=>{$("bdDelConfirm").hidden=false};$("bdDelNo").onclick=()=>{$("bdDelConfirm").hidden=true};
@@ -1929,7 +1932,7 @@ $("bdShotUndo").onclick=()=>{$("bdChart").value=BD.prevChart||"";$("bdShotUndo")
 function renderLibrary(){const ol=$("libList");ol.innerHTML="";const mine=new Set(userSongs().map(s=>s.id)),band=new Set(FILE_SONGS.map(s=>s.id));
   allSongs().forEach(s=>{const li=document.createElement("li");li.className="item";
     li.innerHTML=`<div style="min-width:0"><div class="t"></div><div class="meta"></div></div><div class="acts"></div>`;
-    li.querySelector(".t").textContent=s.title;li.querySelector(".meta").textContent="Key of "+keyName(s.key)+" · "+(s.example?"example":mine.has(s.id)?"on this device"+(band.has(s.id)?" (edited)":""):band.has(s.id)?"band songs file":"");
+    li.querySelector(".t").textContent=s.title;li.querySelector(".meta").textContent="Key of "+keyName(lastKeyOf(s.id))+" · "+(s.example?"example":mine.has(s.id)?"on this device"+(band.has(s.id)?" (edited)":""):band.has(s.id)?"band songs file":"");
     if(!s.example){const b=document.createElement("button");b.className="btn";b.textContent=s.quick?"Open":"Edit";b.onclick=()=>s.quick?qkOpen(s.id):openBuilder(s);li.querySelector(".acts").append(b)}
     ol.append(li)});
   $("exportBtn").disabled=IN_CLAUDE;if(IN_CLAUDE)$("exportHint").textContent="Sharing works in the standalone version (your GitHub link)."}
@@ -1952,9 +1955,10 @@ function qkUi(){const r=QK.rec;$("qkBtn").textContent=r?"■ Done":(QK.replace?"
 function qkHalt(){eStop();stopRaf();P.playing=false;$("playBtn").textContent="▶ Play";$("playBtn").classList.remove("live")}
 function qkSet(){let s=personalSets.find(x=>x.id==="sung");if(!s){s={id:"sung",name:"Sung takes",items:[]};personalSets.push(s)}return s}
 function qkOpen(id){const s=songById(id);if(!s)return false;const set=qkSet();let i=set.items.findIndex(it=>it.song===id);
-  if(i<0){set.items.push({song:id,key:s.key});i=set.items.length-1}saveSets();curSet="sung";openSong("sung",i);return true}
-function qkStore(song){const us=userSongs().filter(x=>x.id!==song.id);us.push(song);store.set("hc.userSongs",us);
-  personalSets.forEach(ps=>ps.items.forEach(it=>{if(it.song===song.id)it.key=song.key}));store.set("hc.lastKey."+song.id,song.key);saveSets()}
+  if(i<0){set.items.push({song:id,key:lastKeyOf(id)});i=set.items.length-1}saveSets();curSet="sung";openSong("sung",i);return true}
+function qkStore(song){const old=userSongs().find(x=>x.id===song.id),us=userSongs().filter(x=>x.id!==song.id);us.push(song);store.set("hc.userSongs",us);
+  if(!old||old.key!==song.key){const was=old?lastKeyOf(song.id):null,k=old&&was!==old.key?mod(was+song.key-old.key,12):song.key;   // you had moved it: keep it moved by the same amount
+    personalSets.forEach(ps=>ps.items.forEach(it=>{if(it.song===song.id)it.key=k}));store.set("hc.lastKey."+song.id,k)}saveSets()}
 function qkFinish(frames){const raw=quickNotes(frames);if(raw.err){qkSay(raw.err,"bad");return}
   const old=QK.replace&&songById(QK.replace);QK.replace=null;qkUi();
   const d=new Date(),id=old?old.id:"q"+Date.now().toString(36);
