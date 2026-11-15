@@ -227,6 +227,7 @@ details.lesson.done .lnum{background:var(--good);color:var(--bg)}details.lesson.
     <label class="field"><span class="label">Microphone</span><select id="tMic" aria-label="Microphone"></select></label>
     <p class="hint" style="margin:0">If it has trouble hearing you: hold or stand the phone 1–2 feet from your mouth with the bottom edge (where the mic is) facing you, make sure a case isn't covering the mic, and avoid Bluetooth earbud mics. The bar at the top right of the picture shows whether it's hearing you.</p>
     <label class="toggle"><input type="checkbox" id="xDrone" checked> Keep the target tone playing quietly while I sing</label>
+    <p class="hint" style="margin:0">For very quiet singing, turn that tone off or wear headphones. The phone hears its own tone, so while it plays only singing clearly louder than it counts.</p>
     <label class="toggle"><input type="checkbox" id="tPro"> Pro mode: I sing regularly. Open on the Check tab, tune to ±15¢, skip the beginner lessons, and add My maintenance to the routines.</label>
   </section>
   <footer class="hint" style="text-align:center;padding:24px 0 8px">© 2026 Matt O'Neil. All rights reserved.</footer>
@@ -480,10 +481,35 @@ function mpm(buf,sr,o){o=o||{};const W=buf.length,N=2*W;if(!MP||MP.sr!==sr||MP.W
   for(let t=1;t<=TM+1;t++){const a=buf[t-1],b=buf[W-t];m-=a*a+b*b;ns[t]=m>1e-12?2*(re[t]/N)/m:0}
   let t=1;while(t<TM&&ns[t]>0)t++;const pk=[];let inL=false,bi=0,bv=-1;
   for(;t<TM;t++){if(ns[t]>0){if(!inL){inL=true;bv=-1}if(ns[t]>bv){bv=ns[t];bi=t}}else if(inL){inL=false;pk.push([bi,bv])}}
+  if(inL&&bi<TM-2)pk.push([bi,bv]);   // a very low note: its peak was found but the curve hadn't come back down yet
   const ok=pk.filter(p=>p[0]>=tauMin);if(!ok.length)return{f:0,clar:0,rms};
   const mx=Math.max(...ok.map(p=>p[1])),[p]=ok.find(q=>q[1]>=.9*mx),a=ns[p-1],b=ns[p],c2=ns[p+1],den=a-2*b+c2,tau=p+(den?.5*(a-c2)/den:0);
   return{f:sr/tau,clar:b,rms}}
 const MIC={on:false};
+/* one block of sound in, one pitch reading out. Shared by the live microphone and loaded recordings.
+   Built to hear quiet and low singing:
+   - the sound is first narrowed to the band a sung note lives in (about 45 Hz to 2 kHz), which takes most of the mic's hiss out;
+   - the "room noise" level is learned only from sound with no pitch in it, so a long quiet note is never mistaken for the room;
+   - a quiet reading counts when it agrees with the reading just before it, since noise doesn't hold a pitch from one moment to the next;
+   - a steady machine hum is recognised by being too exact to be a voice, and ignored.
+   steadyTone = the app's own guide tone is playing: it leaks into the mic as a steady pitched sound, so in that case any steady sound
+   is treated as background (the older, stricter behaviour) and only singing clearly louder than it counts. */
+function micState(sr){return{sr,ring:new Float32Array(4096),floor:.0006,hp:0,hpx:0,l1:0,l2:0,last:null,hist:[],hum:0,aHP:Math.exp(-2*Math.PI*45/sr),aLP:1-Math.exp(-2*Math.PI*2000/sr)}}
+function micFrame(st,d,steadyTone){const R=st.ring,o=R.length-d.length;R.copyWithin(0,d.length);
+  for(let i=0;i<d.length;i++){const x=d[i];st.hp=st.aHP*(st.hp+x-st.hpx);st.hpx=x;st.l1+=st.aLP*(st.hp-st.l1);st.l2+=st.aLP*(st.l1-st.l2);R[o+i]=st.l2}
+  const r=mpm(R,st.sr,{fmin:45,rmsMin:.0002});let fl=st.floor;
+  if(steadyTone){if(r.rms<fl*1.6)fl=fl*.97+r.rms*.03;else fl*=1.0008}
+  else if(r.clar<.45){if(r.rms<fl*3)fl=fl*.94+r.rms*.06;else fl*=1.003}
+  else if(r.rms<fl)fl=fl*.9+r.rms*.1;
+  // a machine's hum (fridge, fan, amp) holds its pitch and level far more exactly than any voice can: once a sound has sat within
+  // about half a cent and a seventh of a decibel for two full seconds, its level is treated as background too
+  if(r.f&&r.clar>=.5&&!steadyTone){const H=st.hist;H.push([69+12*Math.log2(r.f/440),20*Math.log10(r.rms)]);if(H.length>88)H.shift();
+    if(H.length===88){let a=0,b=0;for(const h of H){a+=h[0];b+=h[1]}a/=88;b/=88;let va=0,vb=0;for(const h of H){va+=(h[0]-a)**2;vb+=(h[1]-b)**2}
+      st.hum=Math.sqrt(va/88)<.006&&Math.sqrt(vb/88)<.15?r.rms:st.hum*.98}}else{st.hist.length=0;st.hum*=.98}
+  st.floor=fl=Math.max(fl,.00015,st.hum);
+  const m=r.f?69+12*Math.log2(r.f/440):null,agrees=m!=null&&st.last!=null&&Math.abs(m-st.last)<.7;
+  r.m=m;r.floor=fl;r.voiced=!!r.f&&r.rms>=Math.max(.0004,(steadyTone?2:1.5)*fl)&&r.clar>=(r.rms>4*fl?.6:agrees?.55:.72);
+  st.last=r.f&&r.clar>=.5?m:null;return r}
 /* keep the screen on while recording: Screen Wake Lock, plus a tiny silent looping video for iPhones where the lock doesn't hold */
 const AWAKE={lock:null,video:null,on:false};
 /* keep the screen on while anything needs it (recording, meter, tuner). Each asks under its own name; the screen stays on until all are done.
@@ -508,11 +534,9 @@ async function micStart(cb){
   const a=ac();for(let k=0;k<5&&a.state!=="running";k++){try{await a.resume()}catch(e){}await new Promise(r=>setTimeout(r,80))}   // iOS can pause audio when the mic opens
   refreshMics();
   const src=a.createMediaStreamSource(stream),sp=a.createScriptProcessor(1024,1,1),mute=a.createGain();mute.gain.value=0;
-  // a longer listening window catches low voices; the loudness gate follows the room's noise level instead of a fixed line, so normal singing a few feet away still counts
-  const ring=new Float32Array(4096);let floor=.002;
-  sp.onaudioprocess=ev=>{if(!MIC.on)return;const d=ev.inputBuffer.getChannelData(0);ring.copyWithin(0,d.length);ring.set(d,ring.length-d.length);
-    const r=mpm(ring,a.sampleRate,{fmin:55,rmsMin:.0008});if(r.rms<floor*1.6)floor=floor*.97+r.rms*.03;else floor*=1.0008;
-    r.time=a.currentTime-2048/a.sampleRate/2;r.m=r.f?69+12*Math.log2(r.f/440):null;r.voiced=!!r.f&&r.rms>=Math.max(.001,2*floor)&&r.clar>=(r.rms>4*floor?.6:.72);r.floor=floor;MIC.lv=r.rms/Math.max(floor,1e-4);MIC.heard=r.voiced;cb(r)};
+  const st=micState(a.sampleRate);
+  sp.onaudioprocess=ev=>{if(!MIC.on)return;const r=micFrame(st,ev.inputBuffer.getChannelData(0),typeof BX!=="undefined"&&!!BX.drone);
+    r.time=a.currentTime-2048/a.sampleRate/2;MIC.lv=r.rms/Math.max(r.floor,1e-4);MIC.heard=r.voiced;cb(r)};
   src.connect(sp);sp.connect(mute);mute.connect(a.destination);
   Object.assign(MIC,{on:true,stream,src,sp,mute,t0:Date.now()});
 }
@@ -589,10 +613,10 @@ function drawMeter(){const cv=$("xCv"),w=cv.parentElement.clientWidth||320,h=210
     for(const p of BX.trace){if(now-p.t>span)continue;let m=p.m;if(ref!=null)m=ref+octErr(m,ref)/100;const x=X(p.t),y=Y(m);
       if(!pen||p.t-lt>.12){c.moveTo(x,y);pen=true}else c.lineTo(x,y);lt=p.t}c.stroke();
     const last=BX.trace[BX.trace.length-1];if(now-last.t<.15){let m=last.m;if(ref!=null)m=ref+octErr(m,ref)/100;c.fillStyle=cssv("--accent");c.beginPath();c.arc(X(last.t),Y(m),6,0,7);c.fill()}}
-  if(BX.on&&MIC.on){const lv=Math.max(0,Math.min(1,Math.log10(Math.max(1,MIC.lv||1))/2)),bw=60,bx=w-bw-8;c.fillStyle=cssv("--chip");c.fillRect(bx,6,bw,8);c.fillStyle=MIC.heard?cssv("--good"):lv>.35?cssv("--warn"):cssv("--muted");c.fillRect(bx,6,bw*lv,8);
+  if(BX.on&&MIC.on){const lv=Math.max(0,Math.min(1,Math.log10(Math.max(1,MIC.lv||1))/1.6)),bw=60,bx=w-bw-8;c.fillStyle=cssv("--chip");c.fillRect(bx,6,bw,8);c.fillStyle=MIC.heard?cssv("--good"):lv>.35?cssv("--warn"):cssv("--muted");c.fillRect(bx,6,bw*lv,8);
     c.fillStyle=muted;c.textAlign="right";c.fillText(MIC.heard?"hearing you":lv>.35?"sound, no clear pitch":"mic",bx-6,10);c.textAlign="left"}
   if(vh){c.fillStyle=cssv("--chip");c.fillRect(40,ph+2,w-40,vh-4);c.fillStyle=muted;c.fillText("loud",4,ph+10);c.fillText("soft",4,h-8);
-    c.strokeStyle=cssv("--accent");c.lineWidth=2;c.beginPath();let pen=false;for(const p of BX.vol){if(now-p.t>span)continue;const y=h-3-Math.max(0,Math.min(1,(p.db+50)/44))*(vh-6),x=X(p.t);if(!pen){c.moveTo(x,y);pen=true}else c.lineTo(x,y)}c.stroke()}}
+    c.strokeStyle=cssv("--accent");c.lineWidth=2;c.beginPath();let pen=false;for(const p of BX.vol){if(now-p.t>span)continue;const y=h-3-Math.max(0,Math.min(1,(p.db+66)/60))*(vh-6),x=X(p.t);if(!pen){c.moveTo(x,y);pen=true}else c.lineTo(x,y)}c.stroke()}}
 function xAnim(){drawMeter();BX.raf=requestAnimationFrame(xAnim)}
 function xStopAll(){micStop();droneOff();cancelAnimationFrame(BX.raf);BX.on=false;BX.busy=false;clearTimeout(BX.timer);clearInterval(BX.iv);drawMeter()}
 async function xMic(onFrame){try{await micStart(f=>{const t=f.time;if(f.voiced){BX.trace.push({t,m:f.m});if(BX.trace.length>1500)BX.trace.shift()}
@@ -1151,7 +1175,7 @@ function swellStats(a){const db=a.body.map(x=>x.db),sm=db.map((x,i)=>median(db.s
   const loud=a.smooth.filter((x,i)=>sm[i]>=lo+range*.66),soft=a.smooth.filter((x,i)=>sm[i]<=lo+range*.33);return{range,shift:loud.length&&soft.length?median(loud)-median(soft):0}}
 function vcHold(fr,tgt){const V=fr.filter(f=>f.voiced&&f.m!=null&&Math.abs(octErr(f.m,tgt))<200);if(V.length<15)return null;const a=analyzeHold(V,tgt,V[0].t);if(!a||a.short)return null;
   const res=a.body.map((x,i)=>x.c-a.smooth[i]);let zc=0;for(let i=1;i<res.length;i++)if(res[i-1]<0!==res[i]<0)zc++;
-  const t0=V[0].t,first=median(V.filter(f=>f.t-t0<=.15).map(f=>octErr(f.m,tgt))),sw=swellStats(a);
+  const t0=V[0].t,fw=V.filter(f=>f.t-t0>=.12&&f.t-t0<=.2).map(f=>octErr(f.m,tgt)),first=fw.length?median(fw):0,sw=swellStats(a);
   return{avg:a.avg,wob:a.wob,drift:a.drift,clar:a.clar??1,settle:a.settle,secs:spanOf(V),db:median(a.dbs),range:sw.range,shift:sw.shift,vibHz:a.dur>0?zc/2/a.dur:0,vibExt:2.83*sd(res),first}}
 function vowelSegs(fr,L,D,tgt){const F=fr.filter(f=>f.voiced&&f.k!=null);if(!F.length)return null;const t0=F[0].t;
   const seg=L.map((v,k)=>{const w=F.filter(f=>f.k===k&&f.t-t0-k*D>=.35);if(w.length<6)return null;const c=w.map(f=>octErr(f.m,tgt));return{v,c:median(c),db:median(w.map(f=>dbOf(f.rms))),cl:median(w.map(f=>f.clar)),sd:sd(c)}});
@@ -1181,8 +1205,8 @@ function exVCheck(){BX.showVol=true;meterShow(true);panel(vcHistory());
     xStopAll();vcFinish(R)},true)}
 function vcFinish(R){const lands=[0,1,2,3,4,5].map(i=>R["p"+i]).filter(Boolean),sws=[R.sw0,R.sw1,R.sw2],swOk=sws.filter(Boolean),vws=[R.vw1,R.vw2].filter(Boolean);
   if(!R.sus||lands.length<4||swOk.length<2||!vws.length){xBig("");xMsg("Too many steps weren't heard to score this one, so it wasn't saved. Check the microphone and try again.","warn");panel(vcHistory());return}
-  const err=mean(lands.map(a=>Math.abs(a.avg))),settle=mean(lands.map(a=>a.settle??1)),scoops=lands.filter(a=>a.first<-30).length,rg=mean(swOk.map(a=>a.range)),sh=mean(swOk.map(a=>Math.abs(a.shift)));
-  const sc={pitch:clamp100(100-Math.max(0,err-5)*2.2-Math.max(0,settle-.25)*40-(6-lands.length)*8),
+  const err=mean(lands.map(a=>Math.abs(a.avg))),settle=mean(lands.map(a=>a.settle??1)),scoops=lands.filter(a=>a.first<-50).length,rg=mean(swOk.map(a=>a.range)),sh=mean(swOk.map(a=>Math.abs(a.shift)));
+  const sc={pitch:clamp100(100-Math.max(0,err-5)*2.2-Math.max(0,settle-.3)*40-(6-lands.length)*8),
     dyn:clamp100(Math.min(100,rg/18*100)*.5+Math.max(0,100-Math.max(0,sh-5)*3)*.5-(R.soft?Math.max(0,R.soft.wob-8)*1.5:10)),
     tone:clamp100(100-Math.max(0,.93-R.sus.clar)*300-(R.soft?Math.max(0,.93-R.soft.clar)*200:0)-Math.max(0,R.sus.wob-6)*2.2-Math.max(0,Math.abs(R.sus.drift)-10)),
     vow:clamp100(mean(vws.map(v=>100-Math.max(0,v.cSpread-8)*1.6-Math.max(0,v.dSpread-4)*3-(v.clMin<.88?10:0))))};
@@ -1199,7 +1223,7 @@ function vcFinish(R){const lands=[0,1,2,3,4,5].map(i=>R["p"+i]).filter(Boolean),
   xBig(grade(all),all>=80?"good":"");xReport(VC_AREAS.map(([k,name])=>[name,grade(sc[k])+" · "+Math.round(sc[k]),sc[k]>=80?"g":sc[k]<70?"b":""]),grade(all));
   const vib=e.m.vibExt>20?`${e.m.vibHz.toFixed(1)} per second, about ${Math.round(e.m.vibExt)}¢ wide`:"little or none on the sustained note";
   panel((flags.length?`<div class="notice"><b>Below your baseline:</b><br>${flags.join("<br>")}</div>`:n>=3?`<div class="verdict go"><b>Holding steady.</b> Nothing fell below your own baseline.</div>`:`<p class="hint" style="margin:0">Check ${n+1} of the 3 needed to set your baseline.</p>`)+
-    `<ul class="vlist"><li><b>Pitch:</b> landed ${Math.round(err)}¢ off on average, settled in ${settle.toFixed(1)} s${scoops?`, slid up into ${scoops} of ${lands.length}`:", no scooping"}.</li>
+    `<ul class="vlist"><li><b>Pitch:</b> landed ${Math.round(err)}¢ off on average, settled in ${settle.toFixed(1)} s${scoops?`, still sliding up an eighth of a second in on ${scoops} of ${lands.length}`:""}.</li>
     <li><b>Dynamics:</b> soft-to-loud span ${sws.map((a,i)=>a?`${reg[i]} ${Math.round(a.range)} dB`:`${reg[i]} not heard`).join(", ")}; pitch moved ${Math.round(sh)}¢ with volume.</li>
     <li><b>Tone:</b> ${R.sus.clar>=.93?"clear":R.sus.clar>=.88?"a little airy":"airy"} on the sustained note${R.soft?`, ${R.soft.clar>=.93?"clear":R.soft.clar>=.88?"a little airy":"airy"} when quiet`:""}; held ${e.m.mpt.toFixed(0)} s; vibrato ${vib}.</li>
     <li><b>Vowels:</b> ${vws.map((v,i)=>`${vws.length>1?(v===R.vw1?"middle":"high"):"one run"}: pitch spread ${Math.round(v.cSpread)}¢, volume spread ${Math.round(v.dSpread)} dB`).join("; ")}. Furthest off: "${VW[wv.worst.v]}" (${sgnC(wv.worst.c-wv.mc)}).</li></ul>`+vcHistory());
@@ -1236,11 +1260,13 @@ function analyzeTake(fr,opt){const t00=fr.length?fr[0].t:0;fr.forEach(f=>f.t-=t0
   const notes=segs.map((s,i)=>{const v=s.m-center/100,n=Math.round(v),F=V.filter(f=>f.t>=s.start&&f.t<=s.end),len=s.end-s.start,pv=segs[i-1],nx=segs[i+1];
     // the slide into a note and the fall off its end sit just outside the settled part; they only count next to silence,
     // because a glide between two joined notes is ordinary legato, not a scoop
-    const pre=V.filter(f=>f.t<s.start&&f.t>=s.start-.22&&(!pv||f.t>pv.end+.02)&&Math.abs(f.m-s.m)<3),post=V.filter(f=>f.t>s.end&&f.t<=s.end+.3&&(!nx||f.t<nx.start-.02)&&Math.abs(f.m-s.m)<3);
+    const pre=V.filter(f=>f.t<s.start&&f.t>=s.start-.5&&(!pv||f.t>pv.end+.02)&&Math.abs(f.m-s.m)<3),post=V.filter(f=>f.t>s.end&&f.t<=s.end+.3&&(!nx||f.t<nx.start-.02)&&Math.abs(f.m-s.m)<3);
     const on=pre.concat(F),fromSilence=on.length>3&&(!pv||on[0].t-pv.end>.1),toSilence=!nx||nx.start-s.end>.3,all=F.concat(post),tEnd=all[all.length-1].t,last=all.filter(f=>f.t>=tEnd-.22).map(f=>f.m);
-    const head=fromSilence?(median(on.filter(f=>f.t-on[0].t<=.07).map(f=>f.m))-s.m)*100:0;
+    // Every sung note takes about an eighth of a second to settle (the folds starting up, and the consonant in front of the vowel),
+    // so that stretch is never judged. A slide only counts if the pitch is still well under the note after it.
+    const hw=on.filter(f=>f.t-on[0].t>=.12&&f.t-on[0].t<=.2).map(f=>f.m),head=fromSilence&&hw.length>=2?(median(hw)-s.m)*100:0;
     const tail=toSilence&&last.length>=4?(mean(last)-s.m)*100:0;   // the last fifth of a second, averaged so vibrato cancels out
-    return{t:s.start,len,m:s.m,n,dev:(v-n)*100,db:median(F.map(f=>dbOf(f.rms))),cl:median(F.map(f=>f.clar??1)),head,tail,ms:s.ms,end:s.end}});
+    return{t:s.start,len,m:s.m,n,dev:(v-n)*100,db:median(F.map(f=>dbOf(f.rms))),cl:median(F.map(f=>f.clar??1)),head,tail,full:s.end-(fromSilence?on[0].t:s.start),ms:s.ms,end:s.end}});
   // key: which major or minor key the notes fit best, by how long each note was sung
   const w=new Array(12).fill(0);notes.forEach(x=>w[mod(x.n,12)]+=x.len);let best=-9,tonic=0,minor=false;
   const corr=(P,T)=>{const mw=mean(w),mp=mean(P);let a=0,b=0,c=0;for(let p=0;p<12;p++){const x=w[p]-mw,y=P[mod(p-T,12)]-mp;a+=x*y;b+=x*x;c+=y*y}return a/Math.sqrt(b*c||1)};
@@ -1256,7 +1282,7 @@ function analyzeTake(fr,opt){const t00=fr.length?fr[0].t:0;fr.forEach(f=>f.t-=t0
   const pct=100*notes.filter(x=>x.st!=="off").length/notes.length,credit=mean(notes.map(x=>x.st!=="off"?1:Math.max(0,Math.min(1,1-(x.err-TOL)/10))));
   const pen=Math.min(15,stats.reduce((s,g)=>s+(g.count>=4?5*Math.max(0,Math.min(1,(g.off/g.count-.3)/.3)):0),0)),score=clamp100(100*credit-pen);
   // singer's findings
-  const longN=notes.filter(x=>x.len>=.3),scoops=longN.filter(x=>x.head<-35),ends=[];notes.forEach((x,i)=>{const nx=notes[i+1];if((!nx||nx.t-x.end>.35)&&x.len>=.4)ends.push(x)});
+  const longN=notes.filter(x=>x.full>=.4),scoops=longN.filter(x=>x.head<-50),ends=[];notes.forEach((x,i)=>{const nx=notes[i+1];if((!nx||nx.t-x.end>.35)&&x.len>=.4)ends.push(x)});
   const sag=ends.filter(x=>x.tail<-20),lo=Math.min(...notes.map(x=>x.n)),hi=Math.max(...notes.map(x=>x.n)),rg=x=>x.n<lo+(hi-lo)/3?0:x.n>hi-(hi-lo)/3?2:1,byReg=[0,1,2].map(r=>{const g=notes.filter(x=>rg(x)===r);return g.length>=4?median(g.map(x=>x.dev)):null});
   const dbs=notes.map(x=>x.db).sort((a,b)=>a-b),q1=dbs[Math.floor(dbs.length/3)],q2=dbs[Math.floor(2*dbs.length/3)],loud=notes.filter(x=>x.db>=q2),soft=notes.filter(x=>x.db<=q1),loudShift=loud.length>=4&&soft.length>=4?median(loud.map(x=>x.dev))-median(soft.map(x=>x.dev)):0;
   const vib=notes.filter(x=>x.len>=.8).map(x=>{const c=x.ms.slice(Math.floor(x.ms.length*.25)).map(m=>(m-x.m)*100),sm=c.map((v,i)=>mean(c.slice(Math.max(0,i-5),i+6))),r=c.map((v,i)=>v-sm[i]);let z=0;for(let i=1;i<r.length;i++)if(r[i-1]<0!==r[i]<0)z++;
@@ -1265,32 +1291,31 @@ function analyzeTake(fr,opt){const t00=fr.length?fr[0].t:0;fr.forEach(f=>f.t-=t0
     vib:vib.length>=2?{hz:median(vib.map(v=>v.hz)),ext:median(vib.map(v=>v.ext)),n:vib.length}:null,problems:stats.filter(s=>s.count>=4&&s.off/s.count>=.45).sort((a,b)=>b.off-a.off),dur:fr.length?fr[fr.length-1].t:0,tol:TOL}}
 async function framesFromFile(file,onProg){const buf=await new Promise(async(res,rej)=>{const p=ac().decodeAudioData(await file.arrayBuffer(),res,rej);if(p&&p.then)p.then(res,rej)});
   const n=buf.length,sr=buf.sampleRate,x=new Float32Array(n);for(let c=0;c<buf.numberOfChannels;c++){const d=buf.getChannelData(c);for(let i=0;i<n;i++)x[i]+=d[i]/buf.numberOfChannels}
-  const ring=new Float32Array(4096),fr=[];let floor=.002;
-  for(let i=0,k=0;i+1024<=n;i+=1024,k++){ring.copyWithin(0,1024);ring.set(x.subarray(i,i+1024),3072);const r=mpm(ring,sr,{fmin:55,rmsMin:.0008});if(r.rms<floor*1.6)floor=floor*.97+r.rms*.03;else floor*=1.0008;
-    const voiced=!!r.f&&r.rms>=Math.max(.001,2*floor)&&r.clar>=(r.rms>4*floor?.6:.72);fr.push({t:(i+1024)/sr-2048/sr,m:r.f?69+12*Math.log2(r.f/440):null,rms:r.rms,clar:r.clar,voiced});
+  const st=micState(sr),fr=[];
+  for(let i=0,k=0;i+1024<=n;i+=1024,k++){const r=micFrame(st,x.subarray(i,i+1024),false);fr.push({t:(i+1024)/sr-2048/sr,m:r.m,rms:r.rms,clar:r.clar,voiced:r.voiced});
     if(k%300===0){onProg(i/n);await wait(0)}}
   return fr}
 function takeHistory(){if(!S.takes.length)return"";return`<h3 style="margin:6px 0 0">Recent takes</h3><table class="vtab"><tr><th>Date</th><th>Take</th><th>Score</th><th>Notes</th></tr>`+
   S.takes.slice(-10).reverse().map(t=>`<tr><td>${fmtDay(t.d)}</td><td>${String(t.name).replace(/[&<>"]/g,"")}</td><td><b>${t.g}</b> ${t.sc}</td><td>${t.n}</td></tr>`).join("")+`</table>`}
-function takeReport(r,name){const key=keyName(r.tonic)+(r.minor?" minor":" major"),W=[],I=[],reg=["low","middle","high"];
+function takeReport(r,name){const key=keyName(r.tonic)+(r.minor?" minor":" major"),W=[],I=[],N=[],reg=["low","middle","high"];
   S.takes.push({d:Date.now(),name,sc:Math.round(r.score),g:r.g,n:r.notes.length,ctr:Math.round(r.center)});S.takes=S.takes.slice(-30);saveS();
   xBig(r.g,r.score>=80?"good":"");xReport([["Intonation",r.g+" · "+Math.round(r.score)+"/100",r.score>=80?"g":r.score<70?"b":""],["Notes accepted",Math.round(r.pct)+"% of "+r.notes.length],["Key",key],["Pitch level",r.a440?"graded against A440":sgnC(r.center)+" vs A440"]],r.g);
   r.stats.filter(s=>s.count>=3&&(s.count-s.off)/s.count>=.85).sort((a,b)=>b.count-a.count).slice(0,3).forEach(s=>W.push(`<b>${nn(s.n)}:</b> ${s.count-s.off} of ${s.count} accepted, usually ${sgnC(s.med)}.`));
-  if(r.longN>=6&&r.scoops.length/r.longN<=.1)W.push("<b>Clean starts:</b> you landed on your notes instead of sliding up to them.");
   if(r.ends>=3&&!r.sag.length)W.push(`<b>Phrase ends held:</b> all ${r.ends} phrase-ending notes stayed up to pitch.`);
   if(Math.abs(r.driftC)<=10&&r.notes.length>=18)W.push("<b>Pitch level held:</b> you ended the take where you started.");
   if(r.vib)W.push(`<b>Vibrato:</b> about ${r.vib.hz.toFixed(1)} per second and ${Math.round(r.vib.ext)}¢ wide on ${r.vib.n} long notes${r.vib.hz>=4.5&&r.vib.hz<=6.5?", an even, usual rate":r.vib.hz<4.5?", on the slow side":", on the fast side"}.`);
   r.problems.slice(0,3).forEach(s=>I.push(`<b>${nn(s.n)}:</b> ${s.off} of ${s.count} flagged, usually ${sgnC(s.med)} (${s.med>0?"sharp":"flat"}). At ${s.times.slice(0,5).map(mmss).join(", ")}.`));
-  if(r.longN>=6&&r.scoops.length/r.longN>.2)I.push(`<b>Scooping:</b> you slid up into ${r.scoops.length} of ${r.longN} longer notes. At ${r.scoops.slice(0,5).map(x=>mmss(x.t)).join(", ")}.`);
   if(r.sag.length>=2||(r.sag.length&&r.sag.length/r.ends>=.3))I.push(`<b>Phrase ends sag:</b> ${r.sag.length} of ${r.ends} phrase-ending notes fell off flat (around ${Math.round(median(r.sag.map(x=>x.tail)))}¢). At ${r.sag.slice(0,5).map(x=>mmss(x.t)).join(", ")}.`);
   r.byReg.forEach((d,i)=>{if(d!=null&&Math.abs(d)>12)I.push(`<b>${reg[i][0].toUpperCase()+reg[i].slice(1)} notes run ${d>0?"sharp":"flat"}:</b> usually ${sgnC(d)} in the ${reg[i]} third of what you sang.`)});
   if(Math.abs(r.loudShift)>12)I.push(`<b>Pitch follows volume:</b> your loud notes sit ${sgnC(r.loudShift)} against your quiet ones.`);
   if(Math.abs(r.driftC)>15)I.push(`<b>Pitch level drifted:</b> by the end you were ${sgnC(r.driftC)} from where you started${r.driftC<0?" (sinking, the common one unaccompanied)":""}.`);
   if(r.airy/r.notes.length>.25)I.push(`<b>Airy tone:</b> ${r.airy} of ${r.notes.length} notes read as breathy.`);
   const loose=r.notes.filter(x=>x.st==="off"&&!r.problems.some(p=>p.n===x.n));if(loose.length)I.push(`<b>Scattered misses:</b> ${loose.length} other note${loose.length>1?"s":""} flagged, at ${loose.slice(0,6).map(x=>mmss(x.t)).join(", ")}${loose.length>6?"…":""}.`);
+  if(r.scoops.length)N.push(`<b>Slides into notes:</b> ${r.scoops.length} of your ${r.longN} longer notes were still 50¢ or more under pitch an eighth of a second in, which is longer than a normal note start. At ${r.scoops.slice(0,6).map(x=>mmss(x.t)).join(", ")}${r.scoops.length>6?"…":""}. Not scored: in this music a slide is often a choice.`);
   panel(`<h3 style="margin:0">What's working</h3><ul class="vlist">${(W.length?W:["Nothing stands out yet. Longer takes give more to measure."]).map(x=>`<li>${x}</li>`).join("")}</ul>
     <h3 style="margin:0">Issues</h3><ul class="vlist">${(I.length?I:["No recurring problems found."]).map(x=>`<li>${x}</li>`).join("")}</ul>
-    <p class="hint" style="margin:0">A note counts when it is within ±${r.tol}¢ of equal temperament or of the pure interval in ${key}. A 3rd, 6th or 7th also counts when you place it the same in-between way every time. Timing isn't graded for sung takes yet.</p>`+takeHistory())}
+    ${N.length?`<h3 style="margin:0">Style notes</h3><ul class="vlist">${N.map(x=>`<li>${x}</li>`).join("")}</ul>`:""}
+    <p class="hint" style="margin:0">A note counts when it is within ±${r.tol}¢ of equal temperament or of the pure interval in ${key}. A 3rd, 6th or 7th also counts when you place it the same in-between way every time. The first eighth of a second of every note is left out, because every voice takes about that long to settle. Timing isn't graded for sung takes yet.</p>`+takeHistory())}
 function exTake(){meterShow(true);BX.fit=true;BX.span=8;const T={fr:[],on:false,t0:0};panel(takeHistory());S.set.tkRef=S.set.tkRef||"own";
   xCue("Sing a verse and chorus, or a whole song, up to five minutes. With a guitar or a track, use headphones or keep the instrument quiet so the phone hears mostly you.");
   const fin=async(fr,name)=>{xMsg("Working it out…");await wait(30);const r=analyzeTake(fr,{a440:S.set.tkRef==="a440",key:-1});
