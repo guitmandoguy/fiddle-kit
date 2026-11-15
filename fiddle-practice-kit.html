@@ -222,6 +222,10 @@ ul.report b{font-weight:600}
 #viewBreaks .ch i{font-style:normal;font-family:var(--mono);font-size:.72rem;color:var(--muted)}
 #viewBreaks .deal{appearance:none;border:0;border-radius:10px;background:var(--accent);color:var(--on-accent);font-family:var(--display);font-stretch:85%;font-weight:800;font-size:1.25rem;letter-spacing:.02em;padding:14px 18px;cursor:pointer;width:100%}
 #viewBreaks .deal:active{transform:translateY(1px)}
+#viewBreaks .dealrow{display:flex;gap:10px;align-items:stretch}
+#viewBreaks .dealrow .bd-seg{flex:none;flex-wrap:nowrap;align-items:stretch}
+#viewBreaks .dealrow .bd-chip{white-space:nowrap}
+#viewBreaks .dealrow .deal{flex:1;width:auto}
 #viewBreaks :focus-visible{outline:2px solid var(--accent);outline-offset:2px}
 #viewBreaks .bd-seg{display:flex;flex-wrap:wrap;gap:6px}
 #viewBreaks .bd-chip{appearance:none;border:1px solid var(--line);background:var(--surface);color:var(--ink);border-radius:999px;padding:6px 12px;font:inherit;font-size:.9rem;cursor:pointer}
@@ -815,7 +819,7 @@ ul.report b{font-weight:600}
   <!-- ================= TUNER ================= -->
   <!-- ================= BREAK DECK ================= -->
   <div class="view" id="viewBreaks" hidden>
-    <p class="sub">Deal a key, a tempo, a bluegrass progression and a rule to play your break under. Lock anything you want to keep and redeal the rest.</p>
+    <p class="sub">Deal a key, a tempo, a bluegrass progression and one or two ideas you have to stick with for the whole break. Lock anything you want to keep and redeal the rest.</p>
 
 
   <section class="table" aria-live="polite">
@@ -832,21 +836,20 @@ ul.report b{font-weight:600}
       <p class="bd-hint">One bar of count-in clicks, then the band loops the form. Plays with the ringer on silent. In Safari it keeps going when the screen locks; inside the Claude app that depends on the app.</p>
       <p class="bd-hint credit">Mandolin chops recorded by Matt O'Neil. Guitar and bass samples: tonejs-instruments, CC BY 3.0.</p>
     </div>
-    <div class="card prompt" id="c-p0"><div class="lab"><span>Rule</span><div class="tools"></div></div><div class="val"></div></div>
-    <div class="card prompt" id="c-p1"><div class="lab"><span>Rule</span><div class="tools"></div></div><div class="val"></div></div>
+    <div class="card prompt" id="c-p0"><div class="lab"><span>Idea to stick with</span><div class="tools"></div></div><div class="val"></div></div>
+    <div class="card prompt" id="c-p1"><div class="lab"><span>Second idea</span><div class="tools"></div></div><div class="val"></div></div>
   </section>
 
-  <button class="deal" id="deal" type="button">Deal</button>
+  <div class="dealrow">
+    <div class="bd-seg" id="count" role="group" aria-label="Ideas per deal"></div>
+    <button class="deal" id="deal" type="button">Deal</button>
+  </div>
 
   <details id="settings">
     <summary>Settings</summary>
     <div class="bd-panel">
       <div class="bd-field">
-        <span class="flabel">Rules per deal</span>
-        <div class="bd-seg" id="count"></div>
-      </div>
-      <div class="bd-field">
-        <span class="flabel">Rule types</span>
+        <span class="flabel">Idea types</span>
         <div class="bd-seg" id="cats"></div>
       </div>
       <div class="bd-field">
@@ -2627,54 +2630,236 @@ tuSync();
 const KEYS = ["G","A","B♭","B","C","D","E","F","Am","Em","Bm"];
 const DEFAULT_KEYS = ["G","A","D","C","E","B♭"];
 
-const PROMPTS = {
+// Each idea may end with |tags naming what it pins down (str = which strings, bow = bowing, set = which notes, plen = phrase length,
+// dens = how busy, and so on). Two ideas that pin down the same thing can't both be followed, so they are never dealt together.
+const PROMPT_SRC = {
   melodic:{label:"Note choice",items:[
-    "Start every phrase on the 3rd of the chord",
-    "End every phrase on the 7th or 9th, never the root",
+    "Start every phrase on the 3rd of the chord|start",
+    "Start every phrase on the 5th of the chord|start",
+    "Start every phrase on the root and end it somewhere else|start end",
+    "End every phrase on the 7th or 9th, never the root|end",
+    "End every phrase on the 3rd of the chord|end",
+    "End every phrase on the 6th|end",
     "Target the guide tone of the next chord on each change",
-    "No open strings",
-    "One string only: G",
-    "One string only: D",
-    "One string only: A",
-    "One string only: E",
-    "Stay in 3rd position the whole break",
-    "Major pentatonic notes only",
-    "Blues third on every I chord, avoid it on the IV",
+    "Chord tones on the strong beats, anything you like in between",
+    "No open strings|open",
+    "Use an open string in every phrase|open pos",
+    "One string only: G|str ds",
+    "One string only: D|str ds",
+    "One string only: A|str ds",
+    "One string only: E|str ds",
+    "G and D strings only|str reg",
+    "D and A strings only|str reg",
+    "A and E strings only|str reg",
+    "Nothing above the A string|str reg",
+    "Nothing below the open A string|str reg",
+    "Stay inside one octave|reg",
+    "Use your whole range: touch your lowest and highest notes in every pass|reg str pos",
+    "Stay in 2nd position the whole break|pos open",
+    "Stay in 3rd position the whole break|pos open",
+    "First half in first position, second half in 3rd|pos str",
+    "Shift position at least once in every phrase|pos str",
+    "Major pentatonic notes only|set",
+    "Minor pentatonic over the whole break for a bluesy sound|set",
+    "Mixolydian: flat the 7th every time you play it|set",
+    "Limit yourself to five different notes|set",
+    "Blues third on every I chord, avoid it on the IV|set",
+    "Use both the major and the blues third, and make the slide between them obvious|set slide",
+    "Chromatic passing notes between chord tones wherever they fit|set",
+    "No 4th of the scale anywhere except over the IV chord|set",
+    "No roots on the I chord",
+    "Hit the 6th of the chord in every bar",
+    "Hold the 9th as a long note at least once per pass",
     "Outline each chord's arpeggio somewhere in each bar",
     "Approach every target note from a half step below",
-    "Nothing above the A string",
-    "Save your highest note for the last phrase",
-    "Limit yourself to five different notes"]},
+    "Enclose your target notes: one note above, one below, then land",
+    "Stepwise motion only: no leaps bigger than a third|leap",
+    "Every phrase must include a leap of a sixth or more|leap str",
+    "Move in broken thirds up or down the scale",
+    "Move in broken sixths across the strings|str",
+    "Save your highest note for the last phrase|peak",
+    "Each phrase starts higher than the one before|peak reg",
+    "Each phrase starts lower than the one before|peak reg",
+    "Put your lowest note in the last bar|peak"]},
   rhythm:{label:"Rhythm & phrasing",items:[
-    "No notes on beat 1",
-    "Start every phrase on the \"and\" of 1",
-    "Quarter notes only for the first half, then let loose",
-    "Leave a full bar of silence every 4 bars",
-    "Call and response: 2 bars playing, 2 bars answering yourself",
-    "Same rhythm for every phrase, change only the notes",
+    "No notes on beat 1|b1",
+    "Start every phrase on the \"and\" of 1|pst b1",
+    "Start every phrase on beat 2|pst b1",
+    "Start every phrase with a three-note pickup into beat 1|pst b1",
+    "Play across the bar line: no phrase may start or end on beat 1|pst b1",
+    "End every phrase on an off-beat|pend",
+    "End every phrase on beat 1 of the next bar|pend",
+    "Quarter notes only for the first half, then let loose|dens",
+    "Half notes and whole notes only|dens",
+    "Straight eighth notes with no rests for the whole break|dens sil plen",
+    "Make the second half twice as busy as the first|dens",
+    "Make the second half half as busy as the first|dens",
+    "Start sparse and add one more note to each phrase|dens",
+    "Leave a full bar of silence every 4 bars|sil plen",
+    "Leave the last bar of each section empty for the band|sil",
+    "Rest on beat 3 of every bar|sil dens",
+    "Play half as much as you want to: double the length of every rest|sil dens",
+    "Call and response: 2 bars playing, 2 bars answering yourself|plen",
+    "Only 1-bar phrases with a breath between each|plen",
+    "Only 2-bar phrases|plen",
+    "Only 4-bar phrases|plen",
+    "Phrases of 3 bars: let them cross the form|plen",
+    "One 8-bar phrase, a rest, then another|plen",
+    "Same rhythm for every phrase, change only the notes|rhy",
+    "Repeat one rhythmic figure through a whole section, then break it|rhy",
     "Hold one long note across each chord change",
-    "Shuffle feel instead of straight eighths",
-    "Only 2-bar phrases",
-    "Only 4-bar phrases",
-    "Play it half time"]},
+    "Long note, short answer: alternate a held note with a quick lick",
+    "Shuffle feel instead of straight eighths|feel bow",
+    "Swing the eighths hard on the first pass, straight on the second|feel",
+    "Dotted rhythms: long-short all the way through|feel dens",
+    "Use triplets somewhere in every phrase|feel",
+    "Play it half time|feel dens",
+    "One sixteenth-note burst per phrase, everything else relaxed",
+    "Syncopate: tie over every bar line|b1",
+    "Accent the off-beats all the way through|acc",
+    "Accent in threes across the eighth notes (3 + 3 + 2)|acc bow",
+    "Play behind the beat, as laid back as you can without dragging|place",
+    "Play on top of the beat: push without rushing|place",
+    "Anticipate every chord change by an eighth note|arr",
+    "Arrive late at every chord change: land on beat 2|arr b1"]},
   texture:{label:"Texture & bowing",items:[
-    "Double stops for the whole break",
-    "Nashville shuffle bowing only",
-    "Georgia shuffle bowing only",
-    "Slur everything, no separate bows",
-    "Drone a string under your line throughout",
-    "End every phrase with a chop or hard accent"]},
+    "Double stops for the whole break|ds str",
+    "Double stops in 3rds only|ds str",
+    "Double stops in 6ths only|ds str",
+    "Single notes only, no double stops|ds",
+    "Double stop on the last note of every phrase|ds",
+    "Play a unison double stop on every open-string note you can reach|ds open",
+    "Drone a string under your line throughout|ds open str",
+    "Drone the open string above your line|ds open str",
+    "Drone the open string below your line|ds open str",
+    "Rock the bow across two strings for a whole section|ds bow str",
+    "Nashville shuffle bowing only|bow",
+    "Georgia shuffle bowing only|bow",
+    "Slur everything, no separate bows|bow",
+    "Separate bows only, no slurs|bow",
+    "Slur three, bow one|bow",
+    "Long bows: at least four notes on every bow|bow",
+    "Upper half of the bow only|bowpart",
+    "Stay at the frog for bite|bowpart",
+    "Slide into the first note of every phrase|slide",
+    "Slide into every long note from a half step below|slide",
+    "No slides at all: clean attacks only|slide",
+    "End every phrase with a chop or hard accent",
+    "One big accent per phrase, everything else even|acc",
+    "Play the whole break as softly as you can|dyn",
+    "Start quiet and build to full volume by the end|dyn",
+    "Start strong and fade to almost nothing|dyn",
+    "Loud on the I chord, soft everywhere else|dyn",
+    "Tremolo on every long note",
+    "Vibrato only on the last note of each phrase",
+    "Ghost notes: let some notes barely speak",
+    "Add a bowed triplet somewhere in every phrase",
+    "Hammer-ons and pull-offs under one bow wherever you can",
+    "Grace note before the first note of every phrase",
+    "First pass plain, second pass with as many ornaments as you can fit"]},
   style:{label:"Style & borrowing",items:[
-    "Play it like a Kenny Baker break",
-    "Play it like a swing fiddler",
-    "Play it like an old-time fiddler: no blue notes, repeated bowing patterns",
+    "Play it like a Kenny Baker break|style",
+    "Play it like a Vassar Clements break: bluesy and unpredictable|style",
+    "Play it like a Bobby Hicks break: smooth double stops|style",
+    "Play it like a Stuart Duncan break: clean, melodic, nothing wasted|style",
+    "Play it like a Chubby Wise break: long, sweet, bluesy bows|style",
+    "Play it like a Benny Martin break|style",
+    "Play it like a Michael Cleveland break: all drive|style",
+    "Play it like a swing fiddler|style feel",
+    "Play it like an old-time fiddler: no blue notes, repeated bowing patterns|style bow set",
+    "Play it like a Texas contest fiddler: long flowing variations|style",
+    "Play it like a Western swing twin-fiddle part|style",
+    "Play it like a Cajun fiddler: drones and a rocking bow|style",
+    "Play it like an Irish reel: rolls and cuts, no slides|style slide",
+    "Play it like a blues harmonica|style",
+    "Play it like a banjo roll: steady streams of eighth notes across the strings|style dens",
+    "Play it like a mandolin break: tremolo the long notes, pick the short ones|style",
+    "Play it like a flatpick guitar break: crosspicking patterns|style",
+    "Play it like a dobro: slide into everything|style slide",
+    "Play it like a singer: breathe where a singer would breathe|style",
+    "First half like Monroe-era bluegrass, second half like a modern player|style",
     "Use one lick you learned this week three times",
-    "Ban your most-used lick for the whole session"]},
+    "Ban your most-used lick for the whole session",
+    "Steal one idea from the last recording you listened to",
+    "Play a lick you know in a key you've never tried it in",
+    "Take a lick you know and play it backwards",
+    "Use the same lick over the I, the IV and the V, moved to fit each chord",
+    "Quote a fiddle tune for two bars, then leave it"]},
+  motif:{label:"Motif & development",items:[
+    "Play a three-note idea and repeat it through every chord, changing only what you must",
+    "State a two-bar idea, then repeat it a step higher",
+    "State an idea, then answer it upside down",
+    "Play an idea, then play it again with one note changed, and keep going",
+    "Start with two notes and add one note each phrase",
+    "Play a four-bar idea, then play it again twice as fast",
+    "Play a four-bar idea, then play it again half as fast",
+    "Question and answer: every phrase that rises is followed by one that falls",
+    "Same notes, new rhythm: play your first phrase three different ways",
+    "Same rhythm, new notes: carry your first rhythm through the whole break|rhy",
+    "Build the whole break out of your first four notes|set",
+    "End each phrase with the same three-note tag",
+    "Start each phrase with the same three notes, then go somewhere new",
+    "Play a phrase, leave space, then play only its last half",
+    "Move one idea down through all four strings|str reg",
+    "Move one idea up an octave for the second half|reg str",
+    "Make every phrase a little longer than the one before|plen",
+    "Make every phrase a little shorter than the one before|plen",
+    "Hear a phrase in your head first, then play exactly that",
+    "Make up a melody simple enough to sing, and play only that, twice",
+    "First pass: a plain melody. Second pass: decorate it without losing it",
+    "Pick one rhythm from the band and build your idea on it",
+    "Sequence: carry one pattern down the scale a step at a time",
+    "Sequence: carry one pattern up through the chord tones",
+    "Bookend: finish the break with the phrase you started with"]},
+  changes:{label:"Chord changes",items:[
+    "Play only over the I chord; lay out everywhere else|sil",
+    "Play only over the IV and V chords; lay out on the I|sil",
+    "Leave the first bar of every IV chord empty|sil",
+    "Land on a chord tone on beat 1 of every change|arr",
+    "Land on the 3rd of each new chord exactly on the change|arr",
+    "Connect each chord to the next by a half step or a whole step",
+    "Play the same lick shape over every chord, moved to fit",
+    "Use a different idea for each chord: one for I, one for IV, one for V",
+    "Walk up or down into every new chord over the last two beats",
+    "Make the V chord the loudest and busiest moment every time|dyn",
+    "Treat every V chord as a question and every I as its answer",
+    "Ignore the changes: stay on the I chord's pentatonic and make it work|set",
+    "Play the root of each chord as the lowest note of its bar",
+    "Arpeggiate up one chord and down the next",
+    "Hold a common tone through each change where one exists",
+    "Add the flat 7th to the I chord in the bar before every IV",
+    "Play a turnaround lick every time the form comes back to the top",
+    "Double-stop the root and 3rd of each chord as it arrives|ds",
+    "Outline the V chord with a run down to the root of the I",
+    "Mark every chord change with a slide into the new chord's 3rd|slide",
+    "Play the changes so clearly someone could name the chords without the band"]},
   wild:{label:"Wildcard",items:[
-    "Make the break sound deliberately sad",
-    "Make the break sound deliberately happy",
-    "Start mid-phrase, as if you'd already been playing"]}
+    "Make the break sound deliberately sad|mood",
+    "Make the break sound deliberately happy|mood",
+    "Make the break sound angry|mood",
+    "Make the break sound lonesome|mood",
+    "Make the break sound lazy, like a hot afternoon|mood",
+    "Make the break sound like a train|mood",
+    "Start mid-phrase, as if you'd already been playing",
+    "Play it as a kickoff: your first four bars have to set the tune up for the band",
+    "Play it as if you were backing a singer, not taking a break",
+    "Play it as the last break of the night: leave nothing in the tank|dyn",
+    "Play the simplest break you can stand|dens",
+    "Play the busiest break you can keep clean|dens sil",
+    "Play the most tasteful break you can: nothing for show",
+    "Play a break built to make the band grin",
+    "Stand on one idea for as long as you dare",
+    "End somewhere unexpected, then find your way home in the last bar",
+    "Play one deliberate \"wrong\" note and resolve it so it sounds meant",
+    "Trade fours with yourself: four bars low, four bars high|reg str plen",
+    "Use only your first and second fingers",
+    "Play the first pass with your eyes closed",
+    "Play the break twice: once the way you normally would, once doing the opposite",
+    "Record this break and listen back before you deal again"]}
 };
+const PROMPTS = {}, PTAGS = {};
+for(const c in PROMPT_SRC){PROMPTS[c]={label:PROMPT_SRC[c].label,items:PROMPT_SRC[c].items.map(s=>{const [text,tags]=s.split("|");if(tags)PTAGS[text]=tags.split(" ");return text})}}
+const clash=(a,b)=>!!a&&!!b&&(PTAGS[a]||[]).some(t=>(PTAGS[b]||[]).includes(t));
 
 // Progressions: each item is one bar; "1 5" is a split bar. 2 and 6 are major (secondary dominants).
 function normProg(arr){const secs=arr.map(s=>Array.isArray(s)?{l:"",b:s}:s);
@@ -2747,6 +2932,7 @@ const S=Object.assign({
 },saved.settings||{});
 S.history=Array.isArray(S.history)?S.history:[];
 delete S.useTune;delete S.tunes;delete S.keySource;delete S.cats.melody;
+for(const c in PROMPTS)if(S.cats[c]===undefined)S.cats[c]=true;   // idea types added since the settings were saved start switched on
 const save=()=>store.set({settings:S});
 
 // shuffle bags so repeats only come after the whole pool is used
@@ -2798,7 +2984,9 @@ function pickPrompt(i){
   const other=D.p[1-i];
   let pool=cats; if(other&&S.count===2&&cats.length>1) pool=cats.filter(c=>c!==other.cat);
   const cat=pool[Math.floor(Math.random()*pool.length)];
-  const text=draw("p-"+cat,PROMPTS[cat].items,D.p[i]&&D.p[i].text);
+  let text=draw("p-"+cat,PROMPTS[cat].items,D.p[i]&&D.p[i].text);
+  // with two ideas on the table, never deal one the other makes unplayable (say, "One string only: G" with "Double stops in 6ths only")
+  for(let n=0;n<12&&S.count===2&&other&&clash(text,other.text);n++)text=draw("p-"+cat,PROMPTS[cat].items,D.p[i]&&D.p[i].text);
   return {cat,text};
 }
 
@@ -2830,7 +3018,7 @@ const ICON={
   redo:'<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M13 3v3.5H9.5"/><path d="M12.6 6.5A5 5 0 1 0 13 9"/></svg>'
 };
 const CARDS=[["key","c-key"],["bpm","c-bpm"],["prog","c-prog"],["p0","c-p0"],["p1","c-p1"]];
-const NAMES={key:"key",bpm:"tempo",prog:"progression",p0:"first rule",p1:"second rule"};
+const NAMES={key:"key",bpm:"tempo",prog:"progression",p0:"first idea",p1:"second idea"};
 CARDS.forEach(([k,id])=>{
   const tools=document.querySelector("#"+id+" .tools");
   const lock=document.createElement("button");lock.type="button";lock.className="icon";lock.id="lock-"+k;
@@ -2885,7 +3073,7 @@ function chipGroup(elId,opts,isOn,onTap){
   });
 }
 function buildSettings(){
-  chipGroup("count",[[1,"One rule"],[2,"Two rules"]],v=>S.count===v,v=>{S.count=v;if(v===2&&!D.p[1])D.p[1]=pickPrompt(1)});
+  chipGroup("count",[[1,"One idea"],[2,"Two ideas"]],v=>S.count===v,v=>{S.count=v;if(v===2&&!D.p[1])D.p[1]=pickPrompt(1)});
   chipGroup("cats",Object.keys(PROMPTS).map(c=>[c,PROMPTS[c].label]),c=>!!S.cats[c],c=>{S.cats[c]=!S.cats[c]});
   if(typeof buildMix==="function") buildMix();
   chipGroup("keys",KEYS.map(k=>[k,k]),k=>S.keys.includes(k),k=>{S.keys=S.keys.includes(k)?S.keys.filter(x=>x!==k):S.keys.concat(k)});

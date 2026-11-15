@@ -32,7 +32,7 @@ p{margin:0}
 .mono{font-family:var(--f-mono);font-variant-numeric:tabular-nums}
 .view,.col{display:flex;flex-direction:column;gap:18px}
 .tabs{display:grid;grid-auto-flow:column;grid-auto-columns:1fr;background:var(--chip);border:1px solid var(--line);border-radius:12px;padding:4px;gap:4px;margin-top:12px}
-.tabs a{text-align:center;padding:9px 4px;border-radius:9px;color:var(--ink);text-decoration:none;font-weight:600;font-size:.93rem}
+.tabs a{text-align:center;padding:9px 2px;border-radius:9px;color:var(--ink);text-decoration:none;font-weight:600;font-size:.93rem}
 .tabs a[aria-selected="true"]{background:var(--surface);box-shadow:0 1px 2px rgba(0,0,0,.12)}
 .stage{background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:16px;display:flex;flex-direction:column;gap:12px}
 .row{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
@@ -121,6 +121,14 @@ ul.cues{margin:0;padding-left:1.1em;display:flex;flex-direction:column;gap:5px}
 .report .rows div{display:flex;justify-content:space-between;gap:10px;font-size:.9rem;border-bottom:1px dashed var(--line);padding-bottom:3px}
 .report .rows div:last-child{border-bottom:0}.report .rows span{color:var(--muted)}.report .rows b{text-align:right;font-weight:600}
 .report b.g{color:var(--good)}.report b.b{color:var(--bad)}
+.verdict{border:1px solid var(--line);border-left:4px solid var(--good);border-radius:8px;padding:10px 12px;background:var(--surface);font-size:.92rem;line-height:1.45}
+.verdict.gentle{border-left-color:var(--warn)}.verdict.rest{border-left-color:var(--bad)}
+.dot{display:inline-block;width:10px;height:10px;border-radius:50%;background:var(--good);margin:0 2px;vertical-align:middle}.dot.gentle{background:var(--warn)}.dot.rest{background:var(--bad)}
+.qtext{font-weight:600;font-size:.93rem}
+.vtab{width:100%;border-collapse:collapse;font-size:.84rem}.vtab th{font-size:.7rem;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);font-weight:600;text-align:left;padding:4px 6px}
+.vtab td{padding:6px;border-top:1px dashed var(--line);vertical-align:top}.vtab.vmap td{text-align:center;font-family:var(--f-mono)}.vtab.vmap td:first-child,.vtab.vmap th:first-child{text-align:left;font-family:var(--f-body);font-weight:600}
+.vtab.vmap th{text-align:center}.vtab td.g{color:var(--good)}.vtab td.b{color:var(--bad);font-weight:700}.vtab td.na{color:var(--muted)}.vtab small{font-size:.7rem}
+.vlist{margin:0;padding-left:20px;display:flex;flex-direction:column;gap:6px;font-size:.92rem;line-height:1.4}
 .tipbox{border-left:4px solid var(--accent);background:var(--surface);border-radius:8px;padding:10px 12px;font-size:.92rem;line-height:1.45}
 .rbanner{display:flex;gap:10px;align-items:center;justify-content:space-between;border:2px solid var(--accent);border-radius:12px;padding:10px 12px;background:var(--surface)}
 .rsteps{margin:0;padding-left:22px;display:flex;flex-direction:column;gap:6px}.rsteps li.cur b{color:var(--accent)}
@@ -142,6 +150,7 @@ details.lesson.done .lnum{background:var(--good);color:var(--bg)}details.lesson.
   <header>
     <h1>Singing Practice Kit</h1>
     <nav class="tabs" role="tablist">
+      <a href="#check" id="tabCheck" role="tab" aria-selected="false">Check</a>
       <a href="#learn" id="tabLearn" role="tab" aria-selected="true">Learn</a>
       <a href="#routine" id="tabRoutine" role="tab" aria-selected="false">Routine</a>
       <a href="#exercises" id="tabEx" role="tab" aria-selected="false">Exercises</a>
@@ -157,7 +166,7 @@ details.lesson.done .lnum{background:var(--good);color:var(--bg)}details.lesson.
       <p class="hint" style="margin:0">Five questions so the app knows where to start you. No wrong answers.</p>
       <div id="ciQs" class="col" style="gap:14px"></div>
       <div class="row"><button class="btn primary grow" id="ciGo">See my plan</button></div>
-      <div class="row"><button class="linkbtn" id="ciSkip">Skip the check-in</button></div>
+      <div class="row" style="flex-wrap:wrap;gap:10px"><button class="linkbtn" id="ciSkip">Skip the check-in</button><button class="linkbtn" id="ciPro">I already sing regularly: use pro mode</button></div>
     </div>
     <div class="stage" id="planBox" hidden>
       <h3 style="margin:0">Your plan</h3>
@@ -179,7 +188,7 @@ details.lesson.done .lnum{background:var(--good);color:var(--bg)}details.lesson.
     <p class="sub">A guided session that warms you up, works support and space, then stretches toward the top of your range. Each step opens the exercise with the right settings; tap Next step when you're done with it.</p>
     <div class="stage">
       <h3 style="margin:0">Pick a session</h3>
-      <div class="chips" id="rLen"><button class="chip" data-v="10">10 minutes</button><button class="chip" data-v="20">20 minutes</button><button class="chip" data-v="high">High notes day</button><button class="chip" data-v="pitch">Pitch day</button></div>
+      <div class="chips" id="rLen"><button class="chip" data-v="10">10 minutes</button><button class="chip" data-v="20">20 minutes</button><button class="chip" data-v="high">High notes day</button><button class="chip" data-v="pitch">Pitch day</button><button class="chip" data-v="pro" id="rLenPro" hidden>My maintenance</button></div>
       <ol class="rsteps" id="rSteps"></ol>
       <div class="row"><button class="btn primary grow" id="rStart">▶ Start the routine</button></div>
     </div>
@@ -200,6 +209,7 @@ details.lesson.done .lnum{background:var(--good);color:var(--bg)}details.lesson.
       <div class="status" id="xStatus"></div>
       <div class="report" id="xReport" hidden></div>
       <div class="tipbox" id="xTip" hidden></div>
+      <div class="col" id="xPanel" style="gap:12px" hidden></div>
     </div>
     <details class="stage coach" id="xCoach"><summary>Coach tips for this exercise</summary><ul id="xCoachList"></ul></details>
     <div class="stage" id="xSet"></div>
@@ -210,13 +220,14 @@ details.lesson.done .lnum{background:var(--good);color:var(--bg)}details.lesson.
   <div class="view" id="vTech" hidden>
     <p class="sub">How to think about the body side of singing. These are the ideas the exercises keep coming back to. Tap Try it to jump to an exercise that works on each one.</p>
     <div id="techList" class="col"></div>
-    <div class="notice">If singing ever hurts, or you're hoarse, stop for the day. Hoarseness that lasts more than two weeks is worth a visit to an ENT or voice therapist.</div>
+    <div class="notice">If singing ever hurts, or you're hoarse, stop for the day. Hoarseness that hasn't cleared in four weeks should be looked at by an ENT or laryngologist, and sooner if you sing for a living. The Check tab has a daily check-in for this.</div>
   </div>
 
   <section class="settings">
     <label class="field"><span class="label">Microphone</span><select id="tMic" aria-label="Microphone"></select></label>
     <p class="hint" style="margin:0">If it has trouble hearing you: hold or stand the phone 1–2 feet from your mouth with the bottom edge (where the mic is) facing you, make sure a case isn't covering the mic, and avoid Bluetooth earbud mics. The bar at the top right of the picture shows whether it's hearing you.</p>
     <label class="toggle"><input type="checkbox" id="xDrone" checked> Keep the target tone playing quietly while I sing</label>
+    <label class="toggle"><input type="checkbox" id="tPro"> Pro mode: I sing regularly. Open on the Check tab, tune to ±15¢, skip the beginner lessons, and add My maintenance to the routines.</label>
   </section>
   <footer class="hint" style="text-align:center;padding:24px 0 8px">© 2026 Matt O'Neil. All rights reserved.</footer>
 </div>
@@ -679,14 +690,14 @@ const setB=(k,v,rerender)=>{S.set[k]=v;saveS();if(rerender!==false)renderEx()};
 const KEYOPTS=[[-1,"Any key (changes)"],...KEY_ORDER.map(k=>[k,keyName(k)])];
 const NOTEOPT=[["low","Low in my range"],["mid","Middle of my range"],["high","High in my range"],["rand","Random"]];
 function noteFrom(v){const[l,h]=rng();return v==="low"?l+2:v==="high"?h-2:v==="rand"?l+1+rint(Math.max(1,h-l-1)):Math.round((l+h)/2)}
-function renderSettings(){const box=$("xSet"),s=S.set,ex=S.ex;box.innerHTML="<h3>Practice settings</h3>";if(ex==="range"||ex==="hiss"||ex==="siren"){box.hidden=true;return}box.hidden=false;
+function renderSettings(){const box=$("xSet"),s=S.set,ex=S.ex;box.innerHTML="<h3>Practice settings</h3>";if(ex==="range"||ex==="hiss"||ex==="siren"||KEEP.includes(ex)){box.hidden=true;return}box.hidden=false;
   box.append(sChips("Range",[["mine",S.lo!=null?"My range ("+nn(S.lo)+"–"+nn(S.hi)+")":"My range (not set: using "+nn(48)+"–"+nn(64)+")"],["custom","Pick my own"]],s.rangeMode,v=>setB("rangeMode",v)));
   if(s.rangeMode==="custom")box.append(sRow(sNote("Lowest note",s.cLo,v=>setB("cLo",v)),sNote("Highest note",s.cHi,v=>setB("cHi",v))));
   if(["updown","steps","high"].includes(ex))box.append(sChips("Difficulty",[[true,"Adjust as I go"],[false,"Stay put (use my settings)"]],s.adapt,v=>setB("adapt",v)));
   if(ex==="match")box.append(sRow(sSel("Biggest jump to the next note",[[0,"Same note every time"],[2,"Up to a whole step"],[4,"Up to a 3rd"],[7,"Up to a 5th"],[12,"Up to an octave"]],s.jump,v=>setB("jump",+v,false)),
     sSel("Hold for",[[.5,"½ second"],[1,"1 second"],[2,"2 seconds"],[3,"3 seconds"]],s.hold,v=>setB("hold",+v,false))));
   if(ex==="longtone")box.append(sRow(sSel("Note",NOTEOPT,s.ltNote,v=>setB("ltNote",v)),sSel("Hold for",[[4,"4 seconds"],[8,"8 seconds"],[12,"12 seconds"],[20,"20 seconds"]],s.ltSecs,v=>setB("ltSecs",+v))));
-  if(ex==="vowels")box.append(sRow(sSel("Note",NOTEOPT,s.vwNote,v=>setB("vwNote",v)),sSel("Vowels",[["uoaei","oo oh ah eh ee"],["ieaou","ee eh ah oh oo"],["uaua","oo ah oo ah"],["uiui","oo ee oo ee"]],s.vwSet,v=>setB("vwSet",v)),sSel("Each vowel",[[1.5,"1½ s"],[2,"2 s"],[3,"3 s"]],s.vwSecs,v=>setB("vwSecs",+v))));
+  if(ex==="vowels")box.append(sRow(sSel("Note",NOTEOPT,s.vwNote,v=>setB("vwNote",v)),sSel("Vowels",vwOpts(s.vwSet),s.vwSet,v=>setB("vwSet",v)),sSel("Each vowel",[[1.5,"1½ s"],[2,"2 s"],[3,"3 s"],[4,"4 s"]],s.vwSecs,v=>setB("vwSecs",+v))));
   if(ex==="swell")box.append(sRow(sSel("Note",NOTEOPT,s.swNote,v=>setB("swNote",v)),sSel("Length",[[6,"6 seconds"],[8,"8 seconds"],[12,"12 seconds"]],s.swSecs,v=>setB("swSecs",+v))));
   if(ex==="ladder"){box.append(sSel("Pattern",Object.entries(LADS).map(([k,v])=>[k,v[1]]),s.lad,v=>setB("lad",v)));
     box.append(sChips("Direction",[["up","Up only"],["down","Down only"],["updown","Up, then back down"]],s.ladDir,v=>setB("ladDir",v)));
@@ -708,11 +719,12 @@ function renderSettings(){const box=$("xSet"),s=S.set,ex=S.ex;box.innerHTML="<h3
 
 /* ---- screen ---- */
 function renderGroups(){const g=$("xGroups");g.innerHTML="";GROUPS.forEach(([name,keys])=>{const d=document.createElement("div");d.className="exgroup";d.innerHTML=`<span class="label"></span><div class="chips"></div>`;
-  d.querySelector(".label").textContent=name;keys.forEach(k=>{const b=document.createElement("button");b.className="chip";b.textContent=EX[k].t;b.setAttribute("aria-pressed",k===S.ex);b.onclick=()=>{S.ex=k;saveS();renderEx()};d.querySelector(".chips").append(b)});g.append(d)})}
-function renderEx(){xStopAll();Object.assign(BX,{trace:[],vol:[],target:null,targets:null,droneM:null,marks:[],showVol:false,fit:false,span:5});
+  d.querySelector(".label").textContent=name;keys.forEach(k=>{const b=document.createElement("button");b.className="chip";b.textContent=EX[k].t;b.setAttribute("aria-pressed",k===S.ex);b.onclick=()=>goEx(k);d.querySelector(".chips").append(b)});g.append(d)})}
+function renderEx(){xStopAll();RUN.id++;RUN.sink=null;{const xp=$("xPanel");xp.hidden=true;xp.innerHTML="";$("xTip").after(xp)}meterShow(true);if(!KEEP.includes(S.ex))S.exLast=S.ex;tabSel();
+  Object.assign(BX,{trace:[],vol:[],target:null,targets:null,droneM:null,marks:[],showVol:false,fit:false,span:5});
   renderGroups();const E=EX[S.ex];$("xTitle").textContent=E.t;$("xHow").textContent=E.how;$("xBtns").innerHTML="";xMsg("");xCue("");xBig("");xTip("");xReport(null);
   $("xCoachList").innerHTML=(E.tips||[]).map(t=>`<li>${t}</li>`).join("");
-  ({vowels:exVowels,range:exRange,hiss:exHiss,siren:exSiren,ladder:exLadder,longtone:exLong,swell:exSwell,high:exHigh,match:exMatch,harm:exHarm,updown:()=>exPattern("updown"),steps:()=>exPattern("steps"),scale:()=>exPattern("scale"),arp:()=>exPattern("arp")})[S.ex]();
+  ({health:exHealth,soft:exSoft,vcheck:exVCheck,vmap:exVMap,take:exTake,vowels:exVowels,range:exRange,hiss:exHiss,siren:exSiren,ladder:exLadder,longtone:exLong,swell:exSwell,high:exHigh,match:exMatch,harm:exHarm,updown:()=>exPattern("updown"),steps:()=>exPattern("steps"),scale:()=>exPattern("scale"),arp:()=>exPattern("arp")})[S.ex]();
   renderSettings();renderProg();drawMeter()}
 function renderProg(){const p=$("xProg"),f=k=>{const o=st(k);return o.n?`${o.ok} of ${o.n} right`:"not tried"},wk=S.days.filter(d=>Date.now()-new Date(d)<7*864e5).length;
   const last=a=>a.length?a[a.length-1]:null,lt=last(S.hist.lt),hs=S.hist.hiss.length?Math.max(...S.hist.hiss):null;
@@ -805,7 +817,8 @@ function exLong(){BX.showVol=true;let tgt=noteFrom(S.set.ltNote);BX.target=tgt;x
     xBig(g,sc>=80?"good":"");xTip(a.settle!=null&&a.settle>.6?TIP.scoop:a.drift<-12?TIP.sagEnd:a.drift>12?TIP.creep:a.wob>=12?TIP.wobble:a.avg<-tol?TIP.flatHigh:a.avg>tol?TIP.sharp:a.clar!=null&&a.clar<.88?TIP.breathy:TIP.good);xMsg("Rest, then go again.")}}
 
 /* ---- vowels on one shape ---- */
-const VW={u:"oo",o:"oh",a:"ah",e:"eh",i:"ee"},VWFIX={i:"\"ee\" often pinches or goes sharp: keep the oo-space behind it and let it lean toward \"ih\".",e:"\"eh\" tends to spread: keep the back open and let it lean toward \"ah\".",a:"\"ah\" tends to spread and fall flat: keep it tall, leaning toward \"aw\" or \"uh\", with the home shape behind it.",o:"\"oh\" should be close to home; keep it round and tall.",u:"\"oo\" is usually the home vowel; if it drifted, check that the air stayed steady."};
+const VW={u:"oo",o:"oh",a:"ah",e:"eh",i:"ee",I:"ih",U:"uh",A:"a (cat)",Y:"ay",X:"eye",W:"ow"},VWFIX={I:"\"ih\" likes to close toward \"ee\" and go sharp: keep the jaw loose and the back open.",U:"\"uh\" goes dull and flat when the space collapses: keep it tall, like the start of a yawn.",A:"The \"a\" in \"cat\" spreads wide and thin, and often sharp up high: narrow it toward \"eh\" and keep the oo-space behind it.",
+  Y:"\"ay\" is two vowels: sit on the first (\"eh\") for nearly the whole note and turn to \"ee\" only at the very end.",X:"\"eye\" is two vowels: sit on \"ah\" and close to \"ee\" at the last moment, or the pitch pinches sharp early.",W:"\"ow\" is two vowels: sit on \"ah\" and round to \"oo\" only at the end.",i:"\"ee\" often pinches or goes sharp: keep the oo-space behind it and let it lean toward \"ih\".",e:"\"eh\" tends to spread: keep the back open and let it lean toward \"ah\".",a:"\"ah\" tends to spread and fall flat: keep it tall, leaning toward \"aw\" or \"uh\", with the home shape behind it.",o:"\"oh\" should be close to home; keep it round and tall.",u:"\"oo\" is usually the home vowel; if it drifted, check that the air stayed steady."};
 function exVowels(){BX.showVol=true;let tgt=noteFrom(S.set.vwNote);BX.target=tgt;const seq=()=>S.set.vwSet.split("");
   const cue=()=>xCue(`${nn(tgt)}: ${seq().map(v=>VW[v]).join(" → ")}, ${S.set.vwSecs} seconds each.`);cue();
   xBtn("Hear it",()=>{playTone(tgt,1.4);drawMeter()});
@@ -818,6 +831,7 @@ function exVowels(){BX.showVol=true;let tgt=noteFrom(S.set.vwNote);BX.target=tgt
   function finish(fr,L){xStopAll();if(!fr.length){xMsg("I didn't hear you near that note. Try again.","warn");xBig("");return}const D=S.set.vwSecs,t0=fr[0].t;
     const seg=L.map((v,k)=>{const w=fr.filter(f=>f.k===k&&f.t-t0-k*D>=.35);if(w.length<6)return null;const c=w.map(f=>octErr(f.m,tgt));return{v,c:median(c),db:median(w.map(f=>20*Math.log10(Math.max(1e-5,f.rms)))),cl:median(w.map(f=>f.clar)),sd:sd(c)}});
     const ok=seg.filter(Boolean);if(ok.length<2){xMsg("That was too short to judge. Sing through all the vowels.","warn");return}
+    vmapAdd(ok,tgt);   // every run feeds the vowel map
     const ref=ok[0],cs=ok.map(x=>x.c),dbs=ok.map(x=>x.db),cSpread=Math.max(...cs)-Math.min(...cs),dSpread=Math.max(...dbs)-Math.min(...dbs),clMin=Math.min(...ok.map(x=>x.cl));
     const sc=Math.max(0,100-Math.max(0,cSpread-8)*1.6-Math.max(0,dSpread-4)*3-Math.max(0,Math.abs(median(cs))-tolB()*.5)*1-(clMin<.88?10:0)-(ok.length<L.length?15:0));
     const s=x=>(x>0?"+":"")+Math.round(x),rows=seg.map((x,k)=>x?[VW[x.v],`${s(x.c)}¢ · ${s(x.db-ref.db)} dB`+(x.cl<.88?" · airy":""),Math.abs(x.c-median(cs))<=10&&Math.abs(x.db-median(dbs))<=4?"g":"b"]:[VW[L[k]],"not heard","b"]);
@@ -1045,15 +1059,298 @@ $("rStart").onclick=()=>routineGo(Math.max(0,R.step));
 $("rbNext").onclick=()=>{if(B.mode==="lesson"){if(!P.done.includes(B.lesson))P.done.push(B.lesson);const nx=LESSONS.find(x=>!P.done.includes(x.id));P.open=nx?nx.id:null;saveP();B.mode=null;$("rBanner").hidden=true;xStopAll();location.hash="#learn";return}routineGo(R.step+1)};
 $("rbEnd").onclick=()=>{if(B.mode==="lesson"){P.open=B.lesson;saveP();B.mode=null;$("rBanner").hidden=true;xStopAll();location.hash="#learn";return}R.step=-1;saveR();B.mode=null;$("rBanner").hidden=true;renderRoutine()};
 
+/* ================= KEEP YOUR VOICE: check-in, soft high check, voice check, vowel map, sung takes, pro routine ================= */
+// Everything here is about holding on to what you have: the same questions and the same measured tasks every time, kept on this
+// phone, so today can be compared with your own usual. It screens; it does not diagnose.
+const KEEP=["health","soft","vcheck","vmap","take"];
+for(const k of ["health","soft","checks","takes"])S[k]=Array.isArray(S[k])?S[k]:[];S.vmap=S.vmap||{};
+const dayOf=t=>new Date(t).toDateString(),fmtDay=t=>new Date(t).toLocaleDateString([],{month:"short",day:"numeric"});
+const clamp100=v=>Math.max(0,Math.min(100,v)),dbOf=r=>20*Math.log10(Math.max(1e-5,r)),sgnC=x=>{x=Math.round(x);return(x>0?"+":x<0?"−":"")+Math.abs(x)+"¢"};
+const panel=html=>{const p=$("xPanel");p.hidden=false;if(html!=null)p.innerHTML=html;return p};
+const meterShow=on=>{$("xCv").parentElement.hidden=!on};
+const goEx=(k,set)=>{Object.assign(S.set,set||{});S.ex=k;saveS();const want=KEEP.includes(k)?"#check":"#exercises";if(location.hash!==want&&!(want==="#check"&&!location.hash&&S.pro))location.hash=want;else renderEx();window.scrollTo(0,0)};
+// one microphone session for a whole multi-step run: each step borrows the frames it needs, and the reference tones are ignored
+const RUN={id:0,sink:null};
+const wait=ms=>new Promise(r=>setTimeout(r,ms));
+const runOpen=()=>xMic((f,t)=>{RUN.sink&&RUN.sink(f,t)});
+function capture(secs,until){const fr=[];return new Promise(res=>{let tm;const done=()=>{RUN.sink=null;clearTimeout(tm);res(fr)};
+  RUN.sink=(f,t)=>{fr.push({t,m:f.m,rms:f.rms,clar:f.clar,voiced:f.voiced});if(until&&until(fr,t))done()};tm=setTimeout(done,secs*1000)})}
+const spanOf=V=>{let s=0;for(let i=1;i<V.length;i++){const d=V[i].t-V[i-1].t;if(d<.08)s+=d}return s};   // seconds of actual sound, gaps left out
+const qChips=(q,opts,cur,on)=>{const f=document.createElement("div");f.className="field";f.innerHTML=`<span class="qtext"></span><div class="chips"></div>`;f.querySelector(".qtext").textContent=q;
+  opts.forEach(([v,t])=>{const b=document.createElement("button");b.className="chip";b.textContent=t;b.setAttribute("aria-pressed",v===cur);
+    b.onclick=()=>{f.querySelectorAll(".chip").forEach(x=>x.setAttribute("aria-pressed",x===b));on(v)};f.querySelector(".chips").append(b)});return f};
+
+/* ---- 1. voice check-in: questions before you sing, one after ---- */
+const HQ=[
+  ["sp","How does your speaking voice sound today?",[["ok","Normal"],["rough","A little rough or husky"],["hoarse","Hoarse"]]],
+  ["pain","Any pain, soreness or tightness in your throat when you talk, sing or swallow?",[["no","No"],["some","A little"],["yes","Yes"]]],
+  ["load","How much have you used your voice in the last 24 hours?",[["light","Light"],["norm","Normal"],["heavy","Heavy: a gig, a long rehearsal, loud talking"]]],
+  ["sick","Are you sick, congested or coughing?",[["no","No"],["post","Getting over something"],["yes","Yes"]]],
+  ["am","Compared with a normal day, how did your voice feel when you got up?",[["ok","Normal"],["slow","Slow to warm up"],["tired","Still tired from yesterday"]]],
+  ["top","Your high notes, sung softly, are…",[["ok","Normal"],["hard","Harder than usual"],["gone","Missing or airy"],["dk","Haven't tried yet"]]],
+  ["dur","If your voice is rough or hoarse, how long has it been that way?",[["na","It isn't"],["day","Today or yesterday"],["days","Several days"],["2w","More than two weeks"],["4w","More than four weeks"]]]];
+function healthVerdict(a){
+  if(a.sp==="hoarse"||a.pain==="yes"||(a.sick==="yes"&&a.sp!=="ok")||a.top==="gone")return"rest";
+  if(a.sp==="rough"||a.pain==="some"||a.load==="heavy"||a.sick!=="no"||a.am!=="ok"||a.top==="hard")return"gentle";
+  return"go"}
+const healthToday=()=>S.health.find(h=>dayOf(h.d)===dayOf(Date.now()));
+const HV={go:["Clear to sing","Nothing in your answers says to hold back."],
+  gentle:["Gentle day","Warm up longer, stay in the middle of your range, keep it well under full volume, and stop while it still feels easy. My maintenance routine switches to its gentle version today."],
+  rest:["Rest day","Skip singing practice today. Talk less and softer and let it settle. You can still run the soft high check tomorrow to see where you are; it is a measurement, not a workout."]};
+function healthNotes(h){const a=h.a,out=[];
+  if(a.dur==="4w")out.push("Hoarseness that hasn't cleared in four weeks should be looked at with a scope by an ENT or laryngologist. That is the current US ENT guideline, and it says sooner for people who sing for a living.");
+  else if(a.dur==="2w")out.push(S.pro?"More than two weeks of roughness is long enough for a working singer: book a laryngologist now instead of waiting for the four-week mark.":"If it isn't clearly improving, book an ENT or laryngologist. The guideline line is four weeks, sooner if you depend on your voice.");
+  if(a.pain==="yes")out.push("Pain is not a normal part of singing. Stop for today, and have it looked at if it comes back.");
+  const days=S.health.slice(-5);if(days.length>=3&&days.filter(x=>x.st!=="go").length>=3)out.push("Three or more of your last five check-ins were not clean. A voice that keeps coming up short needs a lighter week, and a laryngologist if it doesn't turn around.");
+  const post=S.health.filter(x=>x.post).slice(-4);if(post.filter(x=>x.post==="worse"||x.post==="hoarse").length>=2)out.push("Your voice felt worse after singing in two or more of your last four sessions. Singing should leave the voice the same or better: shorten the sessions, and have a voice teacher or voice therapist look at what is costing you.");
+  return out}
+function exHealth(){meterShow(false);const p=panel(""),h=healthToday();$("xBtns").before(p);   // questions first, button under them
+  if(!h){const a={};xCue("Seven quick questions before you sing. Answer for how you are today.");
+    HQ.forEach(([k,q,o])=>p.append(qChips(q,o,null,v=>{a[k]=v})));
+    xBtn("See today's verdict",()=>{const miss=HQ.filter(q=>!a[q[0]]);if(miss.length){xMsg("Answer all seven first ("+miss.length+" to go).","warn");return}
+      S.health.push({d:Date.now(),a:{...a},st:healthVerdict(a)});S.health=S.health.slice(-90);PRO_R=null;saveS();renderEx()},true);
+  }else{const[t,body]=HV[h.st];xCue("");
+    p.innerHTML=`<div class="verdict ${h.st}"><b>${t}.</b> ${body}</div>`+healthNotes(h).map(n=>`<div class="notice">${n}</div>`).join("")+
+      `<p class="hint" style="margin:0">Don't wait on any of these: trouble breathing or swallowing, a lump in your neck, or coughing up blood. See a doctor promptly.</p>`;
+    p.append(qChips("After you sing today: compared with before, your voice feels…",[["better","Better"],["same","The same"],["worse","More tired"],["hoarse","Hoarse"]],h.post||null,v=>{h.post=v;saveS();
+      xMsg(v==="worse"||v==="hoarse"?"Noted. If this keeps happening the check-in will flag it.":"Noted.",v==="hoarse"?"warn":"good")}));
+    const last=S.health.slice(-10).reverse();p.insertAdjacentHTML("beforeend",`<div class="hint">Recent check-ins: ${last.map(x=>`<span class="dot ${x.st}" title="${fmtDay(x.d)}"></span>`).join("")} <span style="white-space:nowrap">(newest first; green clear, amber gentle, red rest)</span></div>`);
+    xBtn("Soft high check",()=>goEx("soft"),h.st!=="go");xBtn(h.st==="rest"?"Vowel map":"Voice check",()=>goEx(h.st==="rest"?"vmap":"vcheck"),h.st==="go");
+    xBtn("Redo today's check-in",()=>{S.health=S.health.filter(x=>x!==h);PRO_R=null;saveS();renderEx()})}}
+
+/* ---- 2. soft high check: the highest note you can start quietly and cleanly ---- */
+// Voice clinics teach singers a daily "swelling check": very quiet singing near the top of the range. Swollen vocal folds give
+// themselves away there first, as late starts, air in the tone, or top notes that only come out loud. This tracks that ceiling.
+const softBase=upto=>{const v=(upto==null?S.soft:S.soft.slice(0,upto)).slice(-10).map(x=>x.c);return v.length>=3?median(v):null};
+function softReport(){const n=S.soft.length;if(!n)return"";const cur=S.soft[n-1],base=softBase(n-1);
+  return`<div class="hint">Last soft ceiling: <b>${nn(cur.c)}</b> on ${fmtDay(cur.d)}${base!=null?` · your usual: <b>${nn(Math.round(base))}</b> (${Math.min(10,n-1)} earlier checks)`:" · needs three checks to know your usual"}.<br>Recent: ${S.soft.slice(-10).map(x=>nn(x.c)).join(" · ")}</div>`}
+function exSoft(){BX.showVol=true;meterShow(true);const[l,h]=rng(),top=Math.min(88,(S.fhi??h)+14),first=Math.max(l+7,h-3),refN=Math.round((l+h)/2);panel(softReport());
+  xCue(`Light, quiet "oo" notes, climbing by half steps from ${nn(first)}. Falsetto or head voice is right. Do not get louder to make a note work: the point is to find where quiet stops working.`);
+  xBtn("Start the check",async()=>{if(BX.busy)return;BX.busy=true;const my=++RUN.id;xReport(null);xTip("");if(!await runOpen()){BX.busy=false;return}
+    const sing=async(m,msg)=>{BX.trace=[];BX.vol=[];BX.target=m;xMsg(msg+" Listen…");RUN.sink=null;playTone(m,.8);await wait(1150);if(my!==RUN.id)return null;xMsg(msg+" Now, quietly.");
+      const fr=await capture(2.8);if(my!==RUN.id)return null;const V=fr.filter(f=>f.voiced&&f.m!=null&&Math.abs(f.m-m)<=.8);
+      return{secs:spanOf(V),clar:V.length?median(V.map(f=>f.clar)):0,db:V.length?median(V.map(f=>dbOf(f.rms))):-99}};
+    let ref=await sing(refN,"First a quiet note in the middle, to set your soft level.");if(!ref)return;
+    if(ref.secs<.4){ref=await sing(refN,"I didn't catch that. Once more, quiet but clear.");if(!ref)return;if(ref.secs<.4){xStopAll();xMsg("I couldn't hear the quiet reference note. Move the phone closer and try again.","warn");return}}
+    let ceil=null,fails=0,loudWarn=0;
+    for(let m=first;m<=top;m++){const r=await sing(m,nn(m)+".");if(!r)return;
+      if(r.secs>=.35&&r.db>ref.db+7&&loudWarn<3){loudWarn++;xMsg("That one was too loud to count. Quieter.","warn");await wait(900);if(my!==RUN.id)return;m--;continue}
+      if(r.secs>=.35&&r.clar>=.86){ceil=m;fails=0;xBig(nn(m)+" ✓","good")}else{fails++;xBig(nn(m)+" ✗");if(fails>=2)break;m--}
+      await wait(450);if(my!==RUN.id)return}
+    xStopAll();if(ceil==null){xMsg("No clean quiet note at "+nn(first)+". If that is normal for you, set your range first; if it isn't, treat today as a rest day.","warn");xBig("");return}
+    S.soft.push({d:Date.now(),c:ceil});S.soft=S.soft.slice(-60);saveS();const base=softBase(S.soft.length-1),diff=base!=null?ceil-Math.round(base):null;
+    xBig(nn(ceil),diff==null||diff>-2?"good":"");
+    xReport([["Soft ceiling today",nn(ceil)],["Your usual",base!=null?nn(Math.round(base)):"not known yet"],["Difference",diff==null?"–":diff===0?"none":(diff>0?"+":"−")+Math.abs(diff)+" half step"+(Math.abs(diff)===1?"":"s"),diff!=null&&diff<=-2?"b":"g"]]);
+    xTip(diff==null?"That's a first reading. After three checks the app knows your usual ceiling and can tell you when it drops.":
+      diff<=-2?"Your quiet ceiling is "+Math.abs(diff)+" half steps under your usual. That is the classic early sign of swollen vocal folds. Keep today light, check again tomorrow morning, and if it stays down for several days see a laryngologist.":
+      "Right where you usually are. Do this at about the same time of day so the readings compare.");
+    xMsg("Done.");panel(softReport())},true)}
+
+/* ---- 3. voice check: the same measured tasks every time ---- */
+function swellStats(a){const db=a.body.map(x=>x.db),sm=db.map((x,i)=>median(db.slice(Math.max(0,i-8),i+9))),lo=Math.min(...sm),hi=Math.max(...sm),range=hi-lo;
+  const loud=a.smooth.filter((x,i)=>sm[i]>=lo+range*.66),soft=a.smooth.filter((x,i)=>sm[i]<=lo+range*.33);return{range,shift:loud.length&&soft.length?median(loud)-median(soft):0}}
+function vcHold(fr,tgt){const V=fr.filter(f=>f.voiced&&f.m!=null&&Math.abs(octErr(f.m,tgt))<200);if(V.length<15)return null;const a=analyzeHold(V,tgt,V[0].t);if(!a||a.short)return null;
+  const res=a.body.map((x,i)=>x.c-a.smooth[i]);let zc=0;for(let i=1;i<res.length;i++)if(res[i-1]<0!==res[i]<0)zc++;
+  const t0=V[0].t,first=median(V.filter(f=>f.t-t0<=.15).map(f=>octErr(f.m,tgt))),sw=swellStats(a);
+  return{avg:a.avg,wob:a.wob,drift:a.drift,clar:a.clar??1,settle:a.settle,secs:spanOf(V),db:median(a.dbs),range:sw.range,shift:sw.shift,vibHz:a.dur>0?zc/2/a.dur:0,vibExt:2.83*sd(res),first}}
+function vowelSegs(fr,L,D,tgt){const F=fr.filter(f=>f.voiced&&f.k!=null);if(!F.length)return null;const t0=F[0].t;
+  const seg=L.map((v,k)=>{const w=F.filter(f=>f.k===k&&f.t-t0-k*D>=.35);if(w.length<6)return null;const c=w.map(f=>octErr(f.m,tgt));return{v,c:median(c),db:median(w.map(f=>dbOf(f.rms))),cl:median(w.map(f=>f.clar)),sd:sd(c)}});
+  const ok=seg.filter(Boolean);if(ok.length<3)return null;const cs=ok.map(x=>x.c),dbs=ok.map(x=>x.db),mc=median(cs);
+  return{seg,ok,cSpread:Math.max(...cs)-Math.min(...cs),dSpread:Math.max(...dbs)-Math.min(...dbs),clMin:Math.min(...ok.map(x=>x.cl)),worst:ok.reduce((a,b)=>Math.abs(b.c-mc)>Math.abs(a.c-mc)?b:a),mc}}
+const VC_AREAS=[["pitch","Pitch"],["dyn","Dynamics"],["tone","Tone"],["vow","Vowels"]];
+function vcSteps(){const[l,h]=rng(),mid=Math.round((l+h)/2),lo=l+2,hi=h-2,cl=m=>Math.max(l,Math.min(h,m)),sw=(k,t,m)=>({k,t,m,secs:7.5,cue:`${nn(m)}: start soft, grow to loud by the middle, back to soft. About 6 seconds.`});
+  const vw=(k,t,m)=>({k,t,m,vow:true,cue:`${nn(m)}: oo → oh → ah → eh → ee, 2 seconds each. Follow the big letters.`});
+  return[{k:"sus",t:"Sustain",m:mid,secs:45,end:true,cue:`Hold "ah" on ${nn(mid)} at a comfortable volume for as long as it stays easy. Stop before it strains.`},
+    {k:"soft",t:"Quiet tone",m:mid,secs:6.5,cue:`Hold ${nn(mid)} as quietly as you can keep it clear and steady, about 5 seconds.`},
+    sw("sw0","Swell, low",lo),sw("sw1","Swell, middle",mid),sw("sw2","Swell, high",hi),vw("vw1","Vowels, middle",mid),vw("vw2","Vowels, high",hi),
+    ...[0,4,-3,7,2,-5].map((d,i)=>({k:"p"+i,t:"Landing "+(i+1)+" of 6",m:cl(mid+d),secs:2.6,cue:`Sing ${nn(cl(mid+d))} and hold it a moment. Land on it; don't slide up to it.`}))]}
+const vcBase=(get,upto)=>{const v=S.checks.slice(0,upto).slice(-8).map(get).filter(x=>x!=null&&isFinite(x));return v.length>=3?median(v):null};
+function vcHistory(){if(!S.checks.length)return`<p class="hint" style="margin:0">No voice checks yet. The first three set your baseline; after that the app tells you when something slips.</p>`;
+  return`<table class="vtab"><tr><th>Date</th>${VC_AREAS.map(a=>`<th>${a[1]}</th>`).join("")}<th>Sustain</th></tr>`+S.checks.slice(-8).reverse().map(c=>`<tr><td>${fmtDay(c.d)}</td>${VC_AREAS.map(a=>`<td><b>${grade(c.sc[a[0]])}</b> ${Math.round(c.sc[a[0]])}</td>`).join("")}<td>${c.m.mpt.toFixed(0)} s</td></tr>`).join("")+`</table>`}
+function exVCheck(){BX.showVol=true;meterShow(true);panel(vcHistory());
+  xCue("About four minutes, the same every time: a sustained note, a quiet note, three swells, two vowel runs and six landings. Use the same phone at the same distance (about an arm's length) so the numbers compare.");
+  xBtn("Start the voice check",async()=>{if(BX.busy)return;BX.busy=true;const my=++RUN.id,steps=vcSteps(),R={};xReport(null);xTip("");$("xPanel").hidden=true;if(!await runOpen()){BX.busy=false;return}
+    for(let i=0;i<steps.length;i++){const s=steps[i],lab=`Step ${i+1} of ${steps.length}: ${s.t}.`;BX.trace=[];BX.vol=[];BX.target=s.m;xBig("");xCue(s.cue);xMsg(lab+" Listen…");RUN.sink=null;playTone(s.m,1);await wait(1350);if(my!==RUN.id)return;xMsg(lab+" Now sing.");
+      if(s.vow){const L="uoaei".split(""),D=2;let st=null;const fr=await capture(L.length*D+5,(F,t)=>{const f=F[F.length-1];if(st==null&&f.voiced&&Math.abs(octErr(f.m,s.m))<150)st=t;if(st==null)return false;
+          const k=Math.floor((t-st)/D);f.k=k;xBig(k<L.length?VW[L[k]]+(L[k+1]?"  → "+VW[L[k+1]]:""):"✓");return k>=L.length});R[s.k]=vowelSegs(fr,L,D,s.m);if(R[s.k])vmapAdd(R[s.k].ok,s.m)}
+      else if(s.end){let st=null,lv=null;const fr=await capture(s.secs,(F,t)=>{const f=F[F.length-1];if(f.voiced&&Math.abs(octErr(f.m,s.m))<200){if(st==null)st=t;lv=t;xBig(Math.floor(t-st)+" s")}return st!=null&&lv-st>1.5&&t-lv>.7});R[s.k]=vcHold(fr,s.m)}
+      else R[s.k]=vcHold(await capture(s.secs),s.m);
+      if(my!==RUN.id)return;
+      if(!R[s.k]&&!s.again){s.again=true;xMsg("I didn't catch that one. Once more.","warn");xBig("");await wait(1300);if(my!==RUN.id)return;i--;continue}
+      xBig(R[s.k]?"✓":"–",R[s.k]?"good":"");await wait(650);if(my!==RUN.id)return}
+    xStopAll();vcFinish(R)},true)}
+function vcFinish(R){const lands=[0,1,2,3,4,5].map(i=>R["p"+i]).filter(Boolean),sws=[R.sw0,R.sw1,R.sw2],swOk=sws.filter(Boolean),vws=[R.vw1,R.vw2].filter(Boolean);
+  if(!R.sus||lands.length<4||swOk.length<2||!vws.length){xBig("");xMsg("Too many steps weren't heard to score this one, so it wasn't saved. Check the microphone and try again.","warn");panel(vcHistory());return}
+  const err=mean(lands.map(a=>Math.abs(a.avg))),settle=mean(lands.map(a=>a.settle??1)),scoops=lands.filter(a=>a.first<-30).length,rg=mean(swOk.map(a=>a.range)),sh=mean(swOk.map(a=>Math.abs(a.shift)));
+  const sc={pitch:clamp100(100-Math.max(0,err-5)*2.2-Math.max(0,settle-.25)*40-(6-lands.length)*8),
+    dyn:clamp100(Math.min(100,rg/18*100)*.5+Math.max(0,100-Math.max(0,sh-5)*3)*.5-(R.soft?Math.max(0,R.soft.wob-8)*1.5:10)),
+    tone:clamp100(100-Math.max(0,.93-R.sus.clar)*300-(R.soft?Math.max(0,.93-R.soft.clar)*200:0)-Math.max(0,R.sus.wob-6)*2.2-Math.max(0,Math.abs(R.sus.drift)-10)),
+    vow:clamp100(mean(vws.map(v=>100-Math.max(0,v.cSpread-8)*1.6-Math.max(0,v.dSpread-4)*3-(v.clMin<.88?10:0))))};
+  const all=mean(VC_AREAS.map(a=>sc[a[0]])),wv=vws.reduce((a,b)=>Math.abs(b.worst.c-b.mc)>Math.abs(a.worst.c-a.mc)?b:a);
+  const e={d:Date.now(),sc,all,m:{mpt:R.sus.secs,clar:R.sus.clar,wob:R.sus.wob,vibHz:R.sus.vibHz,vibExt:R.sus.vibExt,swell:sws.map(a=>a?Math.round(a.range):null),shift:sws.map(a=>a?Math.round(a.shift):null),softDb:R.soft?R.soft.db:null,susDb:R.sus.db,err,settle,scoops}};
+  const n=S.checks.length,flags=[];
+  VC_AREAS.forEach(([k,name])=>{const b=vcBase(c=>c.sc[k],n);if(b!=null&&sc[k]<b-8)flags.push(`${name} is ${Math.round(b-sc[k])} points under your usual (${Math.round(b)} → ${Math.round(sc[k])}).`)});
+  const bm=vcBase(c=>c.m.mpt,n),bc=vcBase(c=>c.m.clar,n),bsw=vcBase(c=>mean(c.m.swell.filter(x=>x!=null)),n);
+  if(bm!=null&&e.m.mpt<.8*bm)flags.push(`Your sustain was ${e.m.mpt.toFixed(0)} s against a usual ${bm.toFixed(0)} s. On an ordinary day that can go with a tired voice.`);
+  if(bc!=null&&e.m.clar<bc-.03)flags.push("Your tone read airier than your usual.");
+  if(bsw!=null&&rg<bsw-4)flags.push(`Your soft-to-loud span was ${Math.round(rg)} dB against a usual ${Math.round(bsw)} dB.`);
+  S.checks.push(e);S.checks=S.checks.slice(-40);PRO_R=null;saveS();
+  const weak=VC_AREAS.reduce((a,b)=>sc[b[0]]<sc[a[0]]?b:a),reg=["low","middle","high"];
+  xBig(grade(all),all>=80?"good":"");xReport(VC_AREAS.map(([k,name])=>[name,grade(sc[k])+" · "+Math.round(sc[k]),sc[k]>=80?"g":sc[k]<70?"b":""]),grade(all));
+  const vib=e.m.vibExt>20?`${e.m.vibHz.toFixed(1)} per second, about ${Math.round(e.m.vibExt)}¢ wide`:"little or none on the sustained note";
+  panel((flags.length?`<div class="notice"><b>Below your baseline:</b><br>${flags.join("<br>")}</div>`:n>=3?`<div class="verdict go"><b>Holding steady.</b> Nothing fell below your own baseline.</div>`:`<p class="hint" style="margin:0">Check ${n+1} of the 3 needed to set your baseline.</p>`)+
+    `<ul class="vlist"><li><b>Pitch:</b> landed ${Math.round(err)}¢ off on average, settled in ${settle.toFixed(1)} s${scoops?`, slid up into ${scoops} of ${lands.length}`:", no scooping"}.</li>
+    <li><b>Dynamics:</b> soft-to-loud span ${sws.map((a,i)=>a?`${reg[i]} ${Math.round(a.range)} dB`:`${reg[i]} not heard`).join(", ")}; pitch moved ${Math.round(sh)}¢ with volume.</li>
+    <li><b>Tone:</b> ${R.sus.clar>=.93?"clear":R.sus.clar>=.88?"a little airy":"airy"} on the sustained note${R.soft?`, ${R.soft.clar>=.93?"clear":R.soft.clar>=.88?"a little airy":"airy"} when quiet`:""}; held ${e.m.mpt.toFixed(0)} s; vibrato ${vib}.</li>
+    <li><b>Vowels:</b> ${vws.map((v,i)=>`${vws.length>1?(v===R.vw1?"middle":"high"):"one run"}: pitch spread ${Math.round(v.cSpread)}¢, volume spread ${Math.round(v.dSpread)} dB`).join("; ")}. Furthest off: "${VW[wv.worst.v]}" (${sgnC(wv.worst.c-wv.mc)}).</li></ul>`+vcHistory());
+  xTip(`Lowest today: ${weak[1].toLowerCase()}. My maintenance routine (Routine tab) now leans on it.`);xMsg("Voice check saved.","good")}
+
+/* ---- 4. vowel map: every vowel in every part of your range, built up over sessions ---- */
+const REGS=[["low","Low"],["mid","Middle"],["high","High"]];
+function vmapAdd(ok,tgt){const mc=median(ok.map(x=>x.c)),md=median(ok.map(x=>x.db)),[l,h]=rng(),reg=tgt<l+(h-l)/3?"low":tgt>h-(h-l)/3?"high":"mid";
+  ok.forEach(x=>{const k=x.v+"|"+reg;(S.vmap[k]=S.vmap[k]||[]).push({p:Math.round(x.c-mc),db:+(x.db-md).toFixed(1),cl:+x.cl.toFixed(2),d:Date.now()});S.vmap[k]=S.vmap[k].slice(-12)});saveS()}
+function vmapCell(v,reg){const a=(S.vmap[v+"|"+reg]||[]).slice(-8);if(a.length<2)return null;const p=median(a.map(x=>x.p)),db=median(a.map(x=>x.db)),cl=median(a.map(x=>x.cl));
+  return{p,db,cl,n:a.length,bad:Math.max(Math.abs(p)/10,Math.abs(db)/4,cl<.88?1.2:0)}}
+function vmapWorst(){let w=null;for(const v in VW)for(const[r]of REGS){const c=vmapCell(v,r);if(c&&c.bad>1&&(!w||c.bad>w.c.bad))w={v,r,c}}return w}
+function exVMap(){meterShow(false);xCue("");const cells=Object.keys(VW).map(v=>REGS.map(([r])=>vmapCell(v,r))),any=cells.flat().some(Boolean),w=vmapWorst();
+  panel(`<table class="vtab vmap"><tr><th>Vowel</th>${REGS.map(r=>`<th>${r[1]}</th>`).join("")}</tr>`+Object.keys(VW).map((v,i)=>`<tr><td>${VW[v]}</td>${cells[i].map(c=>!c?`<td class="na">–</td>`:
+      `<td class="${c.bad>1?"b":"g"}">${sgnC(c.p)}${Math.abs(c.db)>4?`<br><small>${c.db>0?"+":"−"}${Math.abs(Math.round(c.db))} dB</small>`:""}${c.cl<.88?"<br><small>airy</small>":""}</td>`).join("")}</tr>`).join("")+`</table>
+    <p class="hint" style="margin:0">Each box is your usual on that vowel in that part of your range, over your last few runs: how far the pitch pulls against the other vowels in the same breath, plus a volume jump or airiness when there is one. Red means it keeps happening. A box needs two runs to show. The app can't hear which vowel you sang, so sing the one on the screen.</p>`+
+    (w?`<div class="tipbox"><b>Standing weak spot:</b> "${VW[w.v]}" ${w.r==="mid"?"in the middle":w.r+" in your range"} (${sgnC(w.c.p)}${Math.abs(w.c.db)>4?", volume jumps":""}${w.c.cl<.88?", airy":""}). ${VWFIX[w.v]||""}</div>`:any?`<div class="verdict go"><b>No standing weak spot.</b> Nothing keeps pulling.</div>`:""));
+  if(w)xBtn(`Drill "${VW[w.v]}" ${w.r==="mid"?"in the middle":w.r}`,()=>goEx("vowels",{vwNote:w.r,vwSet:"u"+w.v+"u"+w.v,vwSecs:2}),true);
+  REGS.forEach(([r,name])=>xBtn("Fill in: "+name.toLowerCase(),()=>goEx("vowels",{vwNote:r,vwSet:"uoaeiIUA",vwSecs:2}),!w&&r==="mid"));
+  xBtn("Fill in: diphthongs",()=>goEx("vowels",{vwNote:"mid",vwSet:"YXW",vwSecs:3}))}
+
+/* ---- 5. grade a sung take ---- */
+// Works from the pitch line itself (a voice slides and has vibrato, so there are no clean attacks to find). Same acceptance rule as the
+// fiddle grader: a note is right on equal temperament or on the pure interval in the key; otherwise it passes only if you place it the
+// same way every time. Then the singer's findings: scooping, phrase ends, register, loud against soft, drift, vibrato.
+const KK_MAJ=[6.35,2.23,3.48,2.33,4.38,4.09,2.52,5.19,2.39,3.66,2.29,2.88],KK_MIN=[6.33,2.68,3.52,5.38,2.60,3.53,2.54,4.75,3.98,2.69,3.34,3.17];
+const JUSTC=[0,11.7,3.9,15.6,-13.7,-2.0,-9.8,2.0,13.7,-15.6,-3.9,-11.7];
+const mmss=t=>Math.floor(t/60)+":"+String(Math.floor(t%60)).padStart(2,"0");
+function analyzeTake(fr,opt){const t00=fr.length?fr[0].t:0;fr.forEach(f=>f.t-=t00);
+  const segs=stableSegments(fr,.18);if(segs.length<8)return null;
+  const frac=m=>m-Math.round(m),circ=ns=>{let x=0,y=0;for(const s of ns){const w=s.end-s.start,a=2*Math.PI*frac(s.m);x+=w*Math.cos(a);y+=w*Math.sin(a)}return Math.atan2(y,x)/(2*Math.PI)*100};
+  const own=circ(segs),center=opt.a440?0:own,third=Math.floor(segs.length/3),driftC=segs.length>=18?circ(segs.slice(-third))-circ(segs.slice(0,third)):0;
+  const V=fr.filter(f=>f.voiced&&f.m!=null);
+  const notes=segs.map((s,i)=>{const v=s.m-center/100,n=Math.round(v),F=V.filter(f=>f.t>=s.start&&f.t<=s.end),len=s.end-s.start,pv=segs[i-1],nx=segs[i+1];
+    // the slide into a note and the fall off its end sit just outside the settled part; they only count next to silence,
+    // because a glide between two joined notes is ordinary legato, not a scoop
+    const pre=V.filter(f=>f.t<s.start&&f.t>=s.start-.22&&(!pv||f.t>pv.end+.02)&&Math.abs(f.m-s.m)<3),post=V.filter(f=>f.t>s.end&&f.t<=s.end+.3&&(!nx||f.t<nx.start-.02)&&Math.abs(f.m-s.m)<3);
+    const on=pre.concat(F),fromSilence=on.length>3&&(!pv||on[0].t-pv.end>.1),toSilence=!nx||nx.start-s.end>.3,all=F.concat(post),tEnd=all[all.length-1].t,last=all.filter(f=>f.t>=tEnd-.22).map(f=>f.m);
+    const head=fromSilence?(median(on.filter(f=>f.t-on[0].t<=.07).map(f=>f.m))-s.m)*100:0;
+    const tail=toSilence&&last.length>=4?(mean(last)-s.m)*100:0;   // the last fifth of a second, averaged so vibrato cancels out
+    return{t:s.start,len,m:s.m,n,dev:(v-n)*100,db:median(F.map(f=>dbOf(f.rms))),cl:median(F.map(f=>f.clar??1)),head,tail,ms:s.ms,end:s.end}});
+  // key: which major or minor key the notes fit best, by how long each note was sung
+  const w=new Array(12).fill(0);notes.forEach(x=>w[mod(x.n,12)]+=x.len);let best=-9,tonic=0,minor=false;
+  const corr=(P,T)=>{const mw=mean(w),mp=mean(P);let a=0,b=0,c=0;for(let p=0;p<12;p++){const x=w[p]-mw,y=P[mod(p-T,12)]-mp;a+=x*y;b+=x*x;c+=y*y}return a/Math.sqrt(b*c||1)};
+  if(opt.key>=0){tonic=opt.key}else for(let T=0;T<12;T++){const a=corr(KK_MAJ,T),b=corr(KK_MIN,T);if(a>best){best=a;tonic=T;minor=false}if(b>best){best=b;tonic=T;minor=true}}
+  const jt=minor?mod(tonic+3,12):tonic,TOL=tolB(),groups={};
+  for(const x of notes){x.just=JUSTC[mod(x.n-jt,12)];x.err=Math.min(Math.abs(x.dev),Math.abs(x.just)>3?Math.abs(x.dev-x.just):99);
+    x.st=Math.abs(x.dev)<=TOL?"et":Math.abs(x.just)>3&&Math.abs(x.dev-x.just)<=TOL?"just":null;(groups[x.n]=groups[x.n]||[]).push(x)}
+  // same rule as the fiddle grader: a steady in-between placement is accepted only on the 3rd, 6th, 7th or flat 5th, leaning toward the
+  // other major/minor version of that note. The root, 2nd, 4th and 5th are either in tune or not.
+  const LEAN={4:-1,9:-1,11:-1,3:1,8:1,10:1,6:1},stats=[];
+  for(const k in groups){const g=groups[k],med=median(g.map(x=>x.dev)),lean=LEAN[mod(+k-jt,12)],flex=!!lean&&lean*med>0;for(const x of g)if(!x.st)x.st=flex&&g.length>=3&&Math.abs(x.dev-med)<=10?"consistent":"off";
+    const off=g.filter(x=>x.st==="off");stats.push({n:+k,count:g.length,med,off:off.length,times:off.map(x=>x.t)})}
+  const pct=100*notes.filter(x=>x.st!=="off").length/notes.length,credit=mean(notes.map(x=>x.st!=="off"?1:Math.max(0,Math.min(1,1-(x.err-TOL)/10))));
+  const pen=Math.min(15,stats.reduce((s,g)=>s+(g.count>=4?5*Math.max(0,Math.min(1,(g.off/g.count-.3)/.3)):0),0)),score=clamp100(100*credit-pen);
+  // singer's findings
+  const longN=notes.filter(x=>x.len>=.3),scoops=longN.filter(x=>x.head<-35),ends=[];notes.forEach((x,i)=>{const nx=notes[i+1];if((!nx||nx.t-x.end>.35)&&x.len>=.4)ends.push(x)});
+  const sag=ends.filter(x=>x.tail<-20),lo=Math.min(...notes.map(x=>x.n)),hi=Math.max(...notes.map(x=>x.n)),rg=x=>x.n<lo+(hi-lo)/3?0:x.n>hi-(hi-lo)/3?2:1,byReg=[0,1,2].map(r=>{const g=notes.filter(x=>rg(x)===r);return g.length>=4?median(g.map(x=>x.dev)):null});
+  const dbs=notes.map(x=>x.db).sort((a,b)=>a-b),q1=dbs[Math.floor(dbs.length/3)],q2=dbs[Math.floor(2*dbs.length/3)],loud=notes.filter(x=>x.db>=q2),soft=notes.filter(x=>x.db<=q1),loudShift=loud.length>=4&&soft.length>=4?median(loud.map(x=>x.dev))-median(soft.map(x=>x.dev)):0;
+  const vib=notes.filter(x=>x.len>=.8).map(x=>{const c=x.ms.slice(Math.floor(x.ms.length*.25)).map(m=>(m-x.m)*100),sm=c.map((v,i)=>mean(c.slice(Math.max(0,i-5),i+6))),r=c.map((v,i)=>v-sm[i]);let z=0;for(let i=1;i<r.length;i++)if(r[i-1]<0!==r[i]<0)z++;
+    return{hz:z/2/(x.len*.75),ext:2.83*sd(r)}}).filter(v=>v.ext>20&&v.hz>3&&v.hz<9);
+  return{notes,stats,pct,score,g:grade(score),tonic,minor,center:own,a440:!!opt.a440,driftC,scoops,longN:longN.length,ends:ends.length,sag,byReg,loudShift,airy:notes.filter(x=>x.cl<.88).length,
+    vib:vib.length>=2?{hz:median(vib.map(v=>v.hz)),ext:median(vib.map(v=>v.ext)),n:vib.length}:null,problems:stats.filter(s=>s.count>=4&&s.off/s.count>=.45).sort((a,b)=>b.off-a.off),dur:fr.length?fr[fr.length-1].t:0,tol:TOL}}
+async function framesFromFile(file,onProg){const buf=await new Promise(async(res,rej)=>{const p=ac().decodeAudioData(await file.arrayBuffer(),res,rej);if(p&&p.then)p.then(res,rej)});
+  const n=buf.length,sr=buf.sampleRate,x=new Float32Array(n);for(let c=0;c<buf.numberOfChannels;c++){const d=buf.getChannelData(c);for(let i=0;i<n;i++)x[i]+=d[i]/buf.numberOfChannels}
+  const ring=new Float32Array(4096),fr=[];let floor=.002;
+  for(let i=0,k=0;i+1024<=n;i+=1024,k++){ring.copyWithin(0,1024);ring.set(x.subarray(i,i+1024),3072);const r=mpm(ring,sr,{fmin:55,rmsMin:.0008});if(r.rms<floor*1.6)floor=floor*.97+r.rms*.03;else floor*=1.0008;
+    const voiced=!!r.f&&r.rms>=Math.max(.001,2*floor)&&r.clar>=(r.rms>4*floor?.6:.72);fr.push({t:(i+1024)/sr-2048/sr,m:r.f?69+12*Math.log2(r.f/440):null,rms:r.rms,clar:r.clar,voiced});
+    if(k%300===0){onProg(i/n);await wait(0)}}
+  return fr}
+function takeHistory(){if(!S.takes.length)return"";return`<h3 style="margin:6px 0 0">Recent takes</h3><table class="vtab"><tr><th>Date</th><th>Take</th><th>Score</th><th>Notes</th></tr>`+
+  S.takes.slice(-10).reverse().map(t=>`<tr><td>${fmtDay(t.d)}</td><td>${String(t.name).replace(/[&<>"]/g,"")}</td><td><b>${t.g}</b> ${t.sc}</td><td>${t.n}</td></tr>`).join("")+`</table>`}
+function takeReport(r,name){const key=keyName(r.tonic)+(r.minor?" minor":" major"),W=[],I=[],reg=["low","middle","high"];
+  S.takes.push({d:Date.now(),name,sc:Math.round(r.score),g:r.g,n:r.notes.length,ctr:Math.round(r.center)});S.takes=S.takes.slice(-30);saveS();
+  xBig(r.g,r.score>=80?"good":"");xReport([["Intonation",r.g+" · "+Math.round(r.score)+"/100",r.score>=80?"g":r.score<70?"b":""],["Notes accepted",Math.round(r.pct)+"% of "+r.notes.length],["Key",key],["Pitch level",r.a440?"graded against A440":sgnC(r.center)+" vs A440"]],r.g);
+  r.stats.filter(s=>s.count>=3&&(s.count-s.off)/s.count>=.85).sort((a,b)=>b.count-a.count).slice(0,3).forEach(s=>W.push(`<b>${nn(s.n)}:</b> ${s.count-s.off} of ${s.count} accepted, usually ${sgnC(s.med)}.`));
+  if(r.longN>=6&&r.scoops.length/r.longN<=.1)W.push("<b>Clean starts:</b> you landed on your notes instead of sliding up to them.");
+  if(r.ends>=3&&!r.sag.length)W.push(`<b>Phrase ends held:</b> all ${r.ends} phrase-ending notes stayed up to pitch.`);
+  if(Math.abs(r.driftC)<=10&&r.notes.length>=18)W.push("<b>Pitch level held:</b> you ended the take where you started.");
+  if(r.vib)W.push(`<b>Vibrato:</b> about ${r.vib.hz.toFixed(1)} per second and ${Math.round(r.vib.ext)}¢ wide on ${r.vib.n} long notes${r.vib.hz>=4.5&&r.vib.hz<=6.5?", an even, usual rate":r.vib.hz<4.5?", on the slow side":", on the fast side"}.`);
+  r.problems.slice(0,3).forEach(s=>I.push(`<b>${nn(s.n)}:</b> ${s.off} of ${s.count} flagged, usually ${sgnC(s.med)} (${s.med>0?"sharp":"flat"}). At ${s.times.slice(0,5).map(mmss).join(", ")}.`));
+  if(r.longN>=6&&r.scoops.length/r.longN>.2)I.push(`<b>Scooping:</b> you slid up into ${r.scoops.length} of ${r.longN} longer notes. At ${r.scoops.slice(0,5).map(x=>mmss(x.t)).join(", ")}.`);
+  if(r.sag.length>=2||(r.sag.length&&r.sag.length/r.ends>=.3))I.push(`<b>Phrase ends sag:</b> ${r.sag.length} of ${r.ends} phrase-ending notes fell off flat (around ${Math.round(median(r.sag.map(x=>x.tail)))}¢). At ${r.sag.slice(0,5).map(x=>mmss(x.t)).join(", ")}.`);
+  r.byReg.forEach((d,i)=>{if(d!=null&&Math.abs(d)>12)I.push(`<b>${reg[i][0].toUpperCase()+reg[i].slice(1)} notes run ${d>0?"sharp":"flat"}:</b> usually ${sgnC(d)} in the ${reg[i]} third of what you sang.`)});
+  if(Math.abs(r.loudShift)>12)I.push(`<b>Pitch follows volume:</b> your loud notes sit ${sgnC(r.loudShift)} against your quiet ones.`);
+  if(Math.abs(r.driftC)>15)I.push(`<b>Pitch level drifted:</b> by the end you were ${sgnC(r.driftC)} from where you started${r.driftC<0?" (sinking, the common one unaccompanied)":""}.`);
+  if(r.airy/r.notes.length>.25)I.push(`<b>Airy tone:</b> ${r.airy} of ${r.notes.length} notes read as breathy.`);
+  const loose=r.notes.filter(x=>x.st==="off"&&!r.problems.some(p=>p.n===x.n));if(loose.length)I.push(`<b>Scattered misses:</b> ${loose.length} other note${loose.length>1?"s":""} flagged, at ${loose.slice(0,6).map(x=>mmss(x.t)).join(", ")}${loose.length>6?"…":""}.`);
+  panel(`<h3 style="margin:0">What's working</h3><ul class="vlist">${(W.length?W:["Nothing stands out yet. Longer takes give more to measure."]).map(x=>`<li>${x}</li>`).join("")}</ul>
+    <h3 style="margin:0">Issues</h3><ul class="vlist">${(I.length?I:["No recurring problems found."]).map(x=>`<li>${x}</li>`).join("")}</ul>
+    <p class="hint" style="margin:0">A note counts when it is within ±${r.tol}¢ of equal temperament or of the pure interval in ${key}. A 3rd, 6th or 7th also counts when you place it the same in-between way every time. Timing isn't graded for sung takes yet.</p>`+takeHistory())}
+function exTake(){meterShow(true);BX.fit=true;BX.span=8;const T={fr:[],on:false,t0:0};panel(takeHistory());S.set.tkRef=S.set.tkRef||"own";
+  xCue("Sing a verse and chorus, or a whole song, up to five minutes. With a guitar or a track, use headphones or keep the instrument quiet so the phone hears mostly you.");
+  const fin=async(fr,name)=>{xMsg("Working it out…");await wait(30);const r=analyzeTake(fr,{a440:S.set.tkRef==="a440",key:-1});
+    if(!r){xBig("");xMsg("I couldn't find enough steady notes to grade. Sing at least a verse, close enough for the phone to hear you clearly.","warn");return}xMsg("");takeReport(r,name)};
+  const rec=xBtn("● Record a take",async()=>{if(T.on){T.on=false;clearInterval(BX.iv);xStopAll();rec.textContent="● Record a take";xBig("");fin(T.fr,"Recorded here");return}
+    if(BX.busy)return;xReport(null);xTip("");T.fr=[];BX.trace=[];if(!await xMic((f,t)=>{T.fr.push({t,m:f.m,rms:f.rms,clar:f.clar,voiced:f.voiced})}))return;
+    T.on=true;T.t0=Date.now();rec.textContent="■ Stop and grade";xMsg("Recording. Sing.");BX.iv=setInterval(()=>{const s=(Date.now()-T.t0)/1000;xBig(mmss(s));if(s>=300)rec.onclick()},500)},true);
+  const inp=Object.assign(document.createElement("input"),{type:"file",accept:"audio/*,video/*,.m4a,.mp3,.wav,.mov,.mp4,.aac"});inp.style.cssText="position:absolute;width:1px;height:1px;opacity:0;pointer-events:none";$("xBtns").append(inp);
+  xBtn("Choose a recording",()=>{if(!T.on)inp.click()});
+  inp.onchange=async()=>{const f=inp.files[0];if(!f)return;inp.value="";xReport(null);xTip("");xBig("");try{const fr=await framesFromFile(f,p=>xMsg("Reading the recording… "+Math.round(p*100)+"%"));await fin(fr,f.name)}catch(e){xMsg("Couldn't read that file. Try exporting it as .m4a, .mp3 or .wav.","bad")}};
+  $("xPanel").prepend(qChips("Grade against",[["own","My own pitch level (unaccompanied)"],["a440","A440 (singing with an instrument or track)"]],S.set.tkRef,v=>{S.set.tkRef=v;saveS()}))}
+
+/* ---- 6. my maintenance routine: built from the check-in, the last voice check and the vowel map ---- */
+let PRO_R=null;
+function proRoutine(){const h=healthToday(),c=S.checks[S.checks.length-1],w=vmapWorst(),out=[];
+  if(h&&h.st!=="go")return[["hiss",{},h.st==="rest"?"Rest day per your check-in. If you sing at all, keep to these few easy steps.":"Gentle day per your check-in. Two easy hisses."],["siren",{syl:"lip"},"Small lip-trill sirens in the middle. No reaching."],
+    ["ladder",{lad:"five",syl:"hum",ladDir:"updown",ladStretch:0},"Hum the 5-note pattern. Stop at the first hint of effort."],["longtone",{ltNote:"mid",ltSecs:8},"Two quiet long tones in the middle."],["siren",{syl:"hum"},"One gentle hum siren down, then stop for the day."]];
+  out.push(["hiss",{},"Two or three hisses to set the breath."],["siren",{syl:"lip"},"Lip-trill sirens, lighter through the break."],["ladder",{lad:"five",syl:"hum",ladDir:"updown",ladStretch:0},"Hum the 5-note pattern up and back."]);
+  const order=c?VC_AREAS.map(a=>a[0]).sort((a,b)=>c.sc[a]-c.sc[b]):["tone","dyn","vow","pitch"],why=k=>c?` Your last voice check put ${VC_AREAS.find(a=>a[0]===k)[1].toLowerCase()} at ${Math.round(c.sc[k])}.`:"";
+  const swReg=c?["low","mid","high"][c.m.swell.reduce((bi,v,i,a)=>v!=null&&(a[bi]==null||v<a[bi])?i:bi,0)]:"mid";
+  const block={tone:[["longtone",{ltNote:"mid",ltSecs:12},"Long tones: steady air, clear tone."+why("tone")],["longtone",{ltNote:"high",ltSecs:8},"Long tones up high, quiet and clear."]],
+    dyn:[["swell",{swNote:swReg,swSecs:8},`Swells ${swReg==="mid"?"in the middle":swReg}, where your span was smallest.`+why("dyn")],["swell",{swNote:"mid",swSecs:12},"Slow 12-second swells: the pitch stays put."]],
+    vow:[["vowels",w?{vwNote:w.r,vwSet:"u"+w.v+"u"+w.v,vwSecs:2}:{vwNote:"high",vwSet:"uoaei",vwSecs:2},w?`Your standing weak vowel: "${VW[w.v]}" ${w.r==="mid"?"in the middle":w.r}. Keep the oo-space behind it.`:"Vowels on one shape, up high."+why("vow")]],
+    pitch:[["match",{jump:7,hold:2},"Land and hold: no sliding in."+why("pitch")],["steps",{},"Steps and leaps at tight tuning."]]};
+  out.push(...block[order[0]],...block[order[1]].slice(0,1));
+  if(order[0]!=="vow"&&order[1]!=="vow")out.push(block.vow[0]);if(order[0]!=="dyn"&&order[1]!=="dyn")out.push(["swell",{swNote:"mid",swSecs:8},"Two or three swells to keep the control."]);
+  out.push(["high",{hiIv:"oct"},"Octave leaps to your high target. Space first, then leap."],["siren",{syl:"hum"},"Cool down with a gentle hum siren downward."]);return out}
+Object.defineProperty(ROUTINES,"pro",{get:()=>PRO_R||(PRO_R=proRoutine()),enumerable:true});
+function setPro(on){S.pro=!!on;if(on){S.set.tol=15;P.skipped=true;saveP();R.len="pro";saveR()}else if(R.len==="pro"){R.len="10";R.step=-1;saveR()}saveS();$("tPro").checked=S.pro;$("rLenPro").hidden=!S.pro;showTab()}
+
+/* ---- wiring: the new exercises, their group, and the vowel sets ---- */
+Object.assign(EX,{
+  health:{t:"Voice check-in",how:"A few questions before you sing, and one after. It tells you whether today is a normal day, a gentle day or a rest day, and it watches for patterns worth taking to a voice doctor. It is a screening aid, not a diagnosis.",
+    tips:["Answer for today, not for how you usually are.","A gentle day is not a wasted day: easy lip trills and hums keep the voice moving.","Singing should leave your voice the same or better. If it's often worse afterward, something in the load or the technique needs changing."]},
+  soft:{t:"Soft high check",how:"Finds the highest note you can start quietly and cleanly today, and compares it with your usual. Quiet high singing is where swollen vocal folds show first, so a drop here is an early warning.",
+    tips:["As quiet as you can make it and still have a clear note. Think of a boy soprano.","Never get louder to make a note come out; that hides exactly what this is looking for.","Do it at about the same time of day, before heavy singing.","It measures; it isn't a warm-up or a workout."]},
+  vcheck:{t:"Voice check",how:"The same four-minute test every time, scored the same way, so you can see whether you are holding your level. Letters for pitch, dynamics, tone and vowels, a history, and a flag when something falls below your own baseline.",
+    tips:["Same phone, same distance, same room when you can: tone and loudness numbers only compare under the same conditions.","Do it warmed up, at about the same point in your day.","Once or twice a week is plenty.","The app tracks your tone against your own baseline. It can't judge whether a tone is beautiful."]},
+  vmap:{t:"Vowel map",how:"Every vowel in the low, middle and high parts of your range, built up from the vowel exercise and the voice check. It shows which vowel keeps pulling your pitch, jumping in volume or going airy, and where.",
+    tips:["Fill in one register at a time; each box needs two runs.","The fix for almost every vowel problem is the same: keep the open space behind it and change only the front of the mouth.","Diphthongs (ay, eye, ow): stay on the first vowel and turn late."]},
+  take:{t:"Grade a sung take",how:"Record yourself singing a song, or load a recording, and get it graded the way the fiddle grader grades a tune: a letter and a score for intonation, the notes you keep missing, and the things singers do, like scooping into notes and sagging at the ends of phrases.",
+    tips:["Sing it the way you would on stage; this is a check, not an exercise.","Unaccompanied, choose \"My own pitch level\": you're graded on how the notes relate to each other, and it tells you if you drifted.","With an instrument or a track, choose A440 and keep the phone close to you."]}});
+GROUPS.unshift(["Keep your voice",KEEP]);
+function vwOpts(cur){const o=[["uoaei","oo oh ah eh ee"],["ieaou","ee eh ah oh oo"],["uaua","oo ah oo ah"],["uiui","oo ee oo ee"],["uIUA","oo ih uh a"],["uoaeiIUA","All eight plain vowels"],["YXW","ay eye ow (diphthongs)"]];
+  if(!o.some(x=>x[0]===cur))o.push([cur,cur.split("").map(v=>VW[v]||v).join(" ")]);return o}
+
 /* ================= routing ================= */
-function showTab(){const h=location.hash,v=h==="#exercises"?"ex":h==="#technique"?"tech":h==="#routine"?"routine":h==="#learn"?"learn":((!P.ans&&!P.skipped&&!P.done.length)||(P.ans&&P.done.length<LESSONS.length-1&&!planFor(P.ans).skip)?"learn":"routine");
+function tabSel(){const ex=!$("vEx").hidden,k=ex&&KEEP.includes(S.ex);$("tabCheck").setAttribute("aria-selected",k);$("tabEx").setAttribute("aria-selected",ex&&!k)}
+function showTab(){const h=location.hash,first=(!P.ans&&!P.skipped&&!P.done.length)||(P.ans&&P.done.length<LESSONS.length-1&&!planFor(P.ans).skip);
+  const chk=h==="#check"||(!h&&S.pro),v=chk||h==="#exercises"?"ex":h==="#technique"?"tech":h==="#routine"?"routine":h==="#learn"?"learn":first?"learn":"routine";
+  if(chk&&!KEEP.includes(S.ex)){S.ex=healthToday()?"vcheck":"health";saveS()}          // the Check tab opens on today's check-in, then the voice check
+  if(h==="#exercises"&&KEEP.includes(S.ex)){S.ex=S.exLast||"match";saveS()}             // the Exercises tab goes back to the drill you were last on
   $("vLearn").hidden=v!=="learn";$("vRoutine").hidden=v!=="routine";$("vEx").hidden=v!=="ex";$("vTech").hidden=v!=="tech";
-  $("tabLearn").setAttribute("aria-selected",v==="learn");$("tabRoutine").setAttribute("aria-selected",v==="routine");$("tabEx").setAttribute("aria-selected",v==="ex");$("tabTech").setAttribute("aria-selected",v==="tech");
+  $("tabLearn").setAttribute("aria-selected",v==="learn");$("tabRoutine").setAttribute("aria-selected",v==="routine");$("tabTech").setAttribute("aria-selected",v==="tech");tabSel();
   if(v!=="ex")xStopAll();if(v==="ex"){$("rBanner").hidden=!B.mode;renderEx()}if(v==="tech")renderTech();if(v==="routine")renderRoutine();if(v==="learn")renderLearn()}
 window.addEventListener("hashchange",showTab);
 window.addEventListener("resize",()=>{if(!$("vEx").hidden)drawMeter()});
 $("micNotice").hidden=MIC_OK;$("micNotice").textContent="Singing into the app needs the microphone, which works in the standalone version (your GitHub link). Here you can hear the notes and read the tips.";
 $("tMic").onchange=e=>{T.micId=e.target.value;saveT()};refreshMics();
+$("tPro").checked=!!S.pro;$("rLenPro").hidden=!S.pro;$("tPro").onchange=e=>setPro(e.target.checked);$("ciPro").onclick=()=>{setPro(true);location.hash="#check"};
 showTab();
 
 </script>
