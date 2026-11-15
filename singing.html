@@ -129,6 +129,7 @@ ul.cues{margin:0;padding-left:1.1em;display:flex;flex-direction:column;gap:5px}
 .vtab td{padding:6px;border-top:1px dashed var(--line);vertical-align:top}.vtab.vmap td{text-align:center;font-family:var(--f-mono)}.vtab.vmap td:first-child,.vtab.vmap th:first-child{text-align:left;font-family:var(--f-body);font-weight:600}
 .vtab.vmap th{text-align:center}.vtab td.g{color:var(--good)}.vtab td.b{color:var(--bad);font-weight:700}.vtab td.na{color:var(--muted)}.vtab small{font-size:.7rem}
 .vlist{margin:0;padding-left:20px;display:flex;flex-direction:column;gap:6px;font-size:.92rem;line-height:1.4}
+.vlist .fix{color:var(--muted);font-size:.86rem;margin-top:3px}.vlist .fixgo{display:flex;flex-wrap:wrap;gap:4px 16px;margin-top:2px}
 .tipbox{border-left:4px solid var(--accent);background:var(--surface);border-radius:8px;padding:10px 12px;font-size:.92rem;line-height:1.45}
 .rbanner{display:flex;gap:10px;align-items:center;justify-content:space-between;border:2px solid var(--accent);border-radius:12px;padding:10px 12px;background:var(--surface)}
 .rsteps{margin:0;padding-left:22px;display:flex;flex-direction:column;gap:6px}.rsteps li.cur b{color:var(--accent)}
@@ -906,7 +907,7 @@ function holdMatch(o){let okSince=null;const go=xBtn("Start singing",async()=>{i
         if(held>=S.set.hold){BX.matched=true;o.onMatch(f.m);setTimeout(()=>{BX.matched=false;okSince=null;if(BX.on)o.next()},1500)}}
       else{okSince=null;const e0=errs[0];xCue(e0<0?`Slide up ↑ (${Math.round(-e0)}¢ low)`:`Slide down ↓ (${Math.round(e0)}¢ high)`)}}))return;
     o.afterMic&&o.afterMic();go.textContent="■ Stop";go.classList.add("live")},true);return go}
-function exMatch(){BX.target=clampR(midOf());
+function exMatch(){const fx=S.set.fix;delete S.set.fix;BX.target=fx??clampR(midOf());   // a sung-take report can send you here to drill one particular note (you sang it, so it is in your range)
   const newNote=()=>{const J=S.set.jump;if(J>0){let step=0;for(let k=0;k<8&&step===0;k++){step=(1+rint(J))*(Math.random()<.5?-1:1);if(clampR(BX.target+step)===BX.target)step=0}BX.target=clampR(BX.target+step)}xMsg("");
     if(BX.on){droneOff();playTone(BX.target,1.2);setTimeout(()=>{if(BX.on)droneOn(BX.target)},1300)}drawMeter()};
   xBtn("Play the note",()=>{playTone(BX.target,1.4);drawMeter()});
@@ -1314,18 +1315,38 @@ function takeReport(r,name,again){const key=keyName(r.tonic)+(r.minor?" minor":"
   if(r.ends>=3&&!r.sag.length)W.push(`<b>Phrase ends held:</b> all ${r.ends} phrase-ending notes stayed up to pitch.`);
   if(Math.abs(r.driftC)<=10&&r.notes.length>=18&&!r.a440)W.push("<b>Pitch level held:</b> you ended the take where you started.");
   if(r.vib)W.push(`<b>Vibrato:</b> about ${r.vib.hz.toFixed(1)} per second and ${Math.round(r.vib.ext)}¢ wide on ${r.vib.n} long notes${r.vib.hz>=4.5&&r.vib.hz<=6.5?", an even, usual rate":r.vib.hz<4.5?", on the slow side":", on the fast side"}.`);
-  r.problems.slice(0,3).forEach(s=>I.push(`<b>${nn(s.n)}:</b> ${s.off} of ${s.count} flagged, usually ${sgnC(s.med)} (${s.med>0?"sharp":"flat"}). At ${s.times.slice(0,5).map(mmss).join(", ")}.`));
-  if(r.sag.length>=2||(r.sag.length&&r.sag.length/r.ends>=.3))I.push(`<b>Phrase ends sag:</b> ${r.sag.length} of ${r.ends} phrase-ending notes fell off flat (around ${Math.round(median(r.sag.map(x=>x.tail)))}¢). At ${r.sag.slice(0,5).map(x=>mmss(x.t)).join(", ")}.`);
-  r.byReg.forEach((d,i)=>{if(d!=null&&Math.abs(d)>12)I.push(`<b>${reg[i][0].toUpperCase()+reg[i].slice(1)} notes run ${d>0?"sharp":"flat"}:</b> usually ${sgnC(d)} in the ${reg[i]} third of what you sang.`)});
-  if(Math.abs(r.loudShift)>12)I.push(`<b>Pitch follows volume:</b> your loud notes sit ${sgnC(r.loudShift)} against your quiet ones.`);
-  if(Math.abs(r.driftC)>25)I.push(`<b>Pitch level drifted:</b> by the end you were ${sgnC(r.driftC)} from where you started${r.driftC<0?" (sinking, the common one unaccompanied)":""}.${r.a440?"":" Each note was still judged against the level around it, so this didn't cost you notes."}`);
-  if(r.airy/r.gn>.25)I.push(`<b>Airy tone:</b> ${r.airy} of ${r.gn} notes read as breathy.`);
-  const loose=r.notes.filter(x=>x.st==="off"&&!r.problems.some(p=>p.n===x.n));if(loose.length)I.push(`<b>Scattered misses:</b> ${loose.length} other note${loose.length>1?"s":""} flagged, at ${loose.slice(0,6).map(x=>mmss(x.t)).join(", ")}${loose.length>6?"…":""}.`);
+  // every issue comes with the likely cause, what to do about it, and a button that opens the drill for it already set up
+  const iss=(h,tip,...go)=>I.push({h,tip,go}),regK=["low","mid","high"];
+  r.problems.slice(0,3).forEach(s=>iss(`<b>${nn(s.n)}:</b> ${s.off} of ${s.count} flagged, usually ${sgnC(s.med)} (${s.med>0?"sharp":"flat"}). At ${s.times.slice(0,5).map(mmss).join(", ")}.`,
+    s.med>0?"A note that is sharp every time is usually pushed: too much air, or the chin reaching up for it. Sing it at half volume, land it and hold it, then bring the volume back without letting the pitch climb."
+      :"A note that is flat every time is usually one you learned a little low, or one where the air goes slack. Hear it in your head before you sing it, land on it from above, not from below, and keep the air moving through it.",
+    ["Drill "+nn(s.n),"match",{jump:0,hold:2,fix:s.n}]));
+  if(r.sag.length>=2||(r.sag.length&&r.sag.length/r.ends>=.3))iss(`<b>Phrase ends sag:</b> ${r.sag.length} of ${r.ends} phrase-ending notes fell off flat (around ${sgnC(median(r.sag.map(x=>x.tail)))}). At ${r.sag.slice(0,5).map(x=>mmss(x.t)).join(", ")}.`,
+    "The pitch drops when the air runs low or you let go before the note is over. Save air for the end of the line, keep the same effort going right up to the cut-off, and think the last note slightly upward as it fades. On words like \"day\" or \"time\", stay on the first vowel and turn late.",
+    ["Swells: hold the pitch as you fade","swell",{swNote:"mid",swSecs:8}],["12-second long tones","longtone",{ltNote:"mid",ltSecs:12}]);
+  r.byReg.forEach((d,i)=>{if(d!=null&&Math.abs(d)>12)iss(`<b>${reg[i][0].toUpperCase()+reg[i].slice(1)} notes run ${d>0?"sharp":"flat"}:</b> usually ${sgnC(d)} in the ${reg[i]} third of what you sang.`,
+    i===2?(d<0?"High notes go flat when they are under-supported or reached for. Keep the air moving faster, make the vowel taller, and leave the chin level.":"High notes go sharp when they are pushed. Back the volume off and let them float; the pitch comes down with the pressure.")
+      :i===0?(d<0?"Low notes go flat when you press down on them or let the air go slack. Keep them light, almost spoken, on the same air you use in the middle.":"Low notes run sharp when the throat won't let them settle. Loosen the jaw, think down into the note, and don't carry the weight of the higher notes into it.")
+      :(d<0?"The middle of your range is sitting flat, which usually means the air is coasting. Sing it with the energy you give the high notes.":"The middle of your range is sitting sharp, which usually means pressing. Ease the volume and let the notes sit."),
+    ["Long tones, "+reg[i],"longtone",{ltNote:regK[i],ltSecs:8}])});
+  if(Math.abs(r.loudShift)>12)iss(`<b>Pitch follows volume:</b> your loud notes sit ${sgnC(r.loudShift)} against your quiet ones.`,
+    r.loudShift>0?"Getting louder by pushing more air drives the pitch up. Let the volume come from a more open sound, not more pressure, and listen for the pitch staying level as you grow."
+      :"Your pitch drops as you get louder, which usually means the sound is being pressed down. Keep the note light as it grows, and keep the energy up when you sing quietly.",
+    ["Slow swells","swell",{swNote:"mid",swSecs:12}]);
+  if(Math.abs(r.driftC)>25)iss(`<b>Pitch level drifted:</b> by the end you were ${sgnC(r.driftC)} from where you started${r.driftC<0?" (sinking, the common one unaccompanied)":""}.${r.a440?"":" Each note was still judged against the level around it, so this didn't cost you notes."}`,
+    r.driftC<0?"Singing alone, the key sinks a little at a time: a phrase ends slightly low and the next one starts from there. Fix the phrase ends first, and hear the key note in your head again before each new line."
+      :"Creeping sharp usually comes from pushing as the song builds. Check in with the key note between lines and ease the volume a notch.",
+    ["Long tones (turn the guide tone on)","longtone",{ltNote:"mid",ltSecs:12}]);
+  if(r.airy/r.gn>.25)iss(`<b>Airy tone:</b> ${r.airy} of ${r.gn} notes read as breathy.`,
+    "Air is getting through without turning into sound: usually more breath than the volume needs, or a soft start to the note. Start notes with a clean edge and use less air than feels natural. If the airiness is new for you, run the soft high check before singing more.",
+    ["Quiet long tones","longtone",{ltNote:"mid",ltSecs:8}],["Soft high check","soft",{}]);
+  const loose=r.notes.filter(x=>x.st==="off"&&!r.problems.some(p=>p.n===x.n));if(loose.length)iss(`<b>Scattered misses:</b> ${loose.length} other note${loose.length>1?"s":""} flagged, at ${loose.slice(0,6).map(x=>mmss(x.t)).join(", ")}${loose.length>6?"…":""}.`,
+    "A few one-off misses are normal. Listen back at those times: if they fall on jumps between notes, drill leaps; if they fall on the same vowel, look at the vowel map.",["Steps and leaps","steps",{}],["Vowel map","vmap",{}]);
   if(r.scoops.length)N.push(`<b>Slides into notes:</b> ${r.scoops.length} of your ${r.longN} longer notes were still 50¢ or more under pitch an eighth of a second in, which is longer than a normal note start. At ${r.scoops.slice(0,6).map(x=>mmss(x.t)).join(", ")}${r.scoops.length>6?"…":""}. Not scored: in this music a slide is often a choice.`);
   panel(`<h3 style="margin:0">What's working</h3><ul class="vlist">${(W.length?W:["Nothing stands out yet. Longer takes give more to measure."]).map(x=>`<li>${x}</li>`).join("")}</ul>
-    <h3 style="margin:0">Issues</h3><ul class="vlist">${(I.length?I:["No recurring problems found."]).map(x=>`<li>${x}</li>`).join("")}</ul>
+    <h3 style="margin:0">Issues, and what to do about them</h3><ul class="vlist">${I.length?I.map((x,k)=>`<li>${x.h}<div class="fix">${x.tip}</div><div class="fixgo">${x.go.map((g,j)=>`<button class="linkbtn" data-g="${k}.${j}">${g[0]} ›</button>`).join("")}</div></li>`).join(""):"<li>No recurring problems found.</li>"}</ul>
     ${N.length?`<h3 style="margin:0">Style notes</h3><ul class="vlist">${N.map(x=>`<li>${x}</li>`).join("")}</ul>`:""}
-    <p class="hint" style="margin:0">A note counts when it is within ±${r.tol}¢ of equal temperament or of the pure interval in ${key}. A 3rd, 6th or 7th also counts when you place it the same in-between way every time. Only settled notes are graded (${r.gn} of the ${r.notes.length} found): quick passing notes and glides between notes are left out, and so is the first eighth of a second of every note. Timing isn't graded for sung takes yet.</p>`+takeHistory())}
+    <p class="hint" style="margin:0">A note counts when it is within ±${r.tol}¢ of equal temperament or of the pure interval in ${key}. A 3rd, 6th or 7th also counts when you place it the same in-between way every time. Only settled notes are graded (${r.gn} of the ${r.notes.length} found): quick passing notes and glides between notes are left out, and so is the first eighth of a second of every note. Timing isn't graded for sung takes yet.</p>`+takeHistory()).querySelectorAll("[data-g]").forEach(b=>b.onclick=()=>{const[k,j]=b.dataset.g.split("."),g=I[k].go[j];goEx(g[1],g[2])})}
 const TK_KEYS=[[-1,"Find the key for me"]].concat(KEY_ORDER.map(k=>[k,keyName(k)+" major"]),KEY_ORDER.map(k=>[k+12,keyName(k)+" minor"]));
 function exTake(){meterShow(true);BX.fit=true;BX.span=8;const T={fr:[],on:false,t0:0,last:null};panel(takeHistory());const st=S.set;st.tkRef=st.tkRef||"own";st.tkTol=st.tkTol||25;st.tkKey=st.tkKey??-1;
   xCue("Sing a verse and chorus, or a whole song, up to five minutes. With a guitar or a track, use headphones or keep the instrument quiet so the phone hears mostly you.");

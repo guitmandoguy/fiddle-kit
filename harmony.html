@@ -677,6 +677,43 @@ function mpm(buf,sr){const W=buf.length,N=2*W;if(!MP||MP.sr!==sr||MP.W!==W)MP={s
   const ok=pk.filter(p=>p[0]>=tauMin);if(!ok.length)return{f:0,clar:0,rms};
   const mx=Math.max(...ok.map(p=>p[1])),[p]=ok.find(q=>q[1]>=.9*mx),a=ns[p-1],b=ns[p],c2=ns[p+1],den=a-2*b+c2,tau=p+(den?.5*(a-c2)/den:0);
   return{f:sr/tau,clar:b,rms}}
+let MPV=null;
+// a second pitch finder for the live microphone: longer window, reaches lower, and reads quieter sound than mpm() above
+function mpmV(buf,sr,o){o=o||{};const W=buf.length,N=2*W;if(!MPV||MPV.sr!==sr||MPV.W!==W)MPV={sr,W,fft:makeFFT(N),re:new Float64Array(N),im:new Float64Array(N),ns:new Float64Array(W)};
+  let e=0;for(let i=0;i<W;i++)e+=buf[i]*buf[i];const rms=Math.sqrt(e/W);if(rms<(o.rmsMin??.003))return{f:0,clar:0,rms};
+  const{re,im,ns,fft}=MPV;for(let i=0;i<W;i++)re[i]=buf[i];re.fill(0,W);im.fill(0);fft(re,im);for(let i=0;i<N;i++){re[i]=re[i]*re[i]+im[i]*im[i];im[i]=0}fft(re,im);
+  const TM=Math.min(Math.ceil(sr/(o.fmin||65)),W-2),tauMin=Math.floor(sr/1100);let m=2*e;ns[0]=1;
+  for(let t=1;t<=TM+1;t++){const a=buf[t-1],b=buf[W-t];m-=a*a+b*b;ns[t]=m>1e-12?2*(re[t]/N)/m:0}
+  let t=1;while(t<TM&&ns[t]>0)t++;const pk=[];let inL=false,bi=0,bv=-1;
+  for(;t<TM;t++){if(ns[t]>0){if(!inL){inL=true;bv=-1}if(ns[t]>bv){bv=ns[t];bi=t}}else if(inL){inL=false;pk.push([bi,bv])}}
+  if(inL&&bi<TM-2)pk.push([bi,bv]);   // a very low note: its peak was found but the curve hadn't come back down yet
+  const ok=pk.filter(p=>p[0]>=tauMin);if(!ok.length)return{f:0,clar:0,rms};
+  const mx=Math.max(...ok.map(p=>p[1])),[p]=ok.find(q=>q[1]>=.9*mx),a=ns[p-1],b=ns[p],c2=ns[p+1],den=a-2*b+c2,tau=p+(den?.5*(a-c2)/den:0);
+  return{f:sr/tau,clar:b,rms}}
+/* one block of sound in, one pitch reading out. The same listener as the Singing Practice Kit.
+   Built to hear quiet and low singing:
+   - the sound is first narrowed to the band a sung note lives in (about 45 Hz to 2 kHz), which takes most of the mic's hiss out;
+   - the "room noise" level is learned only from sound with no pitch in it, so a long quiet note is never mistaken for the room;
+   - a quiet reading counts when it agrees with the reading just before it, since noise doesn't hold a pitch from one moment to the next;
+   - a steady machine hum is recognised by being too exact to be a voice, and ignored.
+   steadyTone = the app is playing the band or the parts out loud (no headphones): that sound leaks into the mic, so any steady sound
+   is treated as background (the older, stricter behaviour) and only singing clearly louder than it counts. */
+function micState(sr){return{sr,ring:new Float32Array(4096),floor:.0006,hp:0,hpx:0,l1:0,l2:0,last:null,hist:[],hum:0,aHP:Math.exp(-2*Math.PI*45/sr),aLP:1-Math.exp(-2*Math.PI*2000/sr)}}
+function micFrame(st,d,steadyTone){const R=st.ring,o=R.length-d.length;R.copyWithin(0,d.length);
+  for(let i=0;i<d.length;i++){const x=d[i];st.hp=st.aHP*(st.hp+x-st.hpx);st.hpx=x;st.l1+=st.aLP*(st.hp-st.l1);st.l2+=st.aLP*(st.l1-st.l2);R[o+i]=st.l2}
+  const r=mpmV(R,st.sr,{fmin:45,rmsMin:.0002});let fl=st.floor;
+  if(steadyTone){if(r.rms<fl*1.6)fl=fl*.97+r.rms*.03;else fl*=1.0008}
+  else if(r.clar<.45){if(r.rms<fl*3)fl=fl*.94+r.rms*.06;else fl*=1.003}
+  else if(r.rms<fl)fl=fl*.9+r.rms*.1;
+  // a machine's hum (fridge, fan, amp) holds its pitch and level far more exactly than any voice can: once a sound has sat within
+  // about half a cent and a seventh of a decibel for two full seconds, its level is treated as background too
+  if(r.f&&r.clar>=.5&&!steadyTone){const H=st.hist;H.push([69+12*Math.log2(r.f/440),20*Math.log10(r.rms)]);if(H.length>88)H.shift();
+    if(H.length===88){let a=0,b=0;for(const h of H){a+=h[0];b+=h[1]}a/=88;b/=88;let va=0,vb=0;for(const h of H){va+=(h[0]-a)**2;vb+=(h[1]-b)**2}
+      st.hum=Math.sqrt(va/88)<.006&&Math.sqrt(vb/88)<.15?r.rms:st.hum*.98}}else{st.hist.length=0;st.hum*=.98}
+  st.floor=fl=Math.max(fl,.00015,st.hum);
+  const m=r.f?69+12*Math.log2(r.f/440):null,agrees=m!=null&&st.last!=null&&Math.abs(m-st.last)<.7;
+  r.m=m;r.floor=fl;r.voiced=!!r.f&&r.rms>=Math.max(.0004,(steadyTone?2:1.5)*fl)&&r.clar>=(r.rms>4*fl?.6:agrees?.55:.72);
+  st.last=r.f&&r.clar>=.5?m:null;return r}
 const MIC={on:false};
 /* keep the screen on while recording: Screen Wake Lock, plus a tiny silent looping video for iPhones where the lock doesn't hold */
 const AWAKE={lock:null,video:null,on:false};
@@ -702,10 +739,13 @@ async function micStart(cb){
   const a=ac();for(let k=0;k<5&&a.state!=="running";k++){try{await a.resume()}catch(e){}await new Promise(r=>setTimeout(r,80))}   // iOS can pause audio when the mic opens
   refreshMics();
   const src=a.createMediaStreamSource(stream),sp=a.createScriptProcessor(1024,1,1),mute=a.createGain();mute.gain.value=0;
+  // "Sing it" keeps the original listener it was tuned with (it sets MIC.legacy first); everything else uses the newer one, which hears quiet and low notes
+  const legacy=!!MIC.legacy,st=micState(a.sampleRate);MIC.legacy=false;
   const ring=new Float32Array(2048);let floor=.002;MPM_FLOOR=Math.min(MPM_FLOOR,.0008);
-  sp.onaudioprocess=ev=>{if(!MIC.on)return;const d=ev.inputBuffer.getChannelData(0);ring.copyWithin(0,d.length);ring.set(d,ring.length-d.length);
+  sp.onaudioprocess=legacy?ev=>{if(!MIC.on)return;const d=ev.inputBuffer.getChannelData(0);ring.copyWithin(0,d.length);ring.set(d,ring.length-d.length);
     const r=mpm(ring,a.sampleRate);if(r.rms<floor*1.6)floor=floor*.97+r.rms*.03;else floor*=1.0008;   // the room's own noise level, followed slowly
-    r.time=a.currentTime-ring.length/a.sampleRate/2;r.m=r.f?69+12*Math.log2(r.f/440):null;r.voiced=!!r.f&&r.clar>=.8&&r.rms>=Math.max(.0015,2.5*floor);cb(r)};
+    r.time=a.currentTime-ring.length/a.sampleRate/2;r.m=r.f?69+12*Math.log2(r.f/440):null;r.voiced=!!r.f&&r.clar>=.8&&r.rms>=Math.max(.0015,2.5*floor);cb(r)}
+    :ev=>{if(!MIC.on)return;const r=micFrame(st,ev.inputBuffer.getChannelData(0),E.on&&!(typeof T!=="undefined"&&T.phones));r.time=a.currentTime-st.ring.length/a.sampleRate/2;cb(r)};
   src.connect(sp);sp.connect(mute);mute.connect(a.destination);
   Object.assign(MIC,{on:true,stream,src,sp,mute,t0:Date.now()});
 }
@@ -1970,7 +2010,7 @@ function qkFinish(frames){const raw=quickNotes(frames);if(raw.err){qkSay(raw.err
 function qkStop(){if(!QK.rec)return;clearInterval(QK.tick);micStop();MPM_FLOOR=.003;QK.rec=false;qkUi();qkSay("Working it out…");setTimeout(()=>qkFinish(QK.frames),30)}
 $("qkBtn").onclick=async()=>{if(QK.rec){qkStop();return}
   eStop();QK.frames=[];QK.last=null;qkSay("");
-  MPM_FLOOR=.0004;QK.peak=0;
+  MPM_FLOOR=.0004;QK.peak=0;MIC.legacy=true;
   try{await micStart(f=>{f.voiced=!!f.f&&f.clar>=.8;QK.frames.push({time:f.time,m:f.m,voiced:f.voiced,rms:f.rms});QK.last=f;QK.peak=Math.max(QK.peak*.97,f.rms)})}
   catch(e){MPM_FLOOR=.003;qkSay(e&&e.name==="NotAllowedError"?"Microphone access was blocked. Allow it for this site in your browser settings.":"The microphone isn't available here.","bad");return}
   QK.rec=true;QK.t0=Date.now();qkUi();
