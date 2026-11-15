@@ -744,7 +744,7 @@ function renderSettings(){const box=$("xSet"),s=S.set,ex=S.ex;box.innerHTML="<h3
 /* ---- screen ---- */
 function renderGroups(){const g=$("xGroups");g.innerHTML="";GROUPS.forEach(([name,keys])=>{const d=document.createElement("div");d.className="exgroup";d.innerHTML=`<span class="label"></span><div class="chips"></div>`;
   d.querySelector(".label").textContent=name;keys.forEach(k=>{const b=document.createElement("button");b.className="chip";b.textContent=EX[k].t;b.setAttribute("aria-pressed",k===S.ex);b.onclick=()=>goEx(k);d.querySelector(".chips").append(b)});g.append(d)})}
-function renderEx(){xStopAll();RUN.id++;RUN.sink=null;{const xp=$("xPanel");xp.hidden=true;xp.innerHTML="";$("xTip").after(xp)}meterShow(true);if(!KEEP.includes(S.ex))S.exLast=S.ex;tabSel();
+function renderEx(){xStopAll();RUN.id++;RUN.sink=null;{const xp=$("xPanel"),o=$("tkOpts");xp.hidden=true;xp.innerHTML="";$("xTip").after(xp);if(o)o.remove()}meterShow(true);if(!KEEP.includes(S.ex))S.exLast=S.ex;tabSel();
   Object.assign(BX,{trace:[],vol:[],target:null,targets:null,droneM:null,marks:[],showVol:false,fit:false,span:5});
   renderGroups();const E=EX[S.ex];$("xTitle").textContent=E.t;$("xHow").textContent=E.how;$("xBtns").innerHTML="";xMsg("");xCue("");xBig("");xTip("");xReport(null);
   $("xCoachList").innerHTML=(E.tips||[]).map(t=>`<li>${t}</li>`).join("");
@@ -1253,11 +1253,14 @@ const KK_MAJ=[6.35,2.23,3.48,2.33,4.38,4.09,2.52,5.19,2.39,3.66,2.29,2.88],KK_MI
 const JUSTC=[0,11.7,3.9,15.6,-13.7,-2.0,-9.8,2.0,13.7,-15.6,-3.9,-11.7];
 const mmss=t=>Math.floor(t/60)+":"+String(Math.floor(t%60)).padStart(2,"0");
 function analyzeTake(fr,opt){const t00=fr.length?fr[0].t:0;fr.forEach(f=>f.t-=t00);
-  const segs=stableSegments(fr,.18);if(segs.length<8)return null;
+  const segs=stableSegments(fr,.18);if(segs.length<6)return null;
   const frac=m=>m-Math.round(m),circ=ns=>{let x=0,y=0;for(const s of ns){const w=s.end-s.start,a=2*Math.PI*frac(s.m);x+=w*Math.cos(a);y+=w*Math.sin(a)}return Math.atan2(y,x)/(2*Math.PI)*100};
-  const own=circ(segs),center=opt.a440?0:own,third=Math.floor(segs.length/3),driftC=segs.length>=18?circ(segs.slice(-third))-circ(segs.slice(0,third)):0;
+  const own=circ(segs),third=Math.floor(segs.length/3),driftC=segs.length>=18?circ(segs.slice(-third))-circ(segs.slice(0,third)):0;
+  // Unaccompanied, your pitch level is allowed to move slowly: each note is judged against the level of the 8 seconds either side of it,
+  // the way a listener hears it, and the overall drift is reported on its own line. Against A440 the level is fixed.
+  const levelAt=s=>{if(opt.a440)return 0;const nb=segs.filter(q=>Math.abs(q.start-s.start)<=8);return nb.length>=6?circ(nb):own};
   const V=fr.filter(f=>f.voiced&&f.m!=null);
-  const notes=segs.map((s,i)=>{const v=s.m-center/100,n=Math.round(v),F=V.filter(f=>f.t>=s.start&&f.t<=s.end),len=s.end-s.start,pv=segs[i-1],nx=segs[i+1];
+  const notes=segs.map((s,i)=>{const v=s.m-levelAt(s)/100,n=Math.round(v),F=V.filter(f=>f.t>=s.start&&f.t<=s.end),len=s.end-s.start,pv=segs[i-1],nx=segs[i+1];
     // the slide into a note and the fall off its end sit just outside the settled part; they only count next to silence,
     // because a glide between two joined notes is ordinary legato, not a scoop
     const pre=V.filter(f=>f.t<s.start&&f.t>=s.start-.5&&(!pv||f.t>pv.end+.02)&&Math.abs(f.m-s.m)<3),post=V.filter(f=>f.t>s.end&&f.t<=s.end+.3&&(!nx||f.t<nx.start-.02)&&Math.abs(f.m-s.m)<3);
@@ -1266,28 +1269,34 @@ function analyzeTake(fr,opt){const t00=fr.length?fr[0].t:0;fr.forEach(f=>f.t-=t0
     // so that stretch is never judged. A slide only counts if the pitch is still well under the note after it.
     const hw=on.filter(f=>f.t-on[0].t>=.12&&f.t-on[0].t<=.2).map(f=>f.m),head=fromSilence&&hw.length>=2?(median(hw)-s.m)*100:0;
     const tail=toSilence&&last.length>=4?(mean(last)-s.m)*100:0;   // the last fifth of a second, averaged so vibrato cancels out
-    return{t:s.start,len,m:s.m,n,dev:(v-n)*100,db:median(F.map(f=>dbOf(f.rms))),cl:median(F.map(f=>f.clar??1)),head,tail,full:s.end-(fromSilence?on[0].t:s.start),ms:s.ms,end:s.end}});
-  // key: which major or minor key the notes fit best, by how long each note was sung
-  const w=new Array(12).fill(0);notes.forEach(x=>w[mod(x.n,12)]+=x.len);let best=-9,tonic=0,minor=false;
+    const k3=Math.max(1,Math.floor(F.length/3)),slope=F.length>=6?(median(F.slice(-k3).map(f=>f.m))-median(F.slice(0,k3).map(f=>f.m)))*100:0;
+    return{t:s.start,len,slope,m:s.m,n,dev:(v-n)*100,db:median(F.map(f=>dbOf(f.rms))),cl:median(F.map(f=>f.clar??1)),head,tail,full:s.end-(fromSilence?on[0].t:s.start),ms:s.ms,end:s.end}});
+  // Which of the things found are notes to grade? A voice passes through pitches on its way between notes, so only settled notes count:
+  // at least 0.3 s long, not a short glide (moving more than 60¢ from start to end), and not a stray reading far from both neighbours
+  // (more than half an octave from the notes around it: the pitch finder dropping an octave or a fifth on a rough start).
+  notes.forEach((x,i)=>{const nb=notes.slice(Math.max(0,i-4),i+5).filter(q=>q!==x).map(q=>q.n);x.stray=x.len<.5&&nb.length>=3&&Math.abs(x.n-median(nb))>6;x.graded=!x.stray&&x.len>=.3&&!(Math.abs(x.slope)>60&&x.len<.5)});
+  const G=notes.filter(x=>x.graded);if(G.length<5)return null;
+  // key: which major or minor key the notes fit best, by how long each note was sung; the note you end on gets extra weight
+  const w=new Array(12).fill(0);notes.forEach(x=>{if(!x.stray)w[mod(x.n,12)]+=x.len});const lastN=[...G].reverse().find(x=>x.len>=.5)||G[G.length-1],fin=T=>mod(lastN.n,12)===T?.12:0;let best=-9,tonic=0,minor=false;
   const corr=(P,T)=>{const mw=mean(w),mp=mean(P);let a=0,b=0,c=0;for(let p=0;p<12;p++){const x=w[p]-mw,y=P[mod(p-T,12)]-mp;a+=x*y;b+=x*x;c+=y*y}return a/Math.sqrt(b*c||1)};
-  if(opt.key>=0){tonic=opt.key}else for(let T=0;T<12;T++){const a=corr(KK_MAJ,T),b=corr(KK_MIN,T);if(a>best){best=a;tonic=T;minor=false}if(b>best){best=b;tonic=T;minor=true}}
-  const jt=minor?mod(tonic+3,12):tonic,TOL=tolB(),groups={};
-  for(const x of notes){x.just=JUSTC[mod(x.n-jt,12)];x.err=Math.min(Math.abs(x.dev),Math.abs(x.just)>3?Math.abs(x.dev-x.just):99);
+  if(opt.key>=0){tonic=opt.key%12;minor=opt.key>=12}else for(let T=0;T<12;T++){const a=corr(KK_MAJ,T)+fin(T),b=corr(KK_MIN,T)+fin(T);if(a>best){best=a;tonic=T;minor=false}if(b>best){best=b;tonic=T;minor=true}}
+  const jt=minor?mod(tonic+3,12):tonic,TOL=opt.tol||25,groups={};
+  for(const x of G){x.just=JUSTC[mod(x.n-jt,12)];x.err=Math.min(Math.abs(x.dev),Math.abs(x.just)>3?Math.abs(x.dev-x.just):99);
     x.st=Math.abs(x.dev)<=TOL?"et":Math.abs(x.just)>3&&Math.abs(x.dev-x.just)<=TOL?"just":null;(groups[x.n]=groups[x.n]||[]).push(x)}
   // same rule as the fiddle grader: a steady in-between placement is accepted only on the 3rd, 6th, 7th or flat 5th, leaning toward the
   // other major/minor version of that note. The root, 2nd, 4th and 5th are either in tune or not.
   const LEAN={4:-1,9:-1,11:-1,3:1,8:1,10:1,6:1},stats=[];
   for(const k in groups){const g=groups[k],med=median(g.map(x=>x.dev)),lean=LEAN[mod(+k-jt,12)],flex=!!lean&&lean*med>0;for(const x of g)if(!x.st)x.st=flex&&g.length>=3&&Math.abs(x.dev-med)<=10?"consistent":"off";
     const off=g.filter(x=>x.st==="off");stats.push({n:+k,count:g.length,med,off:off.length,times:off.map(x=>x.t)})}
-  const pct=100*notes.filter(x=>x.st!=="off").length/notes.length,credit=mean(notes.map(x=>x.st!=="off"?1:Math.max(0,Math.min(1,1-(x.err-TOL)/10))));
+  const pct=100*G.filter(x=>x.st!=="off").length/G.length,credit=mean(G.map(x=>x.st!=="off"?1:Math.max(0,Math.min(1,1-(x.err-TOL)/10))));
   const pen=Math.min(15,stats.reduce((s,g)=>s+(g.count>=4?5*Math.max(0,Math.min(1,(g.off/g.count-.3)/.3)):0),0)),score=clamp100(100*credit-pen);
   // singer's findings
-  const longN=notes.filter(x=>x.full>=.4),scoops=longN.filter(x=>x.head<-50),ends=[];notes.forEach((x,i)=>{const nx=notes[i+1];if((!nx||nx.t-x.end>.35)&&x.len>=.4)ends.push(x)});
-  const sag=ends.filter(x=>x.tail<-20),lo=Math.min(...notes.map(x=>x.n)),hi=Math.max(...notes.map(x=>x.n)),rg=x=>x.n<lo+(hi-lo)/3?0:x.n>hi-(hi-lo)/3?2:1,byReg=[0,1,2].map(r=>{const g=notes.filter(x=>rg(x)===r);return g.length>=4?median(g.map(x=>x.dev)):null});
-  const dbs=notes.map(x=>x.db).sort((a,b)=>a-b),q1=dbs[Math.floor(dbs.length/3)],q2=dbs[Math.floor(2*dbs.length/3)],loud=notes.filter(x=>x.db>=q2),soft=notes.filter(x=>x.db<=q1),loudShift=loud.length>=4&&soft.length>=4?median(loud.map(x=>x.dev))-median(soft.map(x=>x.dev)):0;
-  const vib=notes.filter(x=>x.len>=.8).map(x=>{const c=x.ms.slice(Math.floor(x.ms.length*.25)).map(m=>(m-x.m)*100),sm=c.map((v,i)=>mean(c.slice(Math.max(0,i-5),i+6))),r=c.map((v,i)=>v-sm[i]);let z=0;for(let i=1;i<r.length;i++)if(r[i-1]<0!==r[i]<0)z++;
+  const real=notes.filter(x=>!x.stray),longN=real.filter(x=>x.full>=.4),scoops=longN.filter(x=>x.head<-50),ends=[];real.forEach((x,i)=>{const nx=real[i+1];if((!nx||nx.t-x.end>.35)&&x.len>=.4)ends.push(x)});
+  const sag=ends.filter(x=>x.tail<-20),lo=Math.min(...G.map(x=>x.n)),hi=Math.max(...G.map(x=>x.n)),rg=x=>x.n<lo+(hi-lo)/3?0:x.n>hi-(hi-lo)/3?2:1,byReg=[0,1,2].map(r=>{const g=G.filter(x=>rg(x)===r);return g.length>=4?median(g.map(x=>x.dev)):null});
+  const dbs=G.map(x=>x.db).sort((a,b)=>a-b),q1=dbs[Math.floor(dbs.length/3)],q2=dbs[Math.floor(2*dbs.length/3)],loud=G.filter(x=>x.db>=q2),soft=G.filter(x=>x.db<=q1),loudShift=loud.length>=4&&soft.length>=4?median(loud.map(x=>x.dev))-median(soft.map(x=>x.dev)):0;
+  const vib=G.filter(x=>x.len>=.8).map(x=>{const c=x.ms.slice(Math.floor(x.ms.length*.25)).map(m=>(m-x.m)*100),sm=c.map((v,i)=>mean(c.slice(Math.max(0,i-5),i+6))),r=c.map((v,i)=>v-sm[i]);let z=0;for(let i=1;i<r.length;i++)if(r[i-1]<0!==r[i]<0)z++;
     return{hz:z/2/(x.len*.75),ext:2.83*sd(r)}}).filter(v=>v.ext>20&&v.hz>3&&v.hz<9);
-  return{notes,stats,pct,score,g:grade(score),tonic,minor,center:own,a440:!!opt.a440,driftC,scoops,longN:longN.length,ends:ends.length,sag,byReg,loudShift,airy:notes.filter(x=>x.cl<.88).length,
+  return{notes,gn:G.length,stats,pct,score,g:grade(score),tonic,minor,center:own,a440:!!opt.a440,driftC,scoops,longN:longN.length,ends:ends.length,sag,byReg,loudShift,airy:G.filter(x=>x.cl<.88).length,
     vib:vib.length>=2?{hz:median(vib.map(v=>v.hz)),ext:median(vib.map(v=>v.ext)),n:vib.length}:null,problems:stats.filter(s=>s.count>=4&&s.off/s.count>=.45).sort((a,b)=>b.off-a.off),dur:fr.length?fr[fr.length-1].t:0,tol:TOL}}
 async function framesFromFile(file,onProg){const buf=await new Promise(async(res,rej)=>{const p=ac().decodeAudioData(await file.arrayBuffer(),res,rej);if(p&&p.then)p.then(res,rej)});
   const n=buf.length,sr=buf.sampleRate,x=new Float32Array(n);for(let c=0;c<buf.numberOfChannels;c++){const d=buf.getChannelData(c);for(let i=0;i<n;i++)x[i]+=d[i]/buf.numberOfChannels}
@@ -1297,36 +1306,43 @@ async function framesFromFile(file,onProg){const buf=await new Promise(async(res
   return fr}
 function takeHistory(){if(!S.takes.length)return"";return`<h3 style="margin:6px 0 0">Recent takes</h3><table class="vtab"><tr><th>Date</th><th>Take</th><th>Score</th><th>Notes</th></tr>`+
   S.takes.slice(-10).reverse().map(t=>`<tr><td>${fmtDay(t.d)}</td><td>${String(t.name).replace(/[&<>"]/g,"")}</td><td><b>${t.g}</b> ${t.sc}</td><td>${t.n}</td></tr>`).join("")+`</table>`}
-function takeReport(r,name){const key=keyName(r.tonic)+(r.minor?" minor":" major"),W=[],I=[],N=[],reg=["low","middle","high"];
-  S.takes.push({d:Date.now(),name,sc:Math.round(r.score),g:r.g,n:r.notes.length,ctr:Math.round(r.center)});S.takes=S.takes.slice(-30);saveS();
-  xBig(r.g,r.score>=80?"good":"");xReport([["Intonation",r.g+" · "+Math.round(r.score)+"/100",r.score>=80?"g":r.score<70?"b":""],["Notes accepted",Math.round(r.pct)+"% of "+r.notes.length],["Key",key],["Pitch level",r.a440?"graded against A440":sgnC(r.center)+" vs A440"]],r.g);
+function takeReport(r,name,again){const key=keyName(r.tonic)+(r.minor?" minor":" major"),W=[],I=[],N=[],reg=["low","middle","high"];
+  if(again)S.takes.pop();   // same take graded again with other settings: replace its row
+  S.takes.push({d:Date.now(),name,sc:Math.round(r.score),g:r.g,n:r.gn,ctr:Math.round(r.center)});S.takes=S.takes.slice(-30);saveS();
+  xBig(r.g,r.score>=80?"good":"");xReport([["Intonation",r.g+" · "+Math.round(r.score)+"/100",r.score>=80?"g":r.score<70?"b":""],["Notes accepted",Math.round(r.pct)+"% of "+r.gn],["Key",key],["Pitch level",r.a440?"graded against A440":sgnC(r.center)+" vs A440"]],r.g);
   r.stats.filter(s=>s.count>=3&&(s.count-s.off)/s.count>=.85).sort((a,b)=>b.count-a.count).slice(0,3).forEach(s=>W.push(`<b>${nn(s.n)}:</b> ${s.count-s.off} of ${s.count} accepted, usually ${sgnC(s.med)}.`));
   if(r.ends>=3&&!r.sag.length)W.push(`<b>Phrase ends held:</b> all ${r.ends} phrase-ending notes stayed up to pitch.`);
-  if(Math.abs(r.driftC)<=10&&r.notes.length>=18)W.push("<b>Pitch level held:</b> you ended the take where you started.");
+  if(Math.abs(r.driftC)<=10&&r.notes.length>=18&&!r.a440)W.push("<b>Pitch level held:</b> you ended the take where you started.");
   if(r.vib)W.push(`<b>Vibrato:</b> about ${r.vib.hz.toFixed(1)} per second and ${Math.round(r.vib.ext)}¢ wide on ${r.vib.n} long notes${r.vib.hz>=4.5&&r.vib.hz<=6.5?", an even, usual rate":r.vib.hz<4.5?", on the slow side":", on the fast side"}.`);
   r.problems.slice(0,3).forEach(s=>I.push(`<b>${nn(s.n)}:</b> ${s.off} of ${s.count} flagged, usually ${sgnC(s.med)} (${s.med>0?"sharp":"flat"}). At ${s.times.slice(0,5).map(mmss).join(", ")}.`));
   if(r.sag.length>=2||(r.sag.length&&r.sag.length/r.ends>=.3))I.push(`<b>Phrase ends sag:</b> ${r.sag.length} of ${r.ends} phrase-ending notes fell off flat (around ${Math.round(median(r.sag.map(x=>x.tail)))}¢). At ${r.sag.slice(0,5).map(x=>mmss(x.t)).join(", ")}.`);
   r.byReg.forEach((d,i)=>{if(d!=null&&Math.abs(d)>12)I.push(`<b>${reg[i][0].toUpperCase()+reg[i].slice(1)} notes run ${d>0?"sharp":"flat"}:</b> usually ${sgnC(d)} in the ${reg[i]} third of what you sang.`)});
   if(Math.abs(r.loudShift)>12)I.push(`<b>Pitch follows volume:</b> your loud notes sit ${sgnC(r.loudShift)} against your quiet ones.`);
-  if(Math.abs(r.driftC)>15)I.push(`<b>Pitch level drifted:</b> by the end you were ${sgnC(r.driftC)} from where you started${r.driftC<0?" (sinking, the common one unaccompanied)":""}.`);
-  if(r.airy/r.notes.length>.25)I.push(`<b>Airy tone:</b> ${r.airy} of ${r.notes.length} notes read as breathy.`);
+  if(Math.abs(r.driftC)>25)I.push(`<b>Pitch level drifted:</b> by the end you were ${sgnC(r.driftC)} from where you started${r.driftC<0?" (sinking, the common one unaccompanied)":""}.${r.a440?"":" Each note was still judged against the level around it, so this didn't cost you notes."}`);
+  if(r.airy/r.gn>.25)I.push(`<b>Airy tone:</b> ${r.airy} of ${r.gn} notes read as breathy.`);
   const loose=r.notes.filter(x=>x.st==="off"&&!r.problems.some(p=>p.n===x.n));if(loose.length)I.push(`<b>Scattered misses:</b> ${loose.length} other note${loose.length>1?"s":""} flagged, at ${loose.slice(0,6).map(x=>mmss(x.t)).join(", ")}${loose.length>6?"…":""}.`);
   if(r.scoops.length)N.push(`<b>Slides into notes:</b> ${r.scoops.length} of your ${r.longN} longer notes were still 50¢ or more under pitch an eighth of a second in, which is longer than a normal note start. At ${r.scoops.slice(0,6).map(x=>mmss(x.t)).join(", ")}${r.scoops.length>6?"…":""}. Not scored: in this music a slide is often a choice.`);
   panel(`<h3 style="margin:0">What's working</h3><ul class="vlist">${(W.length?W:["Nothing stands out yet. Longer takes give more to measure."]).map(x=>`<li>${x}</li>`).join("")}</ul>
     <h3 style="margin:0">Issues</h3><ul class="vlist">${(I.length?I:["No recurring problems found."]).map(x=>`<li>${x}</li>`).join("")}</ul>
     ${N.length?`<h3 style="margin:0">Style notes</h3><ul class="vlist">${N.map(x=>`<li>${x}</li>`).join("")}</ul>`:""}
-    <p class="hint" style="margin:0">A note counts when it is within ±${r.tol}¢ of equal temperament or of the pure interval in ${key}. A 3rd, 6th or 7th also counts when you place it the same in-between way every time. The first eighth of a second of every note is left out, because every voice takes about that long to settle. Timing isn't graded for sung takes yet.</p>`+takeHistory())}
-function exTake(){meterShow(true);BX.fit=true;BX.span=8;const T={fr:[],on:false,t0:0};panel(takeHistory());S.set.tkRef=S.set.tkRef||"own";
+    <p class="hint" style="margin:0">A note counts when it is within ±${r.tol}¢ of equal temperament or of the pure interval in ${key}. A 3rd, 6th or 7th also counts when you place it the same in-between way every time. Only settled notes are graded (${r.gn} of the ${r.notes.length} found): quick passing notes and glides between notes are left out, and so is the first eighth of a second of every note. Timing isn't graded for sung takes yet.</p>`+takeHistory())}
+const TK_KEYS=[[-1,"Find the key for me"]].concat(KEY_ORDER.map(k=>[k,keyName(k)+" major"]),KEY_ORDER.map(k=>[k+12,keyName(k)+" minor"]));
+function exTake(){meterShow(true);BX.fit=true;BX.span=8;const T={fr:[],on:false,t0:0,last:null};panel(takeHistory());const st=S.set;st.tkRef=st.tkRef||"own";st.tkTol=st.tkTol||25;st.tkKey=st.tkKey??-1;
   xCue("Sing a verse and chorus, or a whole song, up to five minutes. With a guitar or a track, use headphones or keep the instrument quiet so the phone hears mostly you.");
-  const fin=async(fr,name)=>{xMsg("Working it out…");await wait(30);const r=analyzeTake(fr,{a440:S.set.tkRef==="a440",key:-1});
-    if(!r){xBig("");xMsg("I couldn't find enough steady notes to grade. Sing at least a verse, close enough for the phone to hear you clearly.","warn");return}xMsg("");takeReport(r,name)};
+  const grade1=(again)=>{const L=T.last;if(!L)return;const r=analyzeTake(L.fr.map(f=>({...f})),{a440:st.tkRef==="a440",key:+st.tkKey,tol:+st.tkTol});
+    if(!r){xBig("");xReport(null);xMsg("I couldn't find enough settled notes to grade. Sing at least a verse, close enough for the phone to hear you clearly.","warn");return}xMsg("");takeReport(r,L.name,again&&L.saved);L.saved=true};
+  const fin=async(fr,name)=>{xMsg("Working it out…");await wait(30);T.last={fr,name,saved:false};grade1(false)};
+  // the three settings sit above the buttons and stay there; changing one grades the same take again
+  const o=document.createElement("div");o.id="tkOpts";o.className="col";o.style.gap="10px";$("xBtns").before(o);const set=(k,v)=>{st[k]=v;saveS();grade1(true)};
+  o.append(qChips("Pitch level",[["own","My own (unaccompanied)"],["a440","A440 (with an instrument or track)"]],st.tkRef,v=>set("tkRef",v)),
+    qChips("How close counts as in tune",[[20,"±20¢ strict"],[25,"±25¢"],[35,"±35¢ relaxed"]],+st.tkTol,v=>set("tkTol",v)));
+  const kf=document.createElement("label");kf.className="field";kf.innerHTML=`<span class="qtext">Key</span><select></select>`;const ks=kf.querySelector("select");TK_KEYS.forEach(([v,t])=>ks.add(new Option(t,v)));ks.value=st.tkKey;ks.onchange=()=>set("tkKey",+ks.value);o.append(kf);
   const rec=xBtn("● Record a take",async()=>{if(T.on){T.on=false;clearInterval(BX.iv);xStopAll();rec.textContent="● Record a take";xBig("");fin(T.fr,"Recorded here");return}
     if(BX.busy)return;xReport(null);xTip("");T.fr=[];BX.trace=[];if(!await xMic((f,t)=>{T.fr.push({t,m:f.m,rms:f.rms,clar:f.clar,voiced:f.voiced})}))return;
     T.on=true;T.t0=Date.now();rec.textContent="■ Stop and grade";xMsg("Recording. Sing.");BX.iv=setInterval(()=>{const s=(Date.now()-T.t0)/1000;xBig(mmss(s));if(s>=300)rec.onclick()},500)},true);
   const inp=Object.assign(document.createElement("input"),{type:"file",accept:"audio/*,video/*,.m4a,.mp3,.wav,.mov,.mp4,.aac"});inp.style.cssText="position:absolute;width:1px;height:1px;opacity:0;pointer-events:none";$("xBtns").append(inp);
   xBtn("Choose a recording",()=>{if(!T.on)inp.click()});
-  inp.onchange=async()=>{const f=inp.files[0];if(!f)return;inp.value="";xReport(null);xTip("");xBig("");try{const fr=await framesFromFile(f,p=>xMsg("Reading the recording… "+Math.round(p*100)+"%"));await fin(fr,f.name)}catch(e){xMsg("Couldn't read that file. Try exporting it as .m4a, .mp3 or .wav.","bad")}};
-  $("xPanel").prepend(qChips("Grade against",[["own","My own pitch level (unaccompanied)"],["a440","A440 (singing with an instrument or track)"]],S.set.tkRef,v=>{S.set.tkRef=v;saveS()}))}
+  inp.onchange=async()=>{const f=inp.files[0];if(!f)return;inp.value="";xReport(null);xTip("");xBig("");try{const fr=await framesFromFile(f,p=>xMsg("Reading the recording… "+Math.round(p*100)+"%"));await fin(fr,f.name)}catch(e){xMsg("Couldn't read that file. Try exporting it as .m4a, .mp3 or .wav.","bad")}}}
 
 /* ---- 6. my maintenance routine: built from the check-in, the last voice check and the vowel map ---- */
 let PRO_R=null;
