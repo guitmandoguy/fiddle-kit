@@ -762,6 +762,7 @@ ul.report b{font-weight:600}
       <label class="toggle"><input type="checkbox" id="gA440"> Grade against A440 instead of your open strings</label>
       <div class="row"><button class="btn primary" id="regradeBtn">Re-grade</button></div>
       <p class="hint">Each note's pitch is read from its fundamental and first two overtones together, so a body resonance or sympathetic ringing can't drag the reading. A note counts as in tune if it is within 10¢ of equal temperament or of the just interval in the key. It also counts when it rings with your open strings (a pure 3rd, 4th, 5th or 6th against one), using the open strings as you tuned them in that take, or your last string check if it still matches. If that check found your strings wobbling more than usual under the bow, the 10¢ widens a little.</p>
+      <p class="hint">A fiddle note can have more than one in-tune spot: equal temperament, the pure interval in the key, or pure against an open string. For each note the app finds the spot you use in this take and grades every play of that note against it, so playing C high every time passes, and so does low every time; mixing them gets flagged.</p>
       <p class="hint">The intonation score is out of 100 and the letter comes from it. A note just past the 10¢ line keeps part credit that fades out over the next 5¢, and a note you miss again and again costs up to 5 more points, so one borderline note can't swing the letter. Note evenness and possible flubs are shown for you to judge and don't change either letter.</p>
     </section>
   </div>
@@ -1666,8 +1667,10 @@ async function synthExample(){
 
 /* --- fiddle profiles: open-string calibration and body ring --- */
 // pure-interval offsets from equal temperament for each note against the open string it rings with
-const RINGDEF={0:[["G",-2]],2:[["D",0]],4:[["E",0]],7:[["G",0]],9:[["A",0]],11:[["E",2],["G",-14]],
-  6:[["D",-14],["A",-16]],1:[["A",-14]],8:[["E",-14]],5:[["D",16]],10:[["G",16]],3:[["G",14]]};
+// Every pure relation to an open string is listed: same note or octave (0), a fifth above (+2) or below (-2), a major third (-14),
+// minor third (+16), major sixth (-16) or minor sixth (+14) above it. So C counts low against the G string or high against the A and E.
+const RINGDEF={0:[["G",-2],["A",16],["E",14]],1:[["A",-14],["E",-16]],2:[["D",0],["G",2],["A",-2]],3:[["G",14]],4:[["E",0],["A",2],["G",-16]],5:[["D",16],["A",14]],
+  6:[["D",-14],["A",-16]],7:[["G",0],["D",-2],["E",16]],8:[["E",-14]],9:[["A",0],["D",2],["E",-2]],10:[["G",16],["D",14]],11:[["E",2],["G",-14],["D",-16]]};
 function ringTargets(str,center){const t=[];for(let pc=0;pc<12;pc++)t.push((RINGDEF[pc]||[]).filter(([s])=>isFinite(str[s])).map(([s,o])=>str[s]+o-center));return t}
 // one string check: the last open-string calibration (tuning changes every session, so there's nothing per-fiddle to keep)
 let CAL=null;
@@ -1978,16 +1981,22 @@ async function analyze(full,opt,onProg){
   const groups={};
   for(const x of graded){x.just=JUST[((x.n-tonic)%12+12)%12];x.dr=pyRound(x.dev);
     const pcx=((x.n%12)+12)%12;
-    x.err=Math.min(...[0].concat(Math.abs(x.just)>3?[x.just]:[],RT?RT[pcx]:[]).map(t=>Math.abs(x.dev-t)));   // cents from the nearest in-tune spot (equal, just or ringing)
-    x.status=Math.abs(x.dr)<=TOL?"et":(Math.abs(x.just)>3&&Math.abs(x.dr-x.just)<=TOL)?"just":
-      (RT&&RT[pcx].some(t=>Math.abs(x.dr-t)<=TOL))?"ring":null;
+    x.spots=[[0,"et"]].concat(Math.abs(x.just)>3?[[x.just,"just"]]:[],RT?RT[pcx].map(t=>[t,"ring"]):[]);   // the in-tune spots for this note: equal, just in the key, pure against an open string
     (groups[x.n]=groups[x.n]||[]).push(x)}
+  // One spot per note. A fiddle note can have two or three in-tune spots (C is low against the G string, high against the A and E),
+  // and taken together they would pass almost anything. So for each note the app finds the spot you actually use in this take, the
+  // one that fits the most of your plays, and holds every play of that note to it. A note played only once or twice has no pattern
+  // to read, so any spot counts for it.
+  for(const k in groups){const g=groups[k],md=median(g.map(x=>x.dev));let spot=null;
+    if(g.length>=3){let bc=-1,bd=1e9;for(const sp of g[0].spots){const c=g.filter(x=>Math.abs(x.dr-sp[0])<=TOL).length,dd=Math.abs(md-sp[0]);if(c>bc||(c===bc&&dd<bd)){bc=c;bd=dd;spot=sp}}}
+    for(const x of g){const use=spot?[spot]:x.spots,near=use.reduce((a,b)=>Math.abs(x.dev-b[0])<Math.abs(x.dev-a[0])?b:a);
+      x.err=Math.abs(x.dev-near[0]);x.spot=spot?spot[0]:null;x.status=Math.abs(x.dr-near[0])<=TOL?near[1]:null}}
   const stats=[];
   for(const k in groups){const g=groups[k],dv=g.map(x=>x.dr),med=median(dv),spread=g.length>=3?quant(dv,.75)-quant(dv,.25):Infinity;
     const deg=((+k-tonic)%12+12)%12,lean=LEAN[deg],flexOK=!!lean&&lean*med>0;
     for(const x of g)if(!x.status)x.status=(flexOK&&g.length>=3&&Math.abs(x.dr-med)<=10)?"consistent":"off";
     const off=g.filter(x=>x.status==="off");
-    stats.push({n:+k,count:g.length,med,spread,off:off.length,just:g[0].just,offTimes:off.map(x=>x.t0),body:g.filter(x=>x.status==="body").length})}
+    stats.push({n:+k,count:g.length,med,spread,off:off.length,spot:g[0].spot,just:g[0].just,offTimes:off.map(x=>x.t0),body:g.filter(x=>x.status==="body").length})}
   const pct=100*graded.filter(x=>x.status!=="off").length/graded.length;
   const problems=stats.filter(s=>s.count>=4&&s.off/s.count>=.45).sort((a,b)=>b.off-a.off);
   const dsList=dsArr.map((o,i)=>{const c=(o.hi-o.lo)*100,semis=Math.round(c/100),devET=pyRound(c-semis*100),just=JUST[((semis%12)+12)%12];
@@ -2137,7 +2146,7 @@ function renderReport(){
   else if(r.ref==="open")f+="Tuning reference: all the open-string notes in this take (too few open A's to go on). ";
   else if(r.ref==="all")f+="Tuning reference: the average of every note, because too few open strings were heard. This is the least reliable reference, so read the grade loosely. ";
   f+=Math.round(r.pct)+"% of notes accepted; a typical note sat "+Math.round(r.medErr)+"¢ from its nearest in-tune spot"+(r.pen>=.5?"; repeat problem notes cost "+Math.round(r.pen)+" point"+(Math.round(r.pen)===1?"":"s"):"")+". ";
-  if(r.even)f+="Note evenness: ±"+Math.round(r.even.ms)+" ms ("+Math.round(r.even.pct*100)+"% of the gap between quick notes) over "+r.even.n+" attacks; not part of the timing letter yet. "+
+  if(r.even)f+="Note evenness: ±"+Math.round(r.even.ms)+" ms ("+Math.round(r.even.pct*100)+"% of the gap between quick notes) over "+r.even.n+" attacks. This reading is new and hasn't been checked against real fiddle takes, so it isn't graded or listed as an issue. "+
     (r.even.swingPct>.08?"You play with a lilt: every other quick note lands about "+Math.round(r.even.swingMs)+" ms late, which isn't counted against you. ":"");
   if(b)f+="Tempo about "+Math.round(b)+" bpm "+lvl+". ";
   if(r.dsList.length)f+="Double stops: "+r.dsOk+" of "+r.dsList.length+" in tune.";
@@ -2147,17 +2156,17 @@ function renderReport(){
   const W=$("gWork"),I=$("gIssues");W.innerHTML="";I.innerHTML="";
   const good=r.stats.filter(s=>s.count>=3&&(s.count-s.off)/s.count>=.85).sort((a,b)=>b.count-a.count).slice(0,4);
   good.forEach(s=>{const justy=Math.abs(s.med)>10&&Math.abs(s.med-s.just)<=6;
-    W.append(li("<b>"+nm(s.n)+"</b> ("+fing(s.n)+"): "+(s.count-s.off)+" of "+s.count+" accepted, median "+sgn(s.med)+"¢"+(justy?", sitting on the just interval":"")))});
+    W.append(li("<b>"+nm(s.n)+"</b> ("+fing(s.n)+"): "+(s.count-s.off)+" of "+s.count+" accepted, median "+sgn(s.med)+"¢"+(justy?", sitting on the just interval":s.spot!=null&&Math.abs(s.spot)>3?", sitting on your pure spot against an open string":"")))});
   r.dsStats.filter(s=>s.count>=2&&s.off===0).sort((a,b)=>b.count-a.count).slice(0,3).forEach(s=>{
     const pure=Math.abs(s.just)>3&&Math.abs(s.med-s.just)<=5;
     W.append(li("<b>"+dsName(s)+"</b> double stop ("+ivName(s.semis)+"): "+s.count+" of "+s.count+" in tune, median "+wn(s.med)+(pure?", right on the pure interval":"")))});
   if(r.drift!=null&&Math.abs(r.drift)<=.02)W.append(li("<b>Steady tempo:</b> start to end within "+Math.abs(r.drift*100).toFixed(1)+"%."));
-  if(r.even&&r.even.pct<=.05)W.append(li("<b>Even notes:</b> attacks land within ±"+Math.round(r.even.ms)+" ms of an even grid."));
   if(r.passes&&!r.passes.diffs.length&&r.passes.spots>=8)W.append(li("<b>Same notes every pass:</b> "+r.passes.passes+" passes of the repeated phrase matched at all "+r.passes.spots+" spots I could compare."));
   if(!W.children.length)W.append(li("Nothing stands out yet. Longer takes give more to measure."));
   r.problems.slice(0,3).forEach(s=>{const dir=s.med>0?"sharp":"flat";
-    const cause=s.spread>16?"placement varies a lot ("+Math.round(s.spread)+"¢ spread), so the finger isn't landing in the same spot":"it sits consistently "+dir+" of both equal and just tuning";
-    I.append(li("<b>"+nm(s.n)+"</b> ("+fing(s.n)+"): "+s.off+" of "+s.count+" flagged, median "+sgn(s.med)+"¢; "+cause+". At "+s.offTimes.slice(0,5).map(fmtT).join(", ")+"."))});
+    const cause=s.spread>16?"placement varies a lot ("+Math.round(s.spread)+"¢ spread), so the finger isn't landing in the same spot":Math.abs(s.med)<8?"most land fine, but the misses go both ways, so it's the reach that varies, not one wrong spot":"it sits consistently "+dir+" of the equal, just and open-string spots";
+    const stray=s.spot!=null&&Math.abs(s.spot)>3?" Your usual spot for it is "+sgn(Math.round(s.spot))+"¢; the flagged ones strayed from that.":"";
+    I.append(li("<b>"+nm(s.n)+"</b> ("+fing(s.n)+"): "+s.off+" of "+s.count+" flagged, median "+sgn(s.med)+"¢; "+cause+"."+stray+" At "+s.offTimes.slice(0,5).map(fmtT).join(", ")+"."))});
   r.dsProblems.slice(0,2).forEach(s=>{
     I.append(li("<b>"+dsName(s)+"</b> double stop ("+ivName(s.semis)+"): "+s.off+" of "+s.count+" flagged, median "+wn(s.med)+
       (Math.abs(s.just)>3?" (pure is "+sgn(s.just)+"¢)":"")+". Listen for the beats and move the "+(s.med>s.just?"top note down or bottom note up":"top note up or bottom note down")+" until they stop. At "+s.offTimes.slice(0,5).map(fmtT).join(", ")+"."))});
@@ -2170,8 +2179,6 @@ function renderReport(){
     if(Math.abs(r.drift)>.03)I.append(li("<b>Tempo "+(r.drift>0?"rushes":"drags")+" across repeats:</b> "+cb.map(v=>Math.round(v)).join(" → ")+" bpm ("+(r.drift>0?"+":"−")+Math.abs(r.drift*100).toFixed(1)+"%)."));
     if(Math.abs(r.chain.part)>.03)I.append(li("<b>Later in the take</b> the tempo sits "+Math.abs(r.chain.part*100).toFixed(1)+"% "+(r.chain.part>0?"faster":"slower")+" than the repeated phrase. The tempo chart shows where."));
   }else if(r.drift!=null&&Math.abs(r.drift)>.03)I.append(li("<b>Tempo "+(r.drift>0?"rushes":"drags")+":</b> "+Math.round(level(r.sm[0]))+" → "+Math.round(level(r.sm[r.sm.length-1]))+" bpm ("+(r.drift>0?"+":"−")+Math.abs(r.drift*100).toFixed(1)+"%). The tempo chart shows where it moves."));
-  if(r.even&&r.even.pct>.1)I.append(li("<b>Uneven notes:</b> attacks wander ±"+Math.round(r.even.ms)+" ms ("+Math.round(r.even.pct*100)+"% of the gap between quick notes) around an even grid"+
-    (r.even.worst.length?", loosest around "+r.even.worst.map(w=>fmtT(w.t)).join(" and "):"")+"."));
   if(r.passes&&r.passes.diffs.length){const d=r.passes.diffs;
     I.append(li("<b>Possible flub"+(d.length>1?"s":"")+":</b> "+d.slice(0,5).map(x=>"pass "+x.pass+" at "+fmtT(x.t)+" has "+nm(x.got)+" where your other passes have "+nm(x.want)).join("; ")+
       (d.length>5?"; and "+(d.length-5)+" more":"")+". If you meant it as a variation, ignore this."))}
