@@ -1942,13 +1942,19 @@ async function analyze(full,opt,onProg){
   let cx=0,cy=0,cn=0;for(const nt of notes)for(const m of nt.ms){const fr=(m-pyRound(m));cx+=Math.cos(2*Math.PI*fr);cy+=Math.sin(2*Math.PI*fr);cn++}
   const openDev=notes.filter(nt=>nt.d>=.15&&[55,62,69,76].includes(pyRound(nt.ms[0]))).map(nt=>(nt.ms[0]-pyRound(nt.ms[0]))*100);
   // each open string as played in THIS take (median of its readings), then the saved string check if it still agrees
-  const takeStr={};[["G",55],["D",62],["A",69],["E",76]].forEach(([s,m])=>{const v=notes.filter(nt=>nt.d>=.15&&pyRound(nt.ms[0])===m).map(nt=>(nt.ms[0]-m)*100);if(v.length>=3)takeStr[s]=median(v)});
+  // An open string doesn't move: its readings sit within a few cents of each other. Notes at an open string's pitch that wander
+  // (more than 8¢ between the quarter points) are a 4th finger or passing notes, not the string, so they can't set the tuning.
+  const takeStr={},shaky=[];[["G",55],["D",62],["A",69],["E",76]].forEach(([s,m])=>{const v=notes.filter(nt=>nt.d>=.15&&pyRound(nt.ms[0])===m).map(nt=>(nt.ms[0]-m)*100);
+    if(v.length>=3){if(quant(v,.75)-quant(v,.25)<=8)takeStr[s]=median(v);else shaky.push([s,Math.round(Math.max(...v)-Math.min(...v))])}});
+  // the fiddle's tuning, as an open A: the A string itself when it was heard steadily; otherwise the other steady strings, each of
+  // which says where A is if the strings are a pure fifth apart
+  const A_OF={G:4,D:2,A:0,E:-2},steady=isFinite(takeStr.A)?["A"]:Object.keys(takeStr),ownA=steady.length?median(steady.map(k=>takeStr[k]+A_OF[k])):null;
   const cmp=opt.cal&&opt.cal.str?Object.keys(takeStr).filter(s=>isFinite(opt.cal.str[s])):[];
   const dif=cmp.map(s=>Math.abs(takeStr[s]-opt.cal.str[s])),calStale=dif.length>0&&(median(dif)>3||Math.max(...dif)>6);   // retuned, or the other fiddle
   const useCal=opt.cal&&opt.cal.str&&isFinite(opt.cal.str.A)&&!calStale&&!opt.a440;
   const PR=useCal?{str:opt.cal.str,wob:opt.cal.wob}:null;
-  const center=PR?PR.str.A:opt.a440?0:isFinite(takeStr.A)?takeStr.A:openDev.length>=8?median(openDev):Math.atan2(cy/cn,cx/cn)/(2*Math.PI)*100;
-  const ref=opt.a440?"a440":PR?"check":isFinite(takeStr.A)?"openA":openDev.length>=8?"open":"all";   // which of those the take was graded against (shown in the report)
+  const center=PR?PR.str.A:opt.a440?0:ownA!=null?ownA:Math.atan2(cy/cn,cx/cn)/(2*Math.PI)*100;
+  const ref=opt.a440?"a440":PR?"check":ownA!=null?"open":"all",refStr=steady.slice();   // what the take was graded against (shown in the report)
   if(!PR&&!opt.a440){const s5={G:center-4,D:center-2,A:center,E:center+2};for(const k in s5)if(!isFinite(takeStr[k]))takeStr[k]=s5[k]}   // fill missing strings as pure fifths
   const STR=PR?PR.str:opt.a440?null:takeStr;
   const TOL=PR&&PR.wob>7?Math.min(15,Math.round(1.5*PR.wob)):10;
@@ -2086,7 +2092,7 @@ async function analyze(full,opt,onProg){
   const even=e8?evenness(onsetTimesFine(y,oenv,fps,tOn,tOff,e8),e8):null;if(even)even.worst.forEach(w=>w.t+=T0);
   const passes=chain?await passDiffs(y,T0,center,chain.starts,chain.md,chain.beats*4,tOff+T0):null;
   onProg(1);
-  return{notes:items,graded,center,tonic,keyAuto,stats,pct,score,medErr,pen,ref,even,passes,problems,dsList,dsStats,dsProblems,dsOk,ig,tg,bpm,loc,sm,drift,range,chain,
+  return{notes:items,graded,center,tonic,keyAuto,stats,pct,score,medErr,pen,ref,refStr,shaky,even,passes,problems,dsList,dsStats,dsProblems,dsOk,ig,tg,bpm,loc,sm,drift,range,chain,
     tStart:T0,tEnd:T0+n/SR,a440:opt.a440,onsets:onsets.length,useCal:!!PR,calStale,tol:TOL};
 }
 
@@ -2141,10 +2147,10 @@ function renderReport(){
   const lvl=+$("gBpm").value?"at your "+Math.round(+$("gBpm").value)+"-bpm level":b!==r.bpm?"at the beat (doubled for a slow tune; set your metronome bpm below to change it)":"at the cut-time pulse ("+Math.round(2*(b||0))+" if you count quarter notes)";
   let f="Key: "+GN[r.tonic]+" major"+(r.keyAuto?" (detected)":"")+". ";
   f+=r.calStale?"Your open strings in this take don't match your last string check (retuned, or the other fiddle?), so it was graded against the take's own strings. ":r.useCal?"Graded against your string check"+(r.tol!==10?", tolerance ±"+r.tol+"¢":"")+". ":"";
-  f+=r.a440?"Graded against A440. ":"Your open A sits "+sgn(r.center)+"¢ vs A440"+(Math.abs(r.center)>8?", which is enough to rub against a band tuned to 440":", close enough to 440 not to matter")+". ";
-  if(r.ref==="openA")f+="Tuning reference: the open A's in this take. ";
-  else if(r.ref==="open")f+="Tuning reference: all the open-string notes in this take (too few open A's to go on). ";
+  f+=r.a440?"Graded against A440. ":"Your fiddle sits "+sgn(r.center)+"¢ vs A440"+(Math.abs(r.center)>8?", which is enough to rub against a band tuned to 440":", close enough to 440 not to matter")+". ";
+  if(r.ref==="open")f+="Tuning reference: your open "+r.refStr.join(", ").replace(/, ([^,]*)$/," and $1")+" string"+(r.refStr.length>1?"s":"")+" in this take. ";
   else if(r.ref==="all")f+="Tuning reference: the average of every note, because too few open strings were heard. This is the least reliable reference, so read the grade loosely. ";
+  if(r.shaky&&r.shaky.length&&!r.a440)f+=r.shaky.map(([k,sp])=>"The notes at your open "+k+" string's pitch ranged over "+sp+"¢, too much for an open string, so they were treated as fingered notes and not used to set the tuning. ").join("");
   f+=Math.round(r.pct)+"% of notes accepted; a typical note sat "+Math.round(r.medErr)+"¢ from its nearest in-tune spot"+(r.pen>=.5?"; repeat problem notes cost "+Math.round(r.pen)+" point"+(Math.round(r.pen)===1?"":"s"):"")+". ";
   if(r.even)f+="Note evenness: ±"+Math.round(r.even.ms)+" ms ("+Math.round(r.even.pct*100)+"% of the gap between quick notes) over "+r.even.n+" attacks. This reading is new and hasn't been checked against real fiddle takes, so it isn't graded or listed as an issue. "+
     (r.even.swingPct>.08?"You play with a lilt: every other quick note lands about "+Math.round(r.even.swingMs)+" ms late, which isn't counted against you. ":"");
