@@ -344,7 +344,27 @@ function unlockAudio(){
     unlockEl=new Audio(URL.createObjectURL(new Blob([buf],{type:"audio/wav"})));unlockEl.loop=true;unlockEl.setAttribute("playsinline","")}
   try{const p=unlockEl.play();if(p&&p.catch)p.catch(()=>{})}catch(e){}
 }
-function ac(){unlockAudio();if(!AC)AC=new (window.AudioContext||window.webkitAudioContext)();if(AC.state!=="running")try{AC.resume()}catch(e){}return AC}
+function ac(){idleWake();unlockAudio();if(!AC)AC=idleTap(new (window.AudioContext||window.webkitAudioContext)());if(AC.state!=="running")try{AC.resume()}catch(e){}return AC}
+/* ---- let go of the phone's audio when nothing is sounding ----
+   To play with the ringer switch off, the app keeps a silent track looping, and the audio engine stays running. Left like that they
+   hold the phone's audio for as long as the page is open: the lock screen shows a player, and the sound hardware never gets to sleep.
+   So the output is watched, and after 45 seconds with nothing sounding and no microphone open, both are paused. Any touch, or the
+   next sound, wakes them. */
+const IDLE={ms:45000,last:Date.now(),off:false,ctx:null,an:null,buf:new Float32Array(2048)};
+// everything the app plays goes to "destination"; this slips a listening point in front of it without touching the players
+function idleTap(c){if(c.__tap)return c;const real=c.destination,g=c.createGain(),an=c.createAnalyser();an.fftSize=2048;g.connect(an);g.connect(real);
+  try{Object.defineProperty(c,"destination",{value:g,configurable:true});c.__tap=true;IDLE.ctx=c;IDLE.an=an}catch(e){}return c}
+function idleBusy(){if((typeof MIC!=="undefined"&&MIC.on))return true;
+  if(IDLE.an){IDLE.an.getFloatTimeDomainData(IDLE.buf);for(let i=0;i<2048;i+=2)if(Math.abs(IDLE.buf[i])>1e-4)return true}
+  for(const a of document.querySelectorAll("audio"))if(a!==unlockEl&&!a.srcObject&&!a.paused)return true;   // the Break Deck's player
+  return false}
+function idleWake(){IDLE.last=Date.now();if(!IDLE.off)return;IDLE.off=false;try{IDLE.ctx.resume()}catch(e){}try{const p=unlockEl&&unlockEl.play();if(p&&p.catch)p.catch(()=>{})}catch(e){}}
+setInterval(()=>{if(!IDLE.ctx||IDLE.off)return;if(idleBusy()){IDLE.last=Date.now();return}
+  if(Date.now()-IDLE.last<IDLE.ms)return;IDLE.off=true;
+  try{unlockEl&&unlockEl.pause()}catch(e){}try{IDLE.ctx.suspend()}catch(e){}
+  try{if(navigator.mediaSession){navigator.mediaSession.playbackState="none";navigator.mediaSession.metadata=null}}catch(e){}},250);
+for(const ev of ["pointerdown","touchstart","keydown"])document.addEventListener(ev,idleWake,true);
+
 const countBeats=meter=>meter===3?6:4;   // count-in: 4 clicks (two bars of 3 in a waltz)
 const freqOf=(m,c)=>440*Math.pow(2,(m-69)/12+(c||0)/1200);
 

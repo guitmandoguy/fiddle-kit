@@ -986,9 +986,29 @@ function unlockAudio(){
   }
   try{const p=unlockEl.play();if(p&&p.catch)p.catch(()=>{})}catch(e){}
 }
-function getCtx(){unlockAudio();if(!ctx){ctx=new (window.AudioContext||window.webkitAudioContext)();
+function getCtx(){idleWake();unlockAudio();if(!ctx){ctx=idleTap(new (window.AudioContext||window.webkitAudioContext)());
   fiddleWave=ctx.createPeriodicWave(HARM.re,HARM.im)}
   if(ctx.state==="suspended")ctx.resume();return ctx}
+/* ---- let go of the phone's audio when nothing is sounding ----
+   To play with the ringer switch off, the app keeps a silent track looping, and the audio engine stays running. Left like that they
+   hold the phone's audio for as long as the page is open: the lock screen shows a player, and the sound hardware never gets to sleep.
+   So the output is watched, and after 45 seconds with nothing sounding and no microphone open, both are paused. Any touch, or the
+   next sound, wakes them. */
+const IDLE={ms:45000,last:Date.now(),off:false,ctx:null,an:null,buf:new Float32Array(2048)};
+// everything the app plays goes to "destination"; this slips a listening point in front of it without touching the players
+function idleTap(c){if(c.__tap)return c;const real=c.destination,g=c.createGain(),an=c.createAnalyser();an.fftSize=2048;g.connect(an);g.connect(real);
+  try{Object.defineProperty(c,"destination",{value:g,configurable:true});c.__tap=true;IDLE.ctx=c;IDLE.an=an}catch(e){}return c}
+function idleBusy(){if((typeof DRX!=="undefined"&&(DRX.playing||DRX.mic))||(typeof TUX!=="undefined"&&TUX.mic)||(typeof REC!=="undefined"&&REC.on))return true;
+  if(IDLE.an){IDLE.an.getFloatTimeDomainData(IDLE.buf);for(let i=0;i<2048;i+=2)if(Math.abs(IDLE.buf[i])>1e-4)return true}
+  for(const a of document.querySelectorAll("audio"))if(a!==unlockEl&&!a.srcObject&&!a.paused)return true;   // the Break Deck's player
+  return false}
+function idleWake(){IDLE.last=Date.now();if(!IDLE.off)return;IDLE.off=false;try{IDLE.ctx.resume()}catch(e){}try{const p=unlockEl&&unlockEl.play();if(p&&p.catch)p.catch(()=>{})}catch(e){}try{const el=DRX.bus&&DRX.bus.el;if(el&&el.paused){const p=el.play();if(p&&p.catch)p.catch(()=>{})}}catch(e){}}
+setInterval(()=>{if(!IDLE.ctx||IDLE.off)return;if(idleBusy()){IDLE.last=Date.now();return}
+  if(Date.now()-IDLE.last<IDLE.ms)return;IDLE.off=true;
+  try{unlockEl&&unlockEl.pause()}catch(e){}try{IDLE.ctx.suspend()}catch(e){}try{const el=DRX.bus&&DRX.bus.el;if(el)el.pause()}catch(e){}
+  try{if(navigator.mediaSession){navigator.mediaSession.playbackState="none";navigator.mediaSession.metadata=null}}catch(e){}},250);
+for(const ev of ["pointerdown","touchstart","keydown"])document.addEventListener(ev,idleWake,true);
+
 function tone(f,start,dur,type,scale,dest){
   type=type||S.tone;scale=scale||1;
   const c=ctx,o=c.createOscillator(),g=c.createGain();
