@@ -986,14 +986,15 @@ function unlockAudio(){
   }
   try{const p=unlockEl.play();if(p&&p.catch)p.catch(()=>{})}catch(e){}
 }
-function getCtx(){idleWake();unlockAudio();if(!ctx){ctx=idleTap(new (window.AudioContext||window.webkitAudioContext)());
+function getCtx(){idleWake(true);unlockAudio();if(!ctx){ctx=idleTap(new (window.AudioContext||window.webkitAudioContext)());
   fiddleWave=ctx.createPeriodicWave(HARM.re,HARM.im)}
   if(ctx.state==="suspended")ctx.resume();return ctx}
 /* ---- let go of the phone's audio when nothing is sounding ----
-   To play with the ringer switch off, the app keeps a silent track looping, and the audio engine stays running. Left like that they
-   hold the phone's audio for as long as the page is open: the lock screen shows a player, and the sound hardware never gets to sleep.
-   So the output is watched, and after 45 seconds with nothing sounding and no microphone open, both are paused. Any touch, or the
-   next sound, wakes them. */
+   To play with the ringer switch off, the app asks the phone for "playback" audio and keeps a silent track looping. Left like that,
+   the phone treats the page as a music player for as long as it is open: the lock screen shows a player (even paused), and the
+   sound hardware never gets to sleep. So the output is watched, and after 45 seconds with nothing sounding and no microphone open
+   the app hands everything back: the silent track is thrown away (a paused one still counts as a player), the audio type goes back
+   to "ambient" (which is what takes the page off the lock screen), and the engine is put to sleep. The next sound sets it all up again. */
 const IDLE={ms:45000,last:Date.now(),off:false,ctx:null,an:null,buf:new Float32Array(2048)};
 // everything the app plays goes to "destination"; this slips a listening point in front of it without touching the players
 function idleTap(c){if(c.__tap)return c;const real=c.destination,g=c.createGain(),an=c.createAnalyser();an.fftSize=2048;g.connect(an);g.connect(real);
@@ -1002,12 +1003,18 @@ function idleBusy(){if((typeof DRX!=="undefined"&&(DRX.playing||DRX.mic))||(type
   if(IDLE.an){IDLE.an.getFloatTimeDomainData(IDLE.buf);for(let i=0;i<2048;i+=2)if(Math.abs(IDLE.buf[i])>1e-4)return true}
   for(const a of document.querySelectorAll("audio"))if(a!==unlockEl&&!a.srcObject&&!a.paused)return true;   // the Break Deck's player
   return false}
-function idleWake(){IDLE.last=Date.now();if(!IDLE.off)return;IDLE.off=false;try{IDLE.ctx.resume()}catch(e){}try{const p=unlockEl&&unlockEl.play();if(p&&p.catch)p.catch(()=>{})}catch(e){}try{const el=DRX.bus&&DRX.bus.el;if(el&&el.paused){const p=el.play();if(p&&p.catch)p.catch(()=>{})}}catch(e){}}
-setInterval(()=>{if(!IDLE.ctx||IDLE.off)return;if(idleBusy()){IDLE.last=Date.now();return}
-  if(Date.now()-IDLE.last<IDLE.ms)return;IDLE.off=true;
-  try{unlockEl&&unlockEl.pause()}catch(e){}try{IDLE.ctx.suspend()}catch(e){}try{const el=DRX.bus&&DRX.bus.el;if(el)el.pause()}catch(e){}
-  try{if(navigator.mediaSession){navigator.mediaSession.playbackState="none";navigator.mediaSession.metadata=null}}catch(e){}},250);
-for(const ev of ["pointerdown","touchstart","keydown"])document.addEventListener(ev,idleWake,true);
+function idleSleep(){
+  if(!IDLE.off){IDLE.off=true;
+    try{if(unlockEl){const u=unlockEl.src;unlockEl.pause();unlockEl.removeAttribute("src");unlockEl.load();URL.revokeObjectURL(u);unlockEl=null}}catch(e){}
+    try{const el=DRX.bus&&DRX.bus.el;if(el){el.pause();el.srcObject=null}}catch(e){}try{window.bdRelease&&bdRelease()}catch(e){}
+    try{const ms=navigator.mediaSession;if(ms){for(const k of ["play","pause","stop"])try{ms.setActionHandler(k,null)}catch(e){}ms.metadata=null;ms.playbackState="none"}}catch(e){}
+    try{if(navigator.audioSession)navigator.audioSession.type="ambient"}catch(e){}}
+  try{if(IDLE.ctx.state==="running")IDLE.ctx.suspend()}catch(e){}}
+// full = a sound is about to play: set the audio up again. A plain touch only wakes the engine, so it never puts the player back.
+function idleWake(full){IDLE.last=Date.now();try{if(IDLE.ctx&&IDLE.ctx.state==="suspended")IDLE.ctx.resume()}catch(e){}
+  if(full&&IDLE.off){IDLE.off=false;try{const el=DRX.bus&&DRX.bus.el;if(el&&el.__st&&!el.srcObject){el.srcObject=el.__st;const p=el.play();if(p&&p.catch)p.catch(()=>{})}}catch(e){}}}
+setInterval(()=>{if(!IDLE.ctx&&!IDLE.used)return;if(idleBusy()){IDLE.last=Date.now();return}if(Date.now()-IDLE.last>=IDLE.ms)idleSleep()},250);
+for(const ev of ["pointerdown","touchstart","keydown"])document.addEventListener(ev,()=>idleWake(false),true);
 
 function tone(f,start,dur,type,scale,dest){
   type=type||S.tone;scale=scale||1;
@@ -2498,7 +2505,7 @@ function drMsg(t,bad){$("drStatus").className="status"+(bad?" bad":"");$("drStat
 function drBus(){const c=getCtx();if(DRX.bus&&DRX.bus.c===c)return DRX.bus;const g=c.createGain();g.gain.value=1;let el=null,direct=false,gs=null;
   const gd=c.createGain();gd.gain.value=1;g.connect(gd);gd.connect(c.destination);
   try{if(!c.createMediaStreamDestination)throw 0;const d=c.createMediaStreamDestination();gs=c.createGain();gs.gain.value=0;g.connect(gs);gs.connect(d);
-    el=document.createElement("audio");el.setAttribute("playsinline","");el.autoplay=true;el.srcObject=d.stream;document.body.append(el)}
+    el=document.createElement("audio");el.setAttribute("playsinline","");el.autoplay=true;el.srcObject=el.__st=d.stream;document.body.append(el)}
   catch(e){direct=true}
   DRX.bus={c,g,gd,gs,el,direct};drRoute();return DRX.bus}
 function drRoute(){const B=DRX.bus;if(!B)return;const hidden=document.visibilityState==="hidden"&&B.gs&&B.el,t=B.c.currentTime;
@@ -3336,7 +3343,11 @@ async function swapIn(fromTop){
   if(old) URL.revokeObjectURL(old.url);
   setPlayBtn(true);setMediaSession();startRaf();
 }
+// when the kit hands the phone's audio back after sitting idle, drop the loaded loop too: a paused player still shows on the lock screen
+window.bdRelease=()=>{if(!audioEl||playing||!audioEl.paused)return;swapping=true;try{audioEl.removeAttribute("src");audioEl.load()}catch(e){}swapping=false;
+  if(info){try{URL.revokeObjectURL(info.url)}catch(e){}info=null}};
 function startPlay(){
+  IDLE.used=true;idleWake(true);
   const el=ensureEl();
   try{if(navigator.audioSession)navigator.audioSession.type="playback"}catch(e){}
   if(!D.prog) D.prog=pickProg();
